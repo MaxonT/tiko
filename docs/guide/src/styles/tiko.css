@@ -82,6 +82,8 @@
   --sl-color-hairline-shade: var(--tiko-border);
   --tiko-active-bg: var(--tiko-accent);
   --tiko-active-text: var(--tiko-primary);
+  /* The dark note tint above is unlayered and outranks Starlight's light one, so light sets its own. */
+  --sl-color-blue-low: oklch(0.93 0.04 255);
 }
 
 body {

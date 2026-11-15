@@ -19,6 +19,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Fixed
 
+- Fixed the note boxes in the guide that stayed dark in the light theme.
 - Fixed the X in Settings that did nothing on click; only Esc closed the window.
 - Fixed the Settings sections list that was cut off in a short window: it scrolls now.
 - Fixed Fit view and the first open of a board, which left out everything off screen.

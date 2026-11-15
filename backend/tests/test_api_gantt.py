@@ -308,3 +308,25 @@ def test_a_stage_says_when_it_is_done():
     row = {"id": "a", "title": "Rollout", "start": "2026-10-05", "end": "2026-10-09"}
     out = dump(view(content(row | {"stages": stages}), names=Names())[0])
     assert out["stages"][0]["done"] is True and "done" not in out["stages"][1]
+
+
+def test_a_row_with_stages_is_done_by_its_stages_not_its_flag():
+    def staged(row_id: str, flag: bool, *done: bool) -> dict:
+        stages = [
+            {
+                "id": f"{row_id}{i}",
+                "type": "t1",
+                "start": f"2026-10-0{i + 1}",
+                "end": f"2026-10-0{i + 1}",
+            }
+            | ({"done": True} if d else {})
+            for i, d in enumerate(done)
+        ]
+        row = {"id": row_id, "title": "", "start": stages[0]["start"], "end": stages[-1]["end"]}
+        return row | {"stages": stages} | ({"done": True} if flag else {})
+
+    out = {
+        r.id: dump(r)
+        for r in view(content(staged("a", False, True, True), staged("b", True, True, False)))
+    }
+    assert out["a"]["done"] is True and "done" not in out["b"]

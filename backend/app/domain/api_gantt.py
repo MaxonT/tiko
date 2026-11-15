@@ -163,6 +163,9 @@ def leaf_done(row: Row, task: Task | None) -> bool:
     """A task row is done when its tracker says so; one tiko owns, when it is ticked."""
     if row.key is not None:
         return task is not None and task.state == "ok" and task.status_category == "done"
+    # A row with stages is done when every stage is, whatever its stored flag says.
+    if row.stages:
+        return all(stage.done for stage in row.stages)
     return bool(row.done)
 
 

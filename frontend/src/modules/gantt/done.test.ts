@@ -122,3 +122,8 @@ test('a ticked row keeps its tick when its bar becomes its first stage', () => {
   expect(shownStages(row('a', { done: true }))[0].done).toBe(true)
   expect(shownStages(row('a', { key: 'DEMO-1' }))[0].done).toBeUndefined()
 })
+
+test('a row with stages is done by its stages, not by a stale flag', () => {
+  expect(leafDone(tickStage(tickStage(staged(), 's1', true), 's2', true), undefined)).toBe(true)
+  expect(leafDone({ ...staged(), done: true }, undefined)).toBe(false)
+})

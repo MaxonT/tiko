@@ -8,6 +8,8 @@ import { subtreeEnd } from '@/modules/gantt/tree'
 /** A task row is done when its tracker says so; a row tiko owns, when it is ticked. */
 export function leafDone(row: Row, task: Task | undefined) {
   if (row.key) return task?.state === 'ok' && task.status_category === 'done'
+  // A row with stages is done when every stage is, whatever its stored flag says.
+  if (row.stages?.length) return row.stages.every((s) => s.done === true)
   return row.done === true
 }
 

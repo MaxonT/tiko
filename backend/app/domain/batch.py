@@ -51,7 +51,7 @@ _TYPES = {
 # Waiting reminders a board may hold before the API stops adding them; the web app sets none.
 MAX_TIMERS = 50
 # What a reminder attaches to, and where it sits: left of the top edge (`attach.ts`).
-_HOLDERS = {"task_card", "sticky", "shape", "text", "image", "module"}
+_HOLDERS = {"task_card", "sticky", "shape", "text", "code", "image", "module"}
 _BESIDE = {"x": -46.0, "y": 0.0}
 Repeat = Literal["daily", "weekdays", "weekly"]
 # The data key that holds each stored type's text.

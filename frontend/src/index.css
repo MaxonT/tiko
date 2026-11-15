@@ -718,3 +718,11 @@
 .react-flow.voting .react-flow__node:not(.in-vote) {
   opacity: 0.35;
 }
+
+/* Code colors of both themes ride on each token; the theme class picks one. */
+.code-token {
+  color: var(--code-light);
+}
+.dark .code-token {
+  color: var(--code-dark);
+}

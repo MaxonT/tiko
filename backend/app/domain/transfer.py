@@ -303,6 +303,7 @@ _KINDS = {
     "sticky": "stickies",
     "shape": "shapes",
     "text": "texts",
+    "code": "code",
     "frame": "frames",
     "image": "pictures",
     "module": "modules",

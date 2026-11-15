@@ -2,6 +2,7 @@ import { useStore } from '@xyflow/react'
 import {
   ALargeSmall,
   AlarmClock,
+  Code,
   AlignCenterHorizontal,
   AlignCenterVertical,
   AlignEndHorizontal,
@@ -63,6 +64,7 @@ const KIND_ICONS: Record<Kind, LucideIcon> = {
   sticky: StickyNote,
   shape: Shapes,
   text: Type,
+  code: Code,
   image: ImageIcon,
   module: LayoutTemplate,
   timer: AlarmClock,
@@ -163,6 +165,8 @@ type Props = {
   onReact?: (id: ReactionId) => void
   /** Set when the selection holds notes or cards a vote can start on. */
   onVote?: () => void
+  /** Set when the one selected element turns into a code block or back into a text. */
+  onConvert?: { to: 'code' | 'text'; run: () => void }
   onDuplicate: () => void
   onDelete: () => void
   /** Saves a stored picture to the workspace's stickers. */
@@ -185,6 +189,7 @@ export function SelectionBar({
   onAddTimer,
   onReact,
   onVote,
+  onConvert,
   onDuplicate,
   onDelete,
   onSaveSticker,
@@ -548,6 +553,13 @@ export function SelectionBar({
             />
           </PopoverContent>
         </Popover>
+      )}
+      {onConvert && (
+        <IconButton
+          Icon={onConvert.to === 'code' ? Code : Type}
+          label={onConvert.to === 'code' ? 'Turn into code' : 'Turn into text'}
+          onClick={onConvert.run}
+        />
       )}
       {onVote && <IconButton Icon={Vote} label="Start a vote" onClick={onVote} />}
       {onAddTimer && <IconButton Icon={AlarmClock} label="Add reminder" onClick={onAddTimer} />}

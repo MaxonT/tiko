@@ -1,5 +1,6 @@
 import type { Edge, Node } from '@xyflow/react'
 import type { ShapeKind } from '@/canvas/shapes'
+import type { CodeLanguage } from '@/canvas/code/languages'
 
 // `source` is the tracker of `key`; cards saved before trackers could be mixed have none.
 export type TaskCardData = { key: string; source?: string; collapsed?: boolean }
@@ -44,6 +45,10 @@ export type ShapeNode = Node<ShapeData, 'shape'>
 export type TextData = { text: string; bold?: boolean; size?: TextSize } & Faded & Turned
 export type TextNode = Node<TextData, 'text'>
 
+/** `collapsed` shows only the header; absent is unfolded. */
+export type CodeData = { text: string; language: CodeLanguage; collapsed?: boolean }
+export type CodeNode = Node<CodeData, 'code'>
+
 /** `file` is absent while the picture uploads; `w`, `h` and `color` are the picture's own. */
 export type ImageData = {
   file?: string
@@ -85,6 +90,7 @@ export type AppNode =
   | StickyNode
   | ShapeNode
   | TextNode
+  | CodeNode
   | ImageNode
   | ModuleNode
   | AnchorNode

@@ -1,11 +1,11 @@
 ---
 title: On the board
-description: Add frames, notes, shapes, pictures and stickers around your cards, change them together and find your way around a big board.
+description: Add frames, notes, shapes, code, pictures and stickers around your cards, change them together and find your way around a big board.
 ---
 
 import { CardGrid, LinkCard } from '@astrojs/starlight/components'
 
-Around the cards from your tracker, a board holds frames, notes, shapes, text, arrows, pictures and stickers. The board is saved on the server and reopens exactly as you left it.
+Around the cards from your tracker, a board holds frames, notes, shapes, text, code, arrows, pictures and stickers. The board is saved on the server and reopens exactly as you left it.
 
 ## Add elements
 
@@ -15,11 +15,24 @@ Around the cards from your tracker, a board holds frames, notes, shapes, text, a
 | **Sticky note** | `N` | Holds up to 2000 characters; the text shrinks to fit the note. |
 | **Shape** | `S` | Rectangle, rounded rectangle, ellipse, rhombus, triangle, parallelogram, hexagon or cylinder, for a flowchart next to the tasks. Holds a short text and takes a fill color. |
 | **Text** | `T` | Text anywhere on the board. |
+| **Code** | `K` | A piece of code with its colors, see [Code](#code). |
 | **Arrow** | | Joins any two elements, or points at an empty spot. |
 | **Picture** | `I` | A screenshot or a photo, see [Pictures](#pictures). |
 | **Sticker** | `E` | An animated emoji or your team's own, see [Stickers](#stickers). |
 
 Pick a shape, then drag to set its size or click to place it. Each creation tool shows its icon next to the crosshair, so you see which one is picked.
+
+## Code
+
+A code block holds up to 10,000 characters of code in a monospaced font, colored in the language you pick.
+
+- **Language:** select the block and pick it in its header: Bash, C, C#, C++, CSS, Dockerfile, Go, GraphQL, HCL, HTML, Java, JavaScript, JSON, Kotlin, Markdown, PHP, PowerShell, Python, Ruby, Rust, SQL, Swift, TOML, TSX, TypeScript, XML, YAML or plain text. The colors follow the light or dark theme.
+- **Edit:** double-click the code. `Tab` indents the line or the selected lines by two spaces, `Shift+Tab` moves them back, `Esc` finishes.
+- **Copy** in the header puts the code on your clipboard as plain text, on a board you can only view too.
+- **Fold** shows only the header with the first line and the number of lines, for everyone. On a board you can only view, unfolding opens the block for you alone.
+- **Turn into code:** select a text or a sticky and pick **Turn into code** in the bar above it; a code block turns back with **Turn into text**. Arrows and reminders stay on it. A sticky loses its color.
+
+Long lines wrap; drag a side of the block to make it wider.
 
 ## Pictures
 

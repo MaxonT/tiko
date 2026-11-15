@@ -10,6 +10,7 @@ from xml.sax.saxutils import escape
 
 from app.domain.boards import (
     BoardDoc,
+    CodeNode,
     FrameNode,
     ImageNode,
     ModuleNode,
@@ -54,11 +55,14 @@ SLANT, CAP = 0.2, 0.12
 SIZE = {
     "task_card": (240, 72),
     "text": (240, 0),
+    "code": (480, 0),
     "module": (960, 320),
 }
 _CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f￾￿]")
 
 Box = tuple[float, float, float, float]
+# The header of a code block: language, copy and fold.
+CODE_HEAD = 32
 
 
 def _text(value: str) -> str:
@@ -98,6 +102,9 @@ def _size(node: Node) -> tuple[float, float]:
         return width, node.height
     if isinstance(node, TextNode):
         return width, 20 * max(1, len(_lines(node.data.text)))
+    if isinstance(node, CodeNode):
+        rows = 0 if node.data.collapsed else max(1, len(_lines(node.data.text)))
+        return width, CODE_HEAD + 18 * rows
     return width, height
 
 
@@ -173,14 +180,20 @@ def _gantt(node: ModuleNode, x: float, y: float, w: float, h: float) -> list[str
     return out
 
 
-def _lines_svg(lines: list[str], x: float, y: float, size: int, color: str) -> str:
+def _lines_svg(
+    lines: list[str], x: float, y: float, size: int, color: str, mono: bool = False
+) -> str:
     if not lines:
         return ""
     spans = "".join(
         f"<tspan x='{_n(x)}' dy='{0 if i == 0 else round(size * 1.3)}'>{_text(line)}</tspan>"
         for i, line in enumerate(lines)
     )
-    return f"<text x='{_n(x)}' y='{_n(y + size)}' font-size='{size}' fill='{color}'>{spans}</text>"
+    font = " font-family='monospace'" if mono else ""
+    return (
+        f"<text x='{_n(x)}' y='{_n(y + size)}' font-size='{size}'{font} fill='{color}'>"
+        f"{spans}</text>"
+    )
 
 
 def _node(node: Node, box: Box, words: bool) -> list[str]:
@@ -231,6 +244,14 @@ def _node(node: Node, box: Box, words: bool) -> list[str]:
             f"<rect x='{_n(x)}' y='{_n(y)}' width='{_n(w)}' height='{_n(h)}'"
             f" fill='{LINE}' fill-opacity='.3'/>"
         ]
+    if isinstance(node, CodeNode):
+        out = [
+            f"<rect x='{_n(x)}' y='{_n(y)}' width='{_n(w)}' height='{_n(h)}' rx='6'"
+            f" fill='{LINE}' fill-opacity='.08' stroke='{LINE}'/>"
+        ]
+        if words and not node.data.collapsed:
+            out.append(_lines_svg(_lines(node.data.text), x + 10, y + CODE_HEAD, 13, LINE, True))
+        return out
     if isinstance(node, ImageNode):
         # The picture's own colour; its bytes stay out of a drawing made from the document.
         return [

@@ -75,6 +75,8 @@ import { TaskCardNode } from '@/canvas/nodes/TaskCardNode'
 import { ModuleNode } from '@/canvas/nodes/ModuleNode'
 import { StickyNode } from '@/canvas/nodes/StickyNode'
 import { TextNode } from '@/canvas/nodes/TextNode'
+import { CodeNode } from '@/canvas/nodes/CodeNode'
+import { conversionOf } from '@/canvas/code/convert'
 import { hasMixedSources } from '@/canvas/node-tasks'
 import { indexTasks, taskRef, TasksContext } from '@/canvas/tasks-context'
 import { BoardSourcesContext } from '@/sources/board-sources'
@@ -93,6 +95,7 @@ import {
   FarShape,
   FarSticky,
   FarText,
+  FarCode,
   farView,
 } from '@/canvas/nodes/far'
 import { MAX_LIVE_DRAG, useBoardTravel } from '@/live/presence'
@@ -187,6 +190,7 @@ const nodeTypes = {
   sticky: withPresence(farView(StickyNode, FarSticky)),
   shape: withPresence(farView(ShapeNode, FarShape)),
   text: withPresence(farView(TextNode, FarText)),
+  code: withPresence(farView(CodeNode, FarCode)),
   // Far out a picture is still itself: its smallest copy is as cheap as a block.
   image: withPresence(ImageNode),
   module: withPresence(farView(ModuleNode, FarModule)),
@@ -222,6 +226,7 @@ const NEW_NODES = {
   frame: { width: 480, height: 320, data: { title: '' } },
   sticky: { width: 200, height: 200, data: { text: '', color: 'yellow' } },
   text: { width: 240, height: undefined, data: { text: '' } },
+  code: { width: 480, height: undefined, data: { text: '', language: 'plain' } },
 } as const
 
 const LIVE_NOTICE: Partial<Record<LiveStatus, string>> = {
@@ -362,7 +367,8 @@ export function BoardCanvas({
   const [shapeKind, setShapeKind] = useState<ShapeKind>('rectangle')
   // Frames and shapes are drawn by dragging; the other creation tools place on a click.
   const drawing = tool === 'frame' || tool === 'shape'
-  const placing = drawing || tool === 'sticky' || tool === 'text' || tool === 'timer'
+  const placing =
+    drawing || tool === 'sticky' || tool === 'text' || tool === 'code' || tool === 'timer'
   // Last pointer position over the canvas, where pasted items land.
   const pointer = useRef<XYPosition | null>(null)
   // Screen point where the current arrow drag started.
@@ -921,7 +927,11 @@ export function BoardCanvas({
     } as AppNode
     if (kind === 'frame') return addFrame(node)
     markFresh(node.id)
-    setNodes((current) => reparent([...current, node], [node.id]))
+    // A new code block comes selected, so its language can be picked right away.
+    const others = (current: AppNode[]) =>
+      kind === 'code' ? current.map((n) => ({ ...n, selected: false })) : current
+    const added = kind === 'code' ? { ...node, selected: true } : node
+    setNodes((current) => reparent([...others(current), added], [node.id]))
   }
 
   // The store also holds what is only drawn, such as the stand-ins of a copying drag.
@@ -1169,6 +1179,11 @@ export function BoardCanvas({
     !nodes.some((n) => n.dragging || n.resizing)
   const timerHolder = selected.length === 1 && holdsTimers(selected[0]) ? selected[0] : undefined
   const soleSelected = inBar.length === 1 ? inBar[0] : undefined
+  // An element in a running vote keeps its type until the end, like its text.
+  const conversion =
+    soleSelected && !locked?.has(soleSelected.id) ? conversionOf(soleSelected) : null
+  const convertTo = (node: AppNode) =>
+    setNodes((current) => current.map((n) => (n.id === node.id ? node : n)))
   const controls =
     soleSelected?.type === 'module'
       ? (side: 'top' | 'bottom') =>
@@ -1424,6 +1439,9 @@ export function BoardCanvas({
             !guest && !votingRound && voteElements(nodes).length > 0
               ? () => setVoteStarting(true)
               : undefined
+          }
+          onConvert={
+            conversion ? { to: conversion.to, run: () => convertTo(conversion.node) } : undefined
           }
           onDuplicate={duplicate}
           onDelete={deleteSelection}

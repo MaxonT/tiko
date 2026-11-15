@@ -512,6 +512,17 @@
             ],
             "title": "Bold"
           },
+          "collapsed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Collapsed"
+          },
           "color": {
             "anyOf": [
               {
@@ -614,6 +625,7 @@
               "card",
               "note",
               "text",
+              "code",
               "shape",
               "frame",
               "arrow",
@@ -623,6 +635,17 @@
             ],
             "title": "Kind",
             "type": "string"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
           },
           "module": {
             "anyOf": [

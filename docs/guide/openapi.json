@@ -1720,6 +1720,7 @@
               "card",
               "note",
               "text",
+              "code",
               "shape",
               "frame",
               "arrow",
@@ -1898,6 +1899,28 @@
               }
             ],
             "title": "Shape"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "collapsed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Collapsed"
           },
           "module": {
             "anyOf": [

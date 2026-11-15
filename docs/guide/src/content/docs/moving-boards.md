@@ -26,7 +26,7 @@ On Home, press **Import** next to **New board** and pick the file, or drop a `.t
 
 | On the board | After the import |
 |---|---|
-| Stickies, shapes, text, frames, arrows, styles, rotation | As they were |
+| Stickies, shapes, text, code, frames, arrows, styles, rotation | As they were |
 | Pictures and GIFs | Stored on this tiko with their full quality |
 | Stickers | As they were |
 | Gantts | With their rows, stages, milestones and links |

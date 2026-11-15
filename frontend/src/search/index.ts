@@ -13,7 +13,7 @@ function cardLabel(source: string | undefined, key: string, task: Task | undefin
 }
 
 export type EntryKind =
-  'card' | 'sticky' | 'shape' | 'text' | 'frame' | 'timer' | 'module' | 'row' | 'milestone'
+  'card' | 'sticky' | 'shape' | 'text' | 'code' | 'frame' | 'timer' | 'module' | 'row' | 'milestone'
 
 export type Entry = Searchable & {
   /** Unique per entry; a module's rows share the module's node. */
@@ -93,6 +93,7 @@ export function buildIndex(nodes: AppNode[], tasks: Record<string, Task>): Entry
       case 'sticky':
       case 'shape':
       case 'text':
+      case 'code':
         if (node.data.text.trim()) {
           push({ ...base, kind: node.type, text: node.data.text, context: frameOf(node) })
         }

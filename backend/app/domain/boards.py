@@ -163,6 +163,44 @@ class TextData(_Strict):
     rotation: absent_or(Rotation) = None
 
 
+CodeLanguage = Literal[
+    "plain",
+    "bash",
+    "c",
+    "csharp",
+    "cpp",
+    "css",
+    "dockerfile",
+    "go",
+    "graphql",
+    "hcl",
+    "html",
+    "java",
+    "javascript",
+    "json",
+    "kotlin",
+    "markdown",
+    "php",
+    "powershell",
+    "python",
+    "ruby",
+    "rust",
+    "sql",
+    "swift",
+    "toml",
+    "tsx",
+    "typescript",
+    "xml",
+    "yaml",
+]
+
+
+class CodeData(_Strict):
+    text: str = Field(default="", max_length=10_000)
+    language: CodeLanguage = "plain"
+    collapsed: absent_or(bool) = None
+
+
 FileId = Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{32}$")]
 PictureSide = Annotated[int, Field(ge=1, le=100_000)]
 
@@ -227,6 +265,11 @@ class TextNode(_NodeBase):
     data: TextData
 
 
+class CodeNode(_NodeBase):
+    type: Literal["code"]
+    data: CodeData
+
+
 class ImageNode(_NodeBase):
     type: Literal["image"]
     data: ImageData
@@ -283,6 +326,7 @@ Node = Annotated[
     | StickyNode
     | ShapeNode
     | TextNode
+    | CodeNode
     | ImageNode
     | ModuleNode
     | AnchorNode

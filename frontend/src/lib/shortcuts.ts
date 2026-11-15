@@ -32,6 +32,7 @@ export const SHORTCUTS = {
   frame: { keys: 'f', label: 'Frame', group: 'Tools' },
   sticky: { keys: 'n', label: 'Sticky note', group: 'Tools' },
   text: { keys: 't', label: 'Text', group: 'Tools' },
+  code: { keys: 'k', label: 'Code', group: 'Tools' },
   shape: { keys: 's', label: 'Shapes', group: 'Tools' },
   timer: { keys: 'r', label: 'Reminder', group: 'Tools' },
   image: { keys: 'i', label: 'Image', group: 'Tools' },

@@ -51,6 +51,10 @@ export type CodeData = {
   text: string
   language: CodeLanguage
   collapsed?: boolean
+  /** Line numbers in the gutter. */
+  numbered?: boolean
+  /** Marked lines, counted from 1, in order. */
+  marked?: number[]
 }
 export type CodeNode = Node<CodeData, 'code'>
 

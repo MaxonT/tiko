@@ -42,6 +42,7 @@ Press `?` in the app to see this list. `⌘` is `Ctrl` on Windows and Linux.
 | `⌘C` | Copy |
 | `⌘X` | Cut |
 | `⌘V` | Paste at the cursor |
+| `⇧⌘V` | Paste as code |
 | `⌘D` | Duplicate |
 | `Alt` + drag | Drag a copy, the original stays |
 | `⌘A` | Select all |

@@ -1922,6 +1922,31 @@
             ],
             "title": "Collapsed"
           },
+          "numbered": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Numbered"
+          },
+          "marked": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Marked"
+          },
           "module": {
             "anyOf": [
               {

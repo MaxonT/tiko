@@ -13,7 +13,7 @@ const sticky: AppNode = {
 }
 
 describe('conversionOf', () => {
-  it('turns a sticky into a code block in its place, without its look', () => {
+  it('turns a sticky into a code block in its place, wider, in the language it is written in', () => {
     expect(conversionOf(sticky)).toEqual({
       to: 'code',
       node: {
@@ -22,8 +22,8 @@ describe('conversionOf', () => {
         position: { x: 10, y: 20 },
         parentId: 'f',
         selected: undefined,
-        width: 200,
-        data: { text: 'SELECT 1;', language: 'plain' },
+        width: 320,
+        data: { text: 'SELECT 1;', language: 'sql' },
       },
     })
   })

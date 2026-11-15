@@ -201,6 +201,12 @@ class CodeData(_Strict):
     text: str = Field(default="", max_length=10_000)
     language: CodeLanguage = "plain"
     collapsed: absent_or(bool) = None
+    # Line numbers shown in the gutter.
+    numbered: absent_or(bool) = None
+    # Marked lines, counted from 1; the web app moves them with their lines on an edit.
+    marked: absent_or(
+        Annotated[list[Annotated[int, Field(ge=1, le=10_000)]], Field(max_length=500)]
+    ) = None
 
 
 FileId = Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{32}$")]

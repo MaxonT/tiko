@@ -647,6 +647,20 @@
             ],
             "title": "Language"
           },
+          "marked": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Marked"
+          },
           "module": {
             "anyOf": [
               {
@@ -668,6 +682,17 @@
               }
             ],
             "title": "Note"
+          },
+          "numbered": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Numbered"
           },
           "opacity": {
             "anyOf": [

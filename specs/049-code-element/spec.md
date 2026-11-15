@@ -25,9 +25,13 @@
 8. **Turn into code and back.** The selection bar of a text or a sticky note offers Turn into code; a code block offers Turn into text. The element keeps its id, place, width, arrows and timers; the text moves over as it is. A sticky's color is dropped.
 9. **Added like a text**: a toolbar button, the shortcut `K`, and "Add code" in the command palette. A new block is 480 wide and is being edited at once.
 10. **Behaves like a text element** everywhere else: arrows from its four sides, frames, timers, copy and paste, duplicate, undo, search, live editing, the far view as a block, board transfer in `.tiko`. No reactions, no votes.
-11. **API v1 and MCP** get the kind `code` with `title`, `text`, `language`, `collapsed`, readable and writable like `text`. This is an additive change; clients already ignore unknown kinds.
+11. **API v1 and MCP** get the kind `code` with `title`, `text`, `language`, `collapsed`, `numbered`, `marked`, readable and writable like `text`. This is an additive change; clients already ignore unknown kinds.
 12. **A title** (owner, 2026-11-15): optional, up to 200 characters, edited in the header. A folded block shows the title instead of its first line; search finds a block by its title and its code; Turn into text puts the title on the first line.
 13. **The language list is searchable** (owner, 2026-11-15): a field on top narrows it as you type, by name or short name (`js`, `ts`, `py`, `sh`, `yml`, `tf`), exact names first; arrows move, Enter picks.
+14. **Paste as code** (owner, 2026-11-15): `⇧⌘V` (`Ctrl+Shift+V`) and "Paste as code" in the palette put the copied text on the board as a code block, selected, in the language it is plainly written in.
+15. **Language guessed by plain signs** (owner, 2026-11-15) on Paste as code and Turn into code: a shebang, JSON that parses, `<?php`, `package main` with `func`, `def …:` and the like. Nothing sure means plain text; no library, a wrong guess costs one pick.
+16. **Line numbers and marked lines** (owner, 2026-11-15): numbers come on per block from the header; a click on a number marks or unmarks its line for everyone. Marks are line numbers, counted from 1, up to 500 per block. An edit takes each mark with its line, found by its text nearest to where it was; a line fixed in place keeps its mark, a line that is gone loses it. A wrapped line keeps its number on its first row.
+17. **A converted sticky is 320 wide at least**, and a newly picked language keeps the old colors until it loads, with no flash of plain text.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -71,8 +75,8 @@ An agent working through the API or MCP adds a code block with the config it cha
 
 ## Out of scope
 
-- Guessing the language from the text; pasting code onto the board making a code block by itself.
-- Line numbers, highlighted lines, diffs.
+- Guessing the language of code typed by hand or pasted with a plain `⌘V`; a guess better than plain signs.
+- Diffs, marking a range by dragging.
 - Running code, links to a repository, a code block that follows a file.
 - Languages outside the list, a theme picker.
 - Markdown or code formatting inside texts and stickies.

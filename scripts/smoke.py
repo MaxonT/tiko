@@ -175,7 +175,7 @@ try:
                 "type": "code",
                 "position": {"x": 900, "y": 240},
                 "width": 480,
-                "data": {"title": "Ping", "text": "SELECT 1;", "language": "sql", "collapsed": True},
+                "data": {"title": "Ping", "text": "SELECT 1;", "language": "sql", "collapsed": True, "numbered": True, "marked": [1]},
             },
         ],
         "edges": [

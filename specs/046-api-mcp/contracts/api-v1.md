@@ -122,7 +122,7 @@ Without parameters, an outline:
 | `card` | `source`, `key`, `task`: `{title, status, assignee, due, url, fetched_at}`, or `null` when the person's credentials cannot read it |
 | `note` | `text`, `color` |
 | `text` | `text` |
-| `code` | `title` (empty for none), `text`, `language` (one of the 28 ids of spec 049, `plain` for none), `collapsed`; read-only until spec 049 slice code-api |
+| `code` | `title` (empty for none), `text`, `language` (one of the 28 ids of spec 049, `plain` for none), `collapsed`, `numbered`, `marked` (line numbers from 1); read-only until spec 049 slice code-api |
 | `shape` | `shape` (`rectangle`, `rounded`, `ellipse`, `rhombus`, `triangle`, `parallelogram`, `hexagon`, `cylinder`), `text`, `color` |
 | `frame` | `title`, `color` |
 | `arrow` | `from`, `to`: element ids, or `null` for an end that points at no element; no `x`, `y`, `w`, `h`, `frame` |

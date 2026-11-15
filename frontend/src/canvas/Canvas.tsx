@@ -19,7 +19,8 @@ import {
   type OnBeforeDelete,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { ArrowLeft, Map as MapIcon, Maximize } from 'lucide-react'
+import { ArrowLeft, Code, Map as MapIcon, Maximize } from 'lucide-react'
+import { useCommands } from '@/search/commands'
 import {
   useCallback,
   useEffect,
@@ -77,6 +78,8 @@ import { StickyNode } from '@/canvas/nodes/StickyNode'
 import { TextNode } from '@/canvas/nodes/TextNode'
 import { CodeNode } from '@/canvas/nodes/CodeNode'
 import { conversionOf } from '@/canvas/code/convert'
+import { detectLanguage } from '@/canvas/code/detect'
+import { CODE_MAX_CHARS } from '@/canvas/code/languages'
 import { hasMixedSources } from '@/canvas/node-tasks'
 import { indexTasks, taskRef, TasksContext } from '@/canvas/tasks-context'
 import { BoardSourcesContext } from '@/sources/board-sources'
@@ -789,6 +792,56 @@ export function BoardCanvas({
     )
   }
 
+  // A code block of the copied text, in the language it is plainly written in.
+  const addCode = (text: string, screen: XYPosition) => {
+    if (!text.trim()) return
+    const point = screenToFlowPosition(screen)
+    const { width } = NEW_NODES.code
+    const node: AppNode = {
+      id: newId(),
+      type: 'code',
+      position: { x: point.x - width / 2, y: point.y },
+      width,
+      initialHeight: 28,
+      selected: true,
+      data: { text: text.slice(0, CODE_MAX_CHARS), language: detectLanguage(text) },
+    }
+    setNodes((current) =>
+      reparent([...current.map((n) => ({ ...n, selected: false })), node], [node.id]),
+    )
+  }
+  // Shift turns the next paste into code; the paste event itself does not say Shift was down.
+  const pasteAsCode = useRef(false)
+  useShortcut(
+    'pasteCode',
+    () => {
+      pasteAsCode.current = true
+      setTimeout(() => (pasteAsCode.current = false), 500)
+    },
+    { enabled: !readOnly, preventDefault: false },
+  )
+  useCommands(
+    readOnly
+      ? []
+      : [
+          {
+            id: 'paste-code',
+            title: 'Paste as code',
+            group: 'Commands',
+            Icon: Code,
+            shortcut: 'pasteCode',
+            run: () =>
+              void navigator.clipboard.readText().then(
+                (text) => addCode(text, viewportCenter()),
+                () =>
+                  toast.error('Not pasted', {
+                    description: 'The browser did not allow the clipboard. Press ⇧⌘V instead.',
+                  }),
+              ),
+          },
+        ],
+  )
+
   // Native clipboard events rather than shortcuts: only they can read and write the
   // system clipboard. Both step aside for text fields, dialogs and selected page text.
   const clipboard = useRef<Record<'copy' | 'cut' | 'paste', (event: ClipboardEvent) => void>>(null)
@@ -818,6 +871,14 @@ export function BoardCanvas({
       },
       paste: (event) => {
         if (readOnly || isEditable(event.target) || !event.clipboardData) return
+        if (pasteAsCode.current) {
+          pasteAsCode.current = false
+          event.preventDefault()
+          return addCode(
+            event.clipboardData.getData('text/plain'),
+            pointer.current ?? viewportCenter(),
+          )
+        }
         const paste = classifyPaste(event.clipboardData, clipboardId())
         if (!paste) return
         event.preventDefault()

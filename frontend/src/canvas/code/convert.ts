@@ -1,8 +1,10 @@
+import { detectLanguage } from '@/canvas/code/detect'
 import { CODE_MAX_CHARS } from '@/canvas/code/languages'
 import type { AppNode } from '@/canvas/types'
 
 const TEXT_MAX = 5000
-const MIN_CODE_WIDTH = 200
+// A sticky is 200 wide, too narrow for most lines of code.
+const MIN_CODE_WIDTH = 320
 
 export type Conversion = { to: 'code' | 'text'; node: AppNode }
 
@@ -18,7 +20,12 @@ export function conversionOf(node: AppNode): Conversion | null {
     const width = Math.max(node.width ?? node.measured?.width ?? 480, MIN_CODE_WIDTH)
     return {
       to: 'code',
-      node: { ...base, type: 'code', width, data: { text: node.data.text, language: 'plain' } },
+      node: {
+        ...base,
+        type: 'code',
+        width,
+        data: { text: node.data.text, language: detectLanguage(node.data.text) },
+      },
     }
   }
   if (node.type === 'code') {

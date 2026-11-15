@@ -45,6 +45,7 @@ export const SHORTCUTS = {
   copy: { keys: 'mod+c', label: 'Copy', group: 'Edit' },
   cut: { keys: 'mod+x', label: 'Cut', group: 'Edit' },
   paste: { keys: 'mod+v', label: 'Paste at the cursor', group: 'Edit' },
+  pasteCode: { keys: 'mod+shift+v', label: 'Paste as code', group: 'Edit' },
   duplicate: { keys: 'mod+d', label: 'Duplicate', group: 'Edit' },
   selectAll: { keys: 'mod+a', label: 'Select all', group: 'Edit' },
   // Handled by the canvas library; listed so the help dialog is complete.

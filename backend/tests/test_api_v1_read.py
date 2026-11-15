@@ -256,4 +256,6 @@ def test_a_code_block_reads_as_code(app, admin):
         "text": "print(1)",
         "language": "python",
         "collapsed": False,
+        "numbered": False,
+        "marked": [],
     }

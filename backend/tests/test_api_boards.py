@@ -385,7 +385,14 @@ CODE = {
     "type": "code",
     "position": {"x": 0, "y": 400},
     "width": 480,
-    "data": {"title": "Ping", "text": "SELECT 1;\n", "language": "sql", "collapsed": True},
+    "data": {
+        "title": "Ping",
+        "text": "SELECT 1;\n",
+        "language": "sql",
+        "collapsed": True,
+        "numbered": True,
+        "marked": [1],
+    },
 }
 
 
@@ -403,6 +410,8 @@ def test_code_block_round_trip(client):
         {"text": "x" * 10_001, "language": "plain"},
         {"text": "", "language": "plain", "collapsed": None},
         {"text": "", "language": "plain", "title": "x" * 201},
+        {"text": "", "language": "plain", "marked": [0]},
+        {"text": "", "language": "plain", "marked": list(range(1, 502))},
     ],
 )
 def test_bad_code_block_rejected(client, data):

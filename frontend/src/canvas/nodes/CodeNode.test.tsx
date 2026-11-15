@@ -123,3 +123,13 @@ test('a stored height is dropped, so the block follows its code', async () => {
   show({ text: 'x', language: 'plain' }, { height: 118 })
   await waitFor(() => expect(current[0].height).toBeUndefined())
 })
+
+test('line numbers come on from the header and a click on one marks its line', () => {
+  show({ text: 'a\nb\nc', language: 'plain' }, { selected: true })
+  fireEvent.click(screen.getByRole('button', { name: 'Line numbers' }))
+  expect(saved().numbered).toBe(true)
+  fireEvent.click(screen.getAllByTitle('Mark line')[1])
+  expect(saved().marked).toEqual([2])
+  fireEvent.click(screen.getByTitle('Unmark line'))
+  expect(saved().marked).toEqual([])
+})

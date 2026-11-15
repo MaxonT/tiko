@@ -36,7 +36,7 @@ FIELDS: dict[str, tuple[str, ...]] = {
     "card": (*_PLACED, "source", "key", "task"),
     "note": (*_PLACED, "text", "color", "bold", "opacity", "rotation"),
     "text": (*_PLACED, "text", "bold", "size", "opacity", "rotation"),
-    "code": (*_PLACED, "title", "text", "language", "collapsed"),
+    "code": (*_PLACED, "title", "text", "language", "collapsed", "numbered", "marked"),
     "shape": (
         *_PLACED,
         "shape",
@@ -107,6 +107,8 @@ class Element(BaseModel):
     shape: str | None = None
     language: str | None = None
     collapsed: bool | None = None
+    numbered: bool | None = None
+    marked: list[int] | None = None
     module: str | None = None
     source: str | None = None
     key: str | None = None
@@ -255,6 +257,8 @@ class BoardShape:
                 text=data.text,
                 language=data.language,
                 collapsed=bool(data.collapsed),
+                numbered=bool(data.numbered),
+                marked=data.marked or [],
             )
         if isinstance(node, ShapeNode):
             data = node.data

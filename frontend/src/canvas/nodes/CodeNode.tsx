@@ -5,11 +5,12 @@ import {
   useStore,
   type NodeProps,
 } from '@xyflow/react'
-import { Check, ChevronDown, ChevronRight, Copy } from 'lucide-react'
+import { Check, ChevronDown, ChevronRight, Copy, ListOrdered } from 'lucide-react'
 import { memo, useEffect, useMemo, useState, type CSSProperties, type KeyboardEvent } from 'react'
 import { toast } from 'sonner'
 import { takeFresh } from '@/canvas/editing'
 import { indent } from '@/canvas/code/indent'
+import { followMarks } from '@/canvas/code/marks'
 import { CODE_MAX_CHARS, LANGUAGE_NAMES, type CodeLanguage } from '@/canvas/code/languages'
 import type { Token } from '@/canvas/code/highlight'
 import { LanguagePicker } from '@/canvas/code/LanguagePicker'
@@ -22,7 +23,7 @@ import { cn } from '@/lib/utils'
 
 // One look for the shown code and the field over it, so the caret sits on its letters.
 const CODE_TEXT =
-  'm-0 p-3 font-mono text-[13px] leading-5 whitespace-pre-wrap [overflow-wrap:anywhere] [tab-size:2]'
+  'm-0 py-3 pr-3 font-mono text-[13px] leading-5 whitespace-pre-wrap [overflow-wrap:anywhere] [tab-size:2]'
 
 type Highlighter = typeof import('@/canvas/code/highlight')
 
@@ -44,34 +45,86 @@ function useTokens(text: string, language: CodeLanguage) {
       live = false
     }
   }, [language])
+  // Until a newly picked language loads, the colors of the last one stay: no flash of plain.
   return useMemo(
-    () => (ready?.language === language ? ready.module.tokenize(text, language) : null),
+    () => (language === 'plain' || !ready ? null : ready.module.tokenize(text, ready.language)),
     [text, language, ready],
   )
 }
 
-function Lines({ text, tokens }: { text: string; tokens: Token[][] | null }) {
-  if (!tokens) return text
-  return tokens.map((line, i) => (
-    <span key={i}>
-      {i > 0 && '\n'}
-      {line.map((token, j) => (
-        <span
-          key={j}
-          className="code-token"
-          style={{
-            ['--code-light' as string]: token.light,
-            ['--code-dark' as string]: token.dark,
-            fontStyle: token.italic ? 'italic' : undefined,
-            fontWeight: token.bold ? 600 : undefined,
-          }}
-        >
-          {token.content}
-        </span>
-      ))}
+function Line({ tokens }: { tokens: Token[] }) {
+  return tokens.map((token, j) => (
+    <span
+      key={j}
+      className="code-token"
+      style={{
+        ['--code-light' as string]: token.light,
+        ['--code-dark' as string]: token.dark,
+        fontStyle: token.italic ? 'italic' : undefined,
+        fontWeight: token.bold ? 600 : undefined,
+      }}
+    >
+      {token.content}
     </span>
   ))
 }
+
+/** One block per line, so a wrapped line keeps its number on its first row and its mark whole. */
+function Lines({
+  text,
+  tokens,
+  numbered,
+  marked,
+  inset,
+  onMark,
+}: {
+  text: string
+  tokens: Token[][] | null
+  numbered: boolean
+  marked: Set<number>
+  inset: string
+  onMark?: (line: number) => void
+}) {
+  return text.split('\n').map((line, i) => {
+    const n = i + 1
+    return (
+      <div
+        key={i}
+        className={cn('relative min-h-5', marked.has(n) && 'bg-primary/15')}
+        // The mark spans the gutter and the padding too.
+        style={{
+          marginLeft: `calc(-1 * ${inset})`,
+          paddingLeft: inset,
+          marginRight: `-${PAD}`,
+          paddingRight: PAD,
+        }}
+      >
+        {numbered && (
+          <span
+            className={cn(
+              'text-muted-foreground absolute text-right select-none',
+              onMark && 'nodrag hover:text-foreground cursor-pointer',
+              marked.has(n) && 'text-foreground',
+            )}
+            style={{ left: PAD, width: `${digits(text)}ch` }}
+            title={onMark && (marked.has(n) ? 'Unmark line' : 'Mark line')}
+            onClick={onMark && (() => onMark(n))}
+            onDoubleClick={(event) => event.stopPropagation()}
+          >
+            {n}
+          </span>
+        )}
+        {tokens?.[i] ? <Line tokens={tokens[i]} /> : line}
+      </div>
+    )
+  })
+}
+
+const PAD = '0.75rem'
+const digits = (text: string) => String(text.split('\n').length).length
+/** Where the code starts: past the padding, and past the numbers when they are shown. */
+const insetOf = (text: string, numbered: boolean) =>
+  numbered ? `calc(${PAD} + ${digits(text) + 1.5}ch)` : PAD
 
 // The height follows the code, so only the sides take a drag, and only sideways.
 function WidthGrips() {
@@ -118,7 +171,10 @@ function CodeNodeView({ id, data, selected, height }: NodeProps<CodeNodeType>) {
   }
   const finish = () => {
     setEditing(false)
-    if (draft !== data.text) updateNodeData(id, { text: draft })
+    if (draft === data.text) return
+    // Marks go with their lines, so a line added above does not move them onto another.
+    const marked = data.marked?.length ? followMarks(data.text, draft, data.marked) : undefined
+    updateNodeData(id, marked ? { text: draft, marked } : { text: draft })
   }
   const fold = () => {
     if (readOnly) setOwnFold(!collapsed)
@@ -152,6 +208,14 @@ function CodeNodeView({ id, data, selected, height }: NodeProps<CodeNodeType>) {
 
   const firstLine = data.text.split('\n', 1)[0]
   const editable = selected && !readOnly
+  const numbered = data.numbered ?? false
+  const marked = new Set(data.marked ?? [])
+  const inset = insetOf(shown, numbered)
+  const mark = (line: number) => {
+    const next = new Set(marked)
+    if (!next.delete(line)) next.add(line)
+    updateNodeData(id, { marked: [...next].sort((a, b) => a - b) })
+  }
   return (
     <div className="relative w-full">
       {selected && !readOnly && <WidthGrips />}
@@ -189,6 +253,21 @@ function CodeNodeView({ id, data, selected, height }: NodeProps<CodeNodeType>) {
             )}
             {collapsed && <span className="shrink-0">· {lineCount(data.text)}</span>}
           </span>
+          {editable && (
+            <Button
+              variant={numbered ? 'secondary' : 'ghost'}
+              size="icon"
+              className="nodrag size-6"
+              aria-label="Line numbers"
+              aria-pressed={numbered}
+              title={
+                numbered ? 'Hide line numbers' : 'Show line numbers; click one to mark its line'
+              }
+              onClick={() => updateNodeData(id, { numbered: !numbered })}
+            >
+              <ListOrdered className="size-3.5" />
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="icon"
@@ -216,10 +295,19 @@ function CodeNodeView({ id, data, selected, height }: NodeProps<CodeNodeType>) {
         </div>
         {!collapsed && (
           <div className="relative" onDoubleClick={start}>
-            {/* The trailing break keeps an empty last line as tall as in the field. */}
-            <pre aria-hidden={editing} className={cn(CODE_TEXT, !shown && 'opacity-50')}>
-              {shown ? <Lines text={shown} tokens={tokens} /> : editing ? '' : 'Code'}
-              {'\n'}
+            <pre
+              aria-hidden={editing}
+              className={cn(CODE_TEXT, !shown && !editing && 'opacity-50')}
+              style={{ paddingLeft: inset }}
+            >
+              <Lines
+                text={shown || (editing ? '' : 'Code')}
+                tokens={shown ? tokens : null}
+                numbered={numbered && !!shown}
+                marked={marked}
+                inset={inset}
+                onMark={editable && !editing ? mark : undefined}
+              />
             </pre>
             {editing && (
               <textarea
@@ -236,6 +324,7 @@ function CodeNodeView({ id, data, selected, height }: NodeProps<CodeNodeType>) {
                   CODE_TEXT,
                   'nodrag nowheel caret-foreground absolute inset-0 resize-none overflow-hidden bg-transparent text-transparent outline-none',
                 )}
+                style={{ paddingLeft: inset }}
               />
             )}
           </div>

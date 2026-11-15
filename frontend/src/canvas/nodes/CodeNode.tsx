@@ -323,6 +323,9 @@ function CodeNodeView({ id, data, selected, height }: NodeProps<CodeNodeType>) {
                 className={cn(
                   CODE_TEXT,
                   'nodrag nowheel caret-foreground absolute inset-0 resize-none overflow-hidden bg-transparent text-transparent outline-none',
+                  // The field's letters are see-through over the colored code; a see-through
+                  // selection lets that code show under it.
+                  'selection:bg-primary/25 selection:text-transparent',
                 )}
                 style={{ paddingLeft: inset }}
               />

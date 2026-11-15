@@ -1,5 +1,5 @@
 import { Check, ChevronDown } from 'lucide-react'
-import { useState, type KeyboardEvent } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { LANGUAGE_NAMES, matchLanguages, type CodeLanguage } from '@/canvas/code/languages'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -18,6 +18,20 @@ export function LanguagePicker({
   const [query, setQuery] = useState('')
   const [active, setActive] = useState(0)
   const found = matchLanguages(query)
+  const list = useRef<HTMLDivElement>(null)
+  const trigger = useRef<HTMLButtonElement>(null)
+
+  // The picker sits inside its block, and the popover does not count a press on that same
+  // block as outside. Caught before the board sees it, any press away from the list closes it.
+  useEffect(() => {
+    if (!open) return
+    const away = (event: PointerEvent) => {
+      const target = event.target as Node
+      if (!list.current?.contains(target) && !trigger.current?.contains(target)) setOpen(false)
+    }
+    document.addEventListener('pointerdown', away, true)
+    return () => document.removeEventListener('pointerdown', away, true)
+  }, [open])
 
   const toggle = (next: boolean) => {
     setOpen(next)
@@ -42,12 +56,12 @@ export function LanguagePicker({
   return (
     <Popover open={open} onOpenChange={toggle}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="sm" className="nodrag h-6 gap-1 px-1.5 text-xs">
+        <Button ref={trigger} variant="ghost" size="sm" className="nodrag h-6 gap-1 px-1.5 text-xs">
           {LANGUAGE_NAMES[value]}
           <ChevronDown className="size-3" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-52 p-1">
+      <PopoverContent ref={list} align="start" className="w-52 p-1">
         <Input
           autoFocus
           value={query}

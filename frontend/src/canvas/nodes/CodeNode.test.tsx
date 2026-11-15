@@ -133,3 +133,11 @@ test('line numbers come on from the header and a click on one marks its line', (
   fireEvent.click(screen.getByTitle('Unmark line'))
   expect(saved().marked).toEqual([])
 })
+
+test('a press on the block itself closes the language list', () => {
+  show({ text: 'x = 1', language: 'plain' }, { selected: true })
+  fireEvent.click(screen.getByRole('button', { name: /Plain text/ }))
+  expect(screen.getByRole('listbox')).toBeTruthy()
+  fireEvent.pointerDown(screen.getByText('x = 1'))
+  expect(screen.queryByRole('listbox')).toBeNull()
+})

@@ -314,7 +314,7 @@
                       "$ref": "#/components/schemas/BoardPage"
                     }
                   ],
-                  "title": "Response Read Board Boards  Board Id  Get"
+                  "title": "BoardOutline or BoardPage"
                 }
               }
             }

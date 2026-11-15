@@ -42,6 +42,13 @@ def schema() -> dict:
             seen.add(slug)
             op["operationId"] = slug
             op["tags"] = [TAGS.get(tag, tag.capitalize()) for tag in op["tags"]]
+            # FastAPI titles a union answer after the route ("Response Read Board Boards Board Id Get").
+            for answer in op["responses"].values():
+                for media in answer.get("content", {}).values():
+                    body = media["schema"]
+                    if body.get("title", "").startswith("Response ") and "anyOf" in body:
+                        names = [part["$ref"].rsplit("/", 1)[-1] for part in body["anyOf"] if "$ref" in part]
+                        body["title"] = " or ".join(names)
     return out
 
 

@@ -6,7 +6,15 @@ import {
   type NodeProps,
 } from '@xyflow/react'
 import { Check, ChevronDown, ChevronRight, Copy, ListOrdered } from 'lucide-react'
-import { memo, useEffect, useMemo, useState, type CSSProperties, type KeyboardEvent } from 'react'
+import {
+  memo,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent,
+} from 'react'
 import { toast } from 'sonner'
 import { takeFresh } from '@/canvas/editing'
 import { indent } from '@/canvas/code/indent'
@@ -17,7 +25,7 @@ import { LanguagePicker } from '@/canvas/code/LanguagePicker'
 import { EditableText } from '@/canvas/nodes/EditableText'
 import { Handles } from '@/canvas/nodes/Handles'
 import { useReadOnly } from '@/canvas/readonly'
-import type { CodeNode as CodeNodeType } from '@/canvas/types'
+import type { CodeData, CodeNode as CodeNodeType } from '@/canvas/types'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -85,6 +93,8 @@ function Lines({
   inset: string
   onMark?: (line: number) => void
 }) {
+  // Once per render: a long block would split its text again for every line.
+  const width = `${digits(text)}ch`
   return text.split('\n').map((line, i) => {
     const n = i + 1
     return (
@@ -106,7 +116,7 @@ function Lines({
               onMark && 'nodrag hover:text-foreground cursor-pointer',
               marked.has(n) && 'text-foreground',
             )}
-            style={{ left: PAD, width: `${digits(text)}ch` }}
+            style={{ left: PAD, width }}
             title={onMark && (marked.has(n) ? 'Unmark line' : 'Mark line')}
             onClick={onMark && (() => onMark(n))}
             onDoubleClick={(event) => event.stopPropagation()}
@@ -169,13 +179,28 @@ function CodeNodeView({ id, data, selected, height }: NodeProps<CodeNodeType>) {
     setDraft(data.text)
     setEditing(true)
   }
+  // Marks go with their lines, so a line added above does not move them onto another.
+  const commit = (text: string, stored: CodeData) => {
+    if (text === stored.text) return
+    const marked = stored.marked?.length ? followMarks(stored.text, text, stored.marked) : undefined
+    updateNodeData(id, marked ? { text, marked } : { text })
+  }
   const finish = () => {
     setEditing(false)
-    if (draft === data.text) return
-    // Marks go with their lines, so a line added above does not move them onto another.
-    const marked = data.marked?.length ? followMarks(data.text, draft, data.marked) : undefined
-    updateNodeData(id, marked ? { text: draft, marked } : { text: draft })
+    commit(draft, data)
   }
+  // Far zoom and off-screen culling unmount the editor without a blur; the draft is kept.
+  const open = useRef({ editing, draft, data, commit })
+  useEffect(() => {
+    open.current = { editing, draft, data, commit }
+  })
+  useEffect(
+    () => () => {
+      const now = open.current
+      if (now.editing) now.commit(now.draft, now.data)
+    },
+    [],
+  )
   const fold = () => {
     if (readOnly) setOwnFold(!collapsed)
     else updateNodeData(id, { collapsed: !collapsed })

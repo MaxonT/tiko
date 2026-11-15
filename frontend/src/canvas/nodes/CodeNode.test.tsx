@@ -18,11 +18,12 @@ beforeAll(() => {
 })
 
 let current: AppNode[] = []
+let setCurrent: (change: (nodes: AppNode[]) => AppNode[]) => void = () => {}
 
 type Options = { readOnly?: boolean; selected?: boolean; height?: number }
 
 function Board({ data, selected, height }: { data: CodeData } & Options) {
-  const [nodes, , onNodesChange] = useNodesState<AppNode>([
+  const [nodes, setNodes, onNodesChange] = useNodesState<AppNode>([
     // jsdom measures nothing, and xyflow hides a node it has not measured.
     {
       id: 'k',
@@ -37,7 +38,8 @@ function Board({ data, selected, height }: { data: CodeData } & Options) {
   ])
   useEffect(() => {
     current = nodes
-  }, [nodes])
+    setCurrent = setNodes
+  }, [nodes, setNodes])
   return <ReactFlow nodes={nodes} nodeTypes={nodeTypes} onNodesChange={onNodesChange} />
 }
 
@@ -119,6 +121,21 @@ test('typing in the language list narrows it and Enter picks the first match', (
   expect(saved().language).toBe('python')
 })
 
+test('arrow keys keep the active language in view, wrapping around', () => {
+  const seen = vi.fn()
+  Element.prototype.scrollIntoView = function (this: Element) {
+    seen(this.textContent)
+  }
+  show({ text: 'x = 1', language: 'plain' }, { selected: true })
+  fireEvent.click(screen.getByRole('button', { name: /Plain text/ }))
+  const find = screen.getByRole('combobox', { name: 'Find a language' })
+  const options = screen.getAllByRole('option')
+  fireEvent.keyDown(find, { key: 'ArrowUp' })
+  expect(seen).toHaveBeenLastCalledWith(options.at(-1)!.textContent)
+  fireEvent.keyDown(find, { key: 'ArrowDown' })
+  expect(seen).toHaveBeenLastCalledWith(options[0].textContent)
+})
+
 test('a stored height is dropped, so the block follows its code', async () => {
   show({ text: 'x', language: 'plain' }, { height: 118 })
   await waitFor(() => expect(current[0].height).toBeUndefined())
@@ -140,4 +157,22 @@ test('a press on the block itself closes the language list', () => {
   expect(screen.getByRole('listbox')).toBeTruthy()
   fireEvent.pointerDown(screen.getByText('x = 1'))
   expect(screen.queryByRole('listbox')).toBeNull()
+})
+
+test('an edit survives the editor leaving the screen without a blur', () => {
+  show({ text: 'x', language: 'plain', marked: [1] })
+  fireEvent.doubleClick(screen.getByText('x'))
+  const field = screen.getByRole('textbox', { name: 'Code' })
+  fireEvent.change(field, { target: { value: 'top\nx' } })
+  // Far zoom and culling unmount the node as hiding it does.
+  act(() => setCurrent((nodes) => nodes.map((n) => ({ ...n, hidden: true }))))
+  expect(saved()).toMatchObject({ text: 'top\nx', marked: [2] })
+})
+
+test('an editor that leaves unchanged writes nothing', () => {
+  show({ text: 'x', language: 'plain' })
+  fireEvent.doubleClick(screen.getByText('x'))
+  const before = current[0].data
+  act(() => setCurrent((nodes) => nodes.map((n) => ({ ...n, hidden: true }))))
+  expect(current[0].data).toBe(before)
 })

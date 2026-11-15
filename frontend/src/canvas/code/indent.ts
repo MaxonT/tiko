@@ -15,7 +15,8 @@ export function indent(value: string, start: number, end: number, out: boolean):
   if (!out && start === end) {
     return { from: start, to: end, insert: INDENT, start: start + 2, end: start + 2 }
   }
-  const from = value.lastIndexOf('\n', start - 1) + 1
+  // lastIndexOf clamps a negative position to 0 and would find a break at index 0.
+  const from = start === 0 ? 0 : value.lastIndexOf('\n', start - 1) + 1
   // A selection that ends right after a line break leaves the next line alone.
   const last = end > start && value[end - 1] === '\n' ? end - 1 : end
   const lineEnd = value.indexOf('\n', last)
@@ -29,5 +30,9 @@ export function indent(value: string, start: number, end: number, out: boolean):
     .map((line, i) => (shifts[i] > 0 ? INDENT + line : line.slice(-shifts[i])))
     .join('\n')
   const total = shifts.reduce((sum, shift) => sum + shift, 0)
-  return { from, to, insert, start: Math.max(from, start + shifts[0]), end: end + total }
+  // An end inside the removed indent of its line stops at that line's new start.
+  const lastStart =
+    from + lines.slice(0, -1).reduce((sum, line, i) => sum + line.length + 1 + shifts[i], 0)
+  const startAt = Math.max(from, start + shifts[0])
+  return { from, to, insert, start: startAt, end: Math.max(lastStart, startAt, end + total) }
 }

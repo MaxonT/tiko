@@ -1,7 +1,7 @@
 import { act, render, screen } from '@testing-library/react'
 import { ReactFlow, ReactFlowProvider } from '@xyflow/react'
 import { beforeAll, expect, test } from 'vitest'
-import { FarSticky, farView } from '@/canvas/nodes/far'
+import { FarCode, FarSticky, farView } from '@/canvas/nodes/far'
 import { StickyNode } from '@/canvas/nodes/StickyNode'
 import { FarContext } from '@/canvas/readonly'
 import type { AppNode } from '@/canvas/types'
@@ -77,4 +77,28 @@ test('a note shown close at first is full at once', () => {
     </ReactFlowProvider>,
   )
   expect(screen.getByText(/Book the flight/)).toBeTruthy()
+})
+
+test('far out a folded code block is its header height, with no body padding', () => {
+  const folded: AppNode[] = [
+    {
+      id: 'k',
+      type: 'code',
+      position: { x: 0, y: 0 },
+      width: 320,
+      data: { text: 'a\nb\nc', language: 'plain', collapsed: true },
+    },
+  ]
+  render(
+    <ReactFlowProvider>
+      <FarContext.Provider value>
+        <div style={{ width: 800, height: 600 }}>
+          <ReactFlow nodes={folded} nodeTypes={{ code: FarCode }} />
+        </div>
+      </FarContext.Provider>
+    </ReactFlowProvider>,
+  )
+  const block = document.querySelector('.react-flow__node > div') as HTMLElement
+  expect(block.style.height).toBe('34px')
+  expect(block.className).not.toContain('pt-11')
 })

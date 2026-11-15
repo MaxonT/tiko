@@ -7,10 +7,28 @@ export function followMarks(before: string, after: string, marked: number[]): nu
   const old = before.split('\n')
   const next = after.split('\n')
   const shift = next.length - old.length
+  // Lines before the first change and after the last one keep their place relative to it.
+  let head = 0
+  while (head < old.length && head < next.length && old[head] === next[head]) head++
+  let tail = 0
+  while (
+    tail < old.length - head &&
+    tail < next.length - head &&
+    old[old.length - 1 - tail] === next[next.length - 1 - tail]
+  )
+    tail++
   const taken = new Set<number>()
   for (const line of marked) {
     const text = old[line - 1]
     if (text === undefined) continue
+    if (line - 1 < head) {
+      taken.add(line - 1)
+      continue
+    }
+    if (line - 1 >= old.length - tail) {
+      taken.add(line - 1 + shift)
+      continue
+    }
     // Lines added above push a line down by the same count, so look there first.
     const expected = line - 1 + shift
     let best = -1

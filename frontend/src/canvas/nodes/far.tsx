@@ -242,7 +242,9 @@ export const FarCode = memo(function FarCode({ id, data, selected }: NodeProps<C
   return (
     <div
       className={cn(
-        'bg-card flex w-full flex-col gap-2.5 rounded-md border p-3 pt-11',
+        'bg-card flex w-full flex-col gap-2.5 rounded-md border',
+        // A folded block is only its header: body padding would grow it past the full one.
+        !data.collapsed && 'p-3 pt-11',
         selected && 'ring-primary ring-2',
       )}
       style={{ height }}

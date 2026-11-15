@@ -33,6 +33,13 @@ export function LanguagePicker({
     return () => document.removeEventListener('pointerdown', away, true)
   }, [open])
 
+  // The list does not follow aria-activedescendant by itself; keyboard users must see the pick.
+  useEffect(() => {
+    if (!open) return
+    const option = list.current?.querySelector('[role="option"][aria-selected="true"]')
+    option?.scrollIntoView?.({ block: 'nearest' })
+  }, [open, active])
+
   const toggle = (next: boolean) => {
     setOpen(next)
     setQuery('')

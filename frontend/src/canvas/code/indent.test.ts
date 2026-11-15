@@ -26,6 +26,17 @@ describe('indent', () => {
     expect(apply('    a\n b', 0, 8, true)?.text).toBe('  a\nb')
   })
 
+  it('takes an empty first line along', () => {
+    expect(apply('\na', 0, 2)?.text).toBe('  \n  a')
+  })
+
+  it('keeps a caret inside the removed indent at the line start', () => {
+    const edit = indent('  abc', 0, 0, true)!
+    expect([edit.start, edit.end]).toEqual([0, 0])
+    const inside = indent('x\n  abc', 3, 3, true)!
+    expect([inside.start, inside.end]).toEqual([2, 2])
+  })
+
   it('does nothing when nothing can move out', () => {
     expect(apply('a\nb', 0, 3, true)).toBeNull()
   })

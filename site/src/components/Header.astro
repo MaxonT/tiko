@@ -113,6 +113,9 @@ const groups = [
   .menu.open .trigger :global(svg) {
     transform: rotate(180deg);
   }
+  .menu.closed .trigger :global(svg) {
+    transform: none;
+  }
   /* An invisible bridge keeps the menu open while the pointer crosses the gap to it. */
   .panel {
     position: absolute;
@@ -131,6 +134,11 @@ const groups = [
     visibility: visible;
     opacity: 1;
     transform: none;
+  }
+  .menu.closed .panel {
+    visibility: hidden;
+    opacity: 0;
+    transform: translateY(-4px);
   }
   .groups {
     display: grid;
@@ -240,24 +248,41 @@ const groups = [
 </style>
 
 <script>
-  // The menu opens on hover and focus without scripts; this adds a tap toggle for touch screens,
-  // keeps aria-expanded in step and closes it on Escape.
+  // The menu opens on hover and focus without scripts. This adds a tap toggle for touch screens,
+  // keeps aria-expanded in step and closes it on Escape; `.closed` beats hover and focus until
+  // the pointer and focus have both left.
   for (const menu of document.querySelectorAll<HTMLElement>('[data-menu]')) {
     const trigger = menu.querySelector('button')!
-    const sync = () => trigger.setAttribute('aria-expanded', String(menu.matches('.open, :hover, :focus-within')))
+    const shown = () => !menu.classList.contains('closed') && menu.matches('.open, :hover, :focus-within')
+    const sync = () => trigger.setAttribute('aria-expanded', String(shown()))
+    const close = () => {
+      menu.classList.remove('open')
+      menu.classList.add('closed')
+      sync()
+    }
     trigger.addEventListener('click', () => {
-      menu.classList.toggle('open')
+      // Hover or focus may show the menu already; a click pins it open, the next one closes it.
+      if (menu.classList.contains('open')) return close()
+      menu.classList.remove('closed')
+      menu.classList.add('open')
       sync()
     })
-    for (const type of ['mouseenter', 'mouseleave', 'focusin', 'focusout']) menu.addEventListener(type, () => requestAnimationFrame(sync))
+    for (const type of ['mouseenter', 'mouseleave', 'focusin', 'focusout'])
+      menu.addEventListener(type, () =>
+        requestAnimationFrame(() => {
+          if (!menu.matches(':hover, :focus-within')) menu.classList.remove('closed')
+          sync()
+        }),
+      )
     document.addEventListener('click', (event) => {
-      if (!menu.contains(event.target as Node)) menu.classList.remove('open')
+      if (menu.contains(event.target as Node)) return
+      menu.classList.remove('open')
+      sync()
     })
     menu.addEventListener('keydown', (event) => {
       if (event.key !== 'Escape') return
-      menu.classList.remove('open')
-      ;(document.activeElement as HTMLElement | null)?.blur()
-      sync()
+      close()
+      trigger.focus()
     })
   }
 </script>

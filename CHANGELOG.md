@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Changed
+
+- One-click updates are now off unless you turn them on: the one-line installers ask with no as the default answer, and an install without a terminal leaves them off. The updater has root-level access to Docker, so it is your call, not a default. With `--yes` (`-Yes` on Windows) they are still turned on; add `--no-updater` (`-NoUpdater`) to keep them off. Installs that already answered keep their choice.
+
 ## [2026.11.1] - 2026-11-15
 
 ### Added

@@ -10,6 +10,7 @@
 <p align="center">
   <a href="https://tiko.run"><b>Website</b></a> •
   <a href="https://docs.tiko.run/"><b>Docs</b></a> •
+  <a href="https://demo.tiko.run/demo"><b>Try the demo</b></a> •
   <a href="https://docs.tiko.run/quick-start/"><b>Quick start</b></a> •
   <a href="https://demo.tiko.run/p/IGoVOBKKIi7IE-kGjrckETccZclVnrCM"><b>Roadmap</b></a> •
   <a href="https://github.com/tiko-run/tiko/discussions"><b>Discussions</b></a>
@@ -19,9 +20,6 @@
   <a href="https://github.com/tiko-run/tiko/actions/workflows/ci.yml"><img src="https://github.com/tiko-run/tiko/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://github.com/tiko-run/tiko/releases"><img src="https://img.shields.io/github/v/release/tiko-run/tiko" alt="Release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-AGPL--3.0-blue.svg" alt="License: AGPL-3.0"></a>
-  <a href="https://github.com/tiko-run/tiko/stargazers"><img src="https://img.shields.io/github/stars/tiko-run/tiko" alt="GitHub stars"></a>
-  <a href="https://github.com/tiko-run/tiko/discussions"><img src="https://img.shields.io/github/discussions/tiko-run/tiko" alt="Discussions"></a>
-  <a href="https://docs.tiko.run/"><img src="https://img.shields.io/badge/docs-docs.tiko.run-8A2BE2" alt="Docs"></a>
 </p>
 
 [![A 25-second tour: tasks from a dozen tracker tabs land on one canvas, get arranged into frames, update their status on their own, fire a reminder, and the whole board folds into the tiko logo](https://media.tiko.run/readme/tiko-promo.webp)](https://media.tiko.run/readme/tiko-promo.mp4)
@@ -36,7 +34,6 @@
 - [Community](#community)
 - [Security](#security)
 - [Contributing](#contributing)
-- [Activity](#activity)
 - [License](#license)
 
 ## What is tiko
@@ -53,43 +50,43 @@ tiko puts the same tasks on an infinite canvas and keeps them current. What make
 
 - **Cards are live.** Each one shows the task's real status, refreshed while the board is open.
 - **Your tracker stays in charge.** tiko shows tasks as they are in your tracker. Each person connects their own token and sees only what their tracker access allows.
-- **It is yours.** Self-hosted, your data in your own Postgres, no ads or analytics trackers.
+- **It is yours.** Self-hosted, your data in your own Postgres, no ads, and nothing about your people or tasks leaves the server.
 
 Works with Jira Cloud, Jira Data Center and Server, and GitHub issues today. Linear, Plane and others are planned: [all trackers](https://docs.tiko.run/trackers/).
 
 ## What you can do
 
-### Put live tasks on a board
+### Add tasks from your tracker
 
 Add cards by key, link or query, or paste links straight from your tracker tabs. [Adding tasks →](https://docs.tiko.run/adding-tasks/)
 
 [![A task card added by its key, more cards from a query, and a status that updates from the tracker](https://media.tiko.run/readme/readme-add.webp)](https://media.tiko.run/readme/readme-add.mp4)
 
-### Arrange them the way you think
+### Frames, notes and arrows
 
 Frames, sticky notes, text and arrows around the cards, with smart guides that snap things into place. [The board →](https://docs.tiko.run/on-the-board/)
 
 [![A smart guide lines up a card, a frame groups two cards, and an arrow joins a sticky note to a card](https://media.tiko.run/readme/readme-arrange.webp)](https://media.tiko.run/readme/readme-arrange.mp4)
 
-### Plan on a timeline
+### Gantt
 
 Drop cards onto a Gantt to get bars with live status, stages, milestones and dependency lines. [Gantt →](https://docs.tiko.run/gantt/)
 
 [![A card dropped onto a Gantt becomes a bar with stages, and a dependency line joins two bars](https://media.tiko.run/readme/readme-gantt.webp)](https://media.tiko.run/readme/readme-gantt.mp4)
 
-### Wait without watching
+### Reminders and a focus timer
 
 Put a reminder next to a card. It goes off after a set time or when the task leaves its status. A focus timer with music sits at the top of the screen. [Reminders and focus →](https://docs.tiko.run/focus-and-reminders/)
 
 [![A reminder on a card goes off when the task leaves its status, then the focus timer starts](https://media.tiko.run/readme/readme-timers.webp)](https://media.tiko.run/readme/readme-timers.mp4)
 
-### Find anything from the keyboard
+### Search and shortcuts
 
 `⌘K` searches the board and runs commands, and every tool has a shortcut. [Search →](https://docs.tiko.run/search/) · [Shortcuts →](https://docs.tiko.run/keyboard-shortcuts/)
 
 [![The command palette filters cards by assignee, jumps to one, and switches the theme](https://media.tiko.run/readme/readme-palette.webp)](https://media.tiko.run/readme/readme-palette.mp4)
 
-### Work on a board together
+### Sharing and live editing
 
 Invite people with a link and give each board viewers and editors. Everyone on a board sees each other's changes as they happen. [Working together →](https://docs.tiko.run/working-together/) · [Sharing →](https://docs.tiko.run/security/#sharing-boards)
 
@@ -104,7 +101,9 @@ Invite people with a link and give each board viewers and editors. Everyone on a
 | Linux, macOS | `curl -fsSL https://tiko.run/install.sh \| sh` |
 | Windows 10, 11 (PowerShell) | `irm https://tiko.run/install.ps1 \| iex` |
 
-The installer sets up Docker if it is missing, starts the latest release and prints the address, the username and the password. Options and step-by-step instructions: [install guide](https://docs.tiko.run/install/).
+The installer sets up Docker if it is missing, starts the latest release and prints the address, the username and the password. Read it first if you like: [install.sh](install/install.sh), [install.ps1](install/install.ps1). Options and step-by-step instructions: [install guide](https://docs.tiko.run/install/).
+
+tiko sends anonymous counts once a day (release, tracker types, rounded numbers of boards and people), and the installer reports whether it worked. Nothing names you, your boards or your tracker. To send nothing, add `--no-stats` (`curl -fsSL https://tiko.run/install.sh | sh -s -- --no-stats`) or set `TIKO_USAGE_STATS=false`. Every field: [Usage stats](https://docs.tiko.run/privacy/).
 
 ### Docker
 
@@ -124,19 +123,12 @@ docker compose up --build
 
 With Docker or from source, open http://localhost:3000 and sign in as `admin`. The password is in the log: `docker compose logs api | grep 'tiko password'`. In PowerShell use `Select-String` in place of `grep`. Lost the password? See [the guide](https://docs.tiko.run/install/#lost-the-password).
 
-### Cloud
-
-<a href="https://tiko.run"><img src="brand/button/tiko-cloud-button.svg" alt="Start on tiko Cloud, free" height="40"></a>
-
-**tiko Cloud** is tiko hosted by us, with nothing to install and a free plan. Coming soon.
-
-Or deploy your own copy:
+### One-click deploy
 
 | Platform | Deploy |
 |---|---|
-| Railway | [![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/tiko?referralCode=wFuy8y&utm_medium=integration&utm_source=button&utm_campaign=tiko) |
+| Railway | [![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/tiko) |
 | Render | [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/tiko-run/tiko) |
-| DigitalOcean | Coming soon |
 
 After the deploy sign in as `admin`. The password is generated for you: it is the `TIKO_PASSWORD` variable of the `api` service on Railway, or of `tiko-api` on Render. Costs and limits of each platform are in the [quick start](https://docs.tiko.run/quick-start/#on-railway).
 
@@ -172,23 +164,9 @@ Details: [Security and privacy](https://docs.tiko.run/security/). Report vulnera
 
 Bug reports, ideas and pull requests are welcome, and a new tracker provider is a good first contribution. Start with [CONTRIBUTING.md](CONTRIBUTING.md). On your first pull request a bot asks you to sign the [CLA](CLA.md) with one comment, once. Everyone follows the [Code of Conduct](CODE_OF_CONDUCT.md).
 
-<a href="https://github.com/tiko-run/tiko/graphs/contributors"><img src="https://contrib.rocks/image?repo=tiko-run/tiko" alt="Contributors"></a>
-
-## Activity
-
-<p>
-  <a href="https://github.com/tiko-run/tiko/commits/main"><img src="https://img.shields.io/github/commit-activity/m/tiko-run/tiko" alt="Commit activity"></a>
-  <a href="https://github.com/tiko-run/tiko/commits/main"><img src="https://img.shields.io/github/last-commit/tiko-run/tiko" alt="Last commit"></a>
-  <a href="https://github.com/tiko-run/tiko/graphs/contributors"><img src="https://img.shields.io/github/contributors/tiko-run/tiko" alt="Contributors"></a>
-  <a href="https://github.com/tiko-run/tiko/issues"><img src="https://img.shields.io/github/issues/tiko-run/tiko" alt="Open issues"></a>
-</p>
-
-If tiko is useful to you, star the repo. It helps other people find it.
-
-<a href="https://star-history.com/#tiko-run/tiko&Date"><img src="https://api.star-history.com/svg?repos=tiko-run/tiko&type=Date" alt="Star history" width="600"></a>
 
 ## License
 
 [GNU AGPL v3](LICENSE) (`AGPL-3.0-only`) © The tiko Authors. Use, self-host and modify tiko for free, privately or inside a company. If you let people use a changed version over a network, offer them its source under the same license.
 
-The name and logo are covered by [TRADEMARKS.md](TRADEMARKS.md), third-party components are listed in [THIRD_PARTY.md](THIRD_PARTY.md). For other terms, such as embedding tiko in a closed product, email hi@tiko.run. Releases up to and including `v2026.10.6` were published under the MIT License and stay available under it.
+The name and logo are covered by [TRADEMARKS.md](TRADEMARKS.md), third-party components are listed in [THIRD_PARTY.md](THIRD_PARTY.md). For other terms, such as embedding tiko in a closed product, email hi@tiko.run.

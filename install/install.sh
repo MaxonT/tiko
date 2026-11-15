@@ -61,13 +61,13 @@ ask() {
   case "$answer" in y | Y | yes | Yes) return 0 ;; *) return 1 ;; esac
 }
 
-# A question where yes is the usual answer; without a terminal it is yes.
-ask_yes() {
+# A question where no is the safer answer; without a terminal it is no.
+ask_no() {
   [ "$YES" = 1 ] && return 0
-  { : </dev/tty; } 2>/dev/null || return 0
-  printf '%s [Y/n] ' "$1" >/dev/tty
+  { : </dev/tty; } 2>/dev/null || return 1
+  printf '%s [y/N] ' "$1" >/dev/tty
   read -r answer </dev/tty || answer=
-  case "$answer" in n | N | no | No) return 1 ;; *) return 0 ;; esac
+  case "$answer" in y | Y | yes | Yes) return 0 ;; *) return 1 ;; esac
 }
 
 fetch() {
@@ -398,7 +398,7 @@ choose_updater() {
     else
       say "One-click updates add a small service with access to Docker, so an admin can update"
       say "tiko from the About button. Without it you update by running this installer again."
-      if ask_yes "Turn on one-click updates?"; then UPDATER=yes; else UPDATER=no; fi
+      if ask_no "Turn on one-click updates?"; then UPDATER=yes; else UPDATER=no; fi
     fi
   fi
   if [ "$UPDATER" = yes ]; then

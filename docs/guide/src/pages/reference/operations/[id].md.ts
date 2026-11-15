@@ -31,6 +31,7 @@ export const GET: APIRoute<{ path: string; method: string; operation: Operation 
   const text = [
     `# ${summary}`,
     `\`${method.toUpperCase()} ${path}\` · ${tags.join(', ')} · server ${schema.servers[0].url}`,
+    ...(rest.security ? ['Send an API key with every call: `Authorization: Bearer tiko_…`. See https://docs.tiko.run/api-keys/.'] : []),
     'The operation from the OpenAPI schema, with its schemas inlined:',
     '```json\n' + JSON.stringify(inline(rest), null, 2) + '\n```',
   ].join('\n\n')

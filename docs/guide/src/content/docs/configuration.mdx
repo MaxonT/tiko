@@ -122,6 +122,8 @@ server {
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection $connection_upgrade;
         proxy_read_timeout 1h;
+        # Pictures on boards are up to 25 MB; nginx takes 1 MB by default.
+        client_max_body_size 26m;
     }
 }
 ```

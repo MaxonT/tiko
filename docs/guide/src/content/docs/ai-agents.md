@@ -30,7 +30,7 @@ With a key that can also write, it can:
 - **Tidy what is there:** colours, bold, text size, opacity, rotation: "make the headings bold and colour the blocked frame pink".
 - **Set reminders,** at a time or for when a task on the board moves: "remind me at 3 pm to call about DEMO-4", "tell me when DEMO-2 leaves In progress". A reminder rings in tiko while the board is open in a tab; the agent cannot reach you anywhere else.
 
-What people made stays theirs: the agent may move and restyle your elements, but it changes the words of, and removes, only what it added itself. Your notes keep their text whatever it is told.
+What people made stays theirs: the agent may move and restyle your elements, but it changes the words of, and removes, only what was added through the API with your keys. Notes people made by hand keep their text whatever it is told.
 
 :::tip[Start with a key that only reads]
 Give one that writes when you want the agent to arrange things.

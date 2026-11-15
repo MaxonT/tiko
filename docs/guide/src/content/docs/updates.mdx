@@ -44,7 +44,7 @@ After a good update tiko removes images older than the previous release. The dis
 | A new container does not start within 2 minutes | Goes back on its own: starts the previous containers again and restores the database from the dump. About says the update failed and shows its log. |
 | The disk is too full for the dump | Does not start the update; About tells you how much space it needs. |
 | The disk fills up during the download | The download fails before any container is touched; the running version stays as it was. |
-| Your own Postgres server in `DATABASE_URL` | Does not start the update, since there is no `db` container to dump. Back the database up yourself and run the installer; see [Your own Postgres server](../data-and-upgrades/#your-own-postgres-server). |
+| Your own Postgres server in `DATABASE_URL` | The update still runs, but its dump is of the local `db` container, not your server. Turn one-click updates off, back your server up yourself and run the installer; see [Your own Postgres server](../data-and-upgrades/#your-own-postgres-server). |
 
 :::note[One more restart after a one-click update]
 The first `docker compose up -d` you run by hand after a one-click update recreates `api` and `web` once more, so tiko is down for about 10 seconds. Compose recognizes its containers by a hash of the whole service config, and the updater cannot compute that hash for the new version. Data is not affected, and the next `up` leaves the containers alone. Restarts of the host or of Docker do not trigger it.
@@ -116,7 +116,7 @@ The one-line installers ask "Turn on one-click updates?", yes by default, and st
 |---|---|
 | Install without it | `--no-updater` (`-NoUpdater` on Windows), or `TIKO_UPDATER=no` |
 | Change the stored answer | Run the installer again with `TIKO_UPDATER=yes` or `TIKO_UPDATER=no` |
-| Turn it off later | Set `COMPOSE_PROFILES=` in `.env` in the tiko folder, then run `docker compose up -d --remove-orphans` |
+| Turn it off later | Set `COMPOSE_PROFILES=` in `.env` in the tiko folder, then run `docker compose rm -sf updater` and `docker compose up -d --remove-orphans` |
 | Turn it on later | Set `COMPOSE_PROFILES=updater` in `.env`, then run `docker compose up -d` |
 
 Without the updater, About tells you to run the installer again, and the steps in [Upgrade by hand](../data-and-upgrades/#upgrade-by-hand) still work.

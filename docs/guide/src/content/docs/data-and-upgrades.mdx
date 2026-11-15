@@ -118,7 +118,7 @@ Before you start:
 - a database of tiko's own;
 - a role that owns the database and may create roles.
 
-At its first start tiko creates two roles without login, `tiko_app` and `tiko_jobs`, and switches to them for its work, so row-level security keeps workspaces apart. It refuses to start when either of them is a superuser or has `BYPASSRLS`.
+At its first start tiko creates two roles without login, `tiko_app` and `tiko_jobs`, and switches to them for its work, so row-level security keeps workspaces apart. It refuses to start when either of them is a superuser, has `BYPASSRLS` or owns a table in the `public` schema.
 
 <Steps>
 

@@ -34,12 +34,12 @@ describe('conversionOf', () => {
       type: 'code',
       position: { x: 0, y: 0 },
       width: 480,
-      data: { text: 'a\n  b', language: 'python', collapsed: true },
+      data: { title: 'Setup', text: 'a\n  b', language: 'python', collapsed: true },
     }
     expect(conversionOf(code)?.node).toMatchObject({
       type: 'text',
       width: 480,
-      data: { text: 'a\n  b' },
+      data: { text: 'Setup\na\n  b' },
     })
   })
 

@@ -36,7 +36,7 @@ FIELDS: dict[str, tuple[str, ...]] = {
     "card": (*_PLACED, "source", "key", "task"),
     "note": (*_PLACED, "text", "color", "bold", "opacity", "rotation"),
     "text": (*_PLACED, "text", "bold", "size", "opacity", "rotation"),
-    "code": (*_PLACED, "text", "language", "collapsed"),
+    "code": (*_PLACED, "title", "text", "language", "collapsed"),
     "shape": (
         *_PLACED,
         "shape",
@@ -251,6 +251,7 @@ class BoardShape:
                 **base,
                 kind="code",
                 frame=frame,
+                title=data.title or "",
                 text=data.text,
                 language=data.language,
                 collapsed=bool(data.collapsed),

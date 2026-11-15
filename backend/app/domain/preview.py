@@ -249,6 +249,11 @@ def _node(node: Node, box: Box, words: bool) -> list[str]:
             f"<rect x='{_n(x)}' y='{_n(y)}' width='{_n(w)}' height='{_n(h)}' rx='6'"
             f" fill='{LINE}' fill-opacity='.08' stroke='{LINE}'/>"
         ]
+        if words and node.data.title:
+            out.append(
+                f"<text x='{_n(x + 10)}' y='{_n(y + 21)}' font-size='13' fill='{LINE}'>"
+                f"{_text(node.data.title[:MAX_CHARS])}</text>"
+            )
         if words and not node.data.collapsed:
             out.append(_lines_svg(_lines(node.data.text), x + 10, y + CODE_HEAD, 13, LINE, True))
         return out

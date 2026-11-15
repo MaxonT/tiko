@@ -238,7 +238,7 @@ def test_a_code_block_reads_as_code(app, admin):
         "type": "code",
         "position": {"x": 0, "y": 0},
         "width": 480,
-        "data": {"text": "print(1)", "language": "python"},
+        "data": {"title": "Hello", "text": "print(1)", "language": "python"},
     }
     board_id = board(admin, doc={"nodes": [code], "edges": []})
     key = with_key(app, make_key(admin)["token"])
@@ -252,6 +252,7 @@ def test_a_code_block_reads_as_code(app, admin):
         "h": None,
         "frame": None,
         "editable": False,
+        "title": "Hello",
         "text": "print(1)",
         "language": "python",
         "collapsed": False,

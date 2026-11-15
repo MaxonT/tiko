@@ -93,11 +93,16 @@ export function buildIndex(nodes: AppNode[], tasks: Record<string, Task>): Entry
       case 'sticky':
       case 'shape':
       case 'text':
-      case 'code':
         if (node.data.text.trim()) {
           push({ ...base, kind: node.type, text: node.data.text, context: frameOf(node) })
         }
         break
+      case 'code': {
+        // The title leads, so a result names the block the way its folded header does.
+        const text = [node.data.title, node.data.text].filter((part) => part?.trim()).join('\n')
+        if (text) push({ ...base, kind: 'code', text, context: frameOf(node) })
+        break
+      }
       case 'frame':
         push({ ...base, kind: 'frame', text: node.data.title || UNTITLED_FRAME })
         break

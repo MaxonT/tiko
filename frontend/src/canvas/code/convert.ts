@@ -22,11 +22,10 @@ export function conversionOf(node: AppNode): Conversion | null {
     }
   }
   if (node.type === 'code') {
-    if (node.data.text.length > TEXT_MAX) return null
-    return {
-      to: 'text',
-      node: { ...base, type: 'text', width: node.width, data: { text: node.data.text } },
-    }
+    // The title becomes the first line, so turning into text loses nothing.
+    const text = node.data.title ? `${node.data.title}\n${node.data.text}` : node.data.text
+    if (text.length > TEXT_MAX) return null
+    return { to: 'text', node: { ...base, type: 'text', width: node.width, data: { text } } }
   }
   return null
 }

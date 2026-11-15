@@ -10,24 +10,14 @@ import { memo, useEffect, useMemo, useState, type CSSProperties, type KeyboardEv
 import { toast } from 'sonner'
 import { takeFresh } from '@/canvas/editing'
 import { indent } from '@/canvas/code/indent'
-import {
-  CODE_MAX_CHARS,
-  LANGUAGE_NAMES,
-  LANGUAGES,
-  type CodeLanguage,
-} from '@/canvas/code/languages'
+import { CODE_MAX_CHARS, LANGUAGE_NAMES, type CodeLanguage } from '@/canvas/code/languages'
 import type { Token } from '@/canvas/code/highlight'
+import { LanguagePicker } from '@/canvas/code/LanguagePicker'
+import { EditableText } from '@/canvas/nodes/EditableText'
 import { Handles } from '@/canvas/nodes/Handles'
 import { useReadOnly } from '@/canvas/readonly'
 import type { CodeNode as CodeNodeType } from '@/canvas/types'
 import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 
 // One look for the shown code and the field over it, so the caret sits on its letters.
@@ -104,9 +94,14 @@ function lineCount(text: string) {
   return `${count} ${count === 1 ? 'line' : 'lines'}`
 }
 
-function CodeNodeView({ id, data, selected }: NodeProps<CodeNodeType>) {
-  const { updateNodeData } = useReactFlow()
+function CodeNodeView({ id, data, selected, height }: NodeProps<CodeNodeType>) {
+  const { updateNode, updateNodeData } = useReactFlow()
   const readOnly = useReadOnly()
+  // The height follows the code. A stored one, left by an older build, pins the box: folding
+  // then shrinks the block inside it and arrows stay at the old middle.
+  useEffect(() => {
+    if (height != null && !readOnly) updateNode(id, { height: undefined })
+  }, [height, id, readOnly, updateNode])
   const [editing, setEditing] = useState(() => takeFresh(id))
   const [draft, setDraft] = useState(data.text)
   const [copied, setCopied] = useState(false)
@@ -156,6 +151,7 @@ function CodeNodeView({ id, data, selected }: NodeProps<CodeNodeType>) {
   }
 
   const firstLine = data.text.split('\n', 1)[0]
+  const editable = selected && !readOnly
   return (
     <div className="relative w-full">
       {selected && !readOnly && <WidthGrips />}
@@ -166,37 +162,33 @@ function CodeNodeView({ id, data, selected }: NodeProps<CodeNodeType>) {
         )}
       >
         <div className="text-muted-foreground flex h-8 items-center gap-1 border-b px-1.5 text-xs">
-          {selected && !readOnly ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="nodrag h-6 gap-1 px-1.5 text-xs">
-                  {LANGUAGE_NAMES[data.language]}
-                  <ChevronDown className="size-3" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="max-h-72 overflow-y-auto">
-                <DropdownMenuRadioGroup
-                  value={data.language}
-                  onValueChange={(language) => updateNodeData(id, { language })}
-                >
-                  {LANGUAGES.map((language) => (
-                    <DropdownMenuRadioItem key={language} value={language}>
-                      {LANGUAGE_NAMES[language]}
-                    </DropdownMenuRadioItem>
-                  ))}
-                </DropdownMenuRadioGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
+          {editable ? (
+            <LanguagePicker
+              value={data.language}
+              onPick={(language) => updateNodeData(id, { language })}
+            />
           ) : (
-            <span className="px-1.5">{LANGUAGE_NAMES[data.language]}</span>
+            <span className="shrink-0 px-1.5">{LANGUAGE_NAMES[data.language]}</span>
           )}
-          {collapsed && (
-            <span className="min-w-0 flex-1 truncate font-mono">
-              {firstLine}
-              <span className="font-sans"> · {lineCount(data.text)}</span>
-            </span>
-          )}
-          <span className={cn(!collapsed && 'flex-1')} />
+          <span className="flex min-w-0 flex-1 items-center gap-1">
+            {editable ? (
+              <EditableText
+                nodeId={id}
+                value={data.title ?? ''}
+                field="title"
+                maxLength={200}
+                placeholder="Add a title"
+                singleLine
+                startFresh={false}
+                className="text-foreground min-w-0 truncate font-medium whitespace-nowrap"
+              />
+            ) : data.title ? (
+              <span className="text-foreground min-w-0 truncate font-medium">{data.title}</span>
+            ) : (
+              collapsed && <span className="min-w-0 truncate font-mono">{firstLine}</span>
+            )}
+            {collapsed && <span className="shrink-0">· {lineCount(data.text)}</span>}
+          </span>
           <Button
             variant="ghost"
             size="icon"

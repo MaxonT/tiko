@@ -19,10 +19,21 @@ beforeAll(() => {
 
 let current: AppNode[] = []
 
-function Board({ data }: { data: CodeData }) {
+type Options = { readOnly?: boolean; selected?: boolean; height?: number }
+
+function Board({ data, selected, height }: { data: CodeData } & Options) {
   const [nodes, , onNodesChange] = useNodesState<AppNode>([
-    // A stored height: jsdom measures nothing, and xyflow hides a node it has not measured.
-    { id: 'k', type: 'code', position: { x: 0, y: 0 }, width: 480, height: 120, data },
+    // jsdom measures nothing, and xyflow hides a node it has not measured.
+    {
+      id: 'k',
+      type: 'code',
+      position: { x: 0, y: 0 },
+      width: 480,
+      measured: { width: 480, height: 120 },
+      height,
+      data,
+      selected,
+    },
   ])
   useEffect(() => {
     current = nodes
@@ -30,12 +41,12 @@ function Board({ data }: { data: CodeData }) {
   return <ReactFlow nodes={nodes} nodeTypes={nodeTypes} onNodesChange={onNodesChange} />
 }
 
-function show(data: CodeData, readOnly = false) {
+function show(data: CodeData, { readOnly = false, ...node }: Options = {}) {
   render(
     <ReadOnlyContext.Provider value={readOnly}>
       <ReactFlowProvider>
         <div style={{ width: 800, height: 600 }}>
-          <Board data={data} />
+          <Board data={data} {...node} />
         </div>
       </ReactFlowProvider>
     </ReadOnlyContext.Provider>,
@@ -77,7 +88,7 @@ test('folding is saved and shows the first line with the line count', () => {
 test('a viewer unfolds a block for themselves only and can copy it', async () => {
   const writeText = vi.fn().mockResolvedValue(undefined)
   Object.assign(navigator, { clipboard: { writeText } })
-  show({ text: 'secret = 1', language: 'plain', collapsed: true }, true)
+  show({ text: 'secret = 1', language: 'plain', collapsed: true }, { readOnly: true })
   fireEvent.click(screen.getByRole('button', { name: 'Unfold code' }))
   expect(saved().collapsed).toBe(true)
   expect(screen.getByRole('button', { name: 'Fold code' })).toBeTruthy()
@@ -85,4 +96,30 @@ test('a viewer unfolds a block for themselves only and can copy it', async () =>
   expect(writeText).toHaveBeenCalledWith('secret = 1')
   fireEvent.doubleClick(screen.getByText('secret = 1'))
   expect(screen.queryByRole('textbox')).toBeNull()
+})
+
+test('a folded block shows its title instead of its first line', () => {
+  show({
+    title: 'Health check',
+    text: 'curl -s localhost/health',
+    language: 'bash',
+    collapsed: true,
+  })
+  expect(screen.getByText('Health check')).toBeTruthy()
+  expect(screen.queryByText('curl -s localhost/health')).toBeNull()
+})
+
+test('typing in the language list narrows it and Enter picks the first match', () => {
+  show({ text: 'x = 1', language: 'plain' }, { selected: true })
+  fireEvent.click(screen.getByRole('button', { name: /Plain text/ }))
+  const find = screen.getByRole('combobox', { name: 'Find a language' })
+  fireEvent.change(find, { target: { value: 'py' } })
+  expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(['Python'])
+  fireEvent.keyDown(find, { key: 'Enter' })
+  expect(saved().language).toBe('python')
+})
+
+test('a stored height is dropped, so the block follows its code', async () => {
+  show({ text: 'x', language: 'plain' }, { height: 118 })
+  await waitFor(() => expect(current[0].height).toBeUndefined())
 })

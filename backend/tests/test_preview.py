@@ -177,9 +177,9 @@ def test_a_code_block_is_drawn_in_monospace_and_folded_without_its_lines():
     doc = board(
         [
             node("k", "code", {"text": "def f():\n    return 1", "language": "python"}),
-            node("z", "code", {"text": "SECRET", "collapsed": True}, 0, 300),
+            node("z", "code", {"title": "Health", "text": "SECRET", "collapsed": True}, 0, 300),
         ]
     )
     svg, root = parsed(doc)
-    assert texts(root) == ["def f():return 1"]
+    assert texts(root) == ["def f():return 1", "Health"]
     assert "font-family='monospace'" in svg

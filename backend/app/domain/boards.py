@@ -196,6 +196,8 @@ CodeLanguage = Literal[
 
 
 class CodeData(_Strict):
+    # Shown in place of the first line when the block is folded.
+    title: absent_or(Annotated[str, Field(max_length=200)]) = None
     text: str = Field(default="", max_length=10_000)
     language: CodeLanguage = "plain"
     collapsed: absent_or(bool) = None

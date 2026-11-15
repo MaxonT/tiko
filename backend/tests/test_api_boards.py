@@ -385,7 +385,7 @@ CODE = {
     "type": "code",
     "position": {"x": 0, "y": 400},
     "width": 480,
-    "data": {"text": "SELECT 1;\n", "language": "sql", "collapsed": True},
+    "data": {"title": "Ping", "text": "SELECT 1;\n", "language": "sql", "collapsed": True},
 }
 
 
@@ -402,6 +402,7 @@ def test_code_block_round_trip(client):
         {"text": "", "language": "cobol"},
         {"text": "x" * 10_001, "language": "plain"},
         {"text": "", "language": "plain", "collapsed": None},
+        {"text": "", "language": "plain", "title": "x" * 201},
     ],
 )
 def test_bad_code_block_rejected(client, data):

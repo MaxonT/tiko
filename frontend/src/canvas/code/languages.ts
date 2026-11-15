@@ -72,3 +72,40 @@ export const LANGUAGE_NAMES: Record<CodeLanguage, string> = {
 export const LANGUAGES = Object.keys(LANGUAGE_NAMES) as CodeLanguage[]
 
 export const grammarOf = (language: CodeLanguage): Grammar | null => GRAMMARS[language]
+
+// Short names people type for a language; the picker finds the language by them too.
+const ALIASES: Partial<Record<CodeLanguage, string[]>> = {
+  bash: ['sh', 'shell', 'zsh'],
+  csharp: ['cs'],
+  cpp: ['c++'],
+  dockerfile: ['docker'],
+  go: ['golang'],
+  hcl: ['terraform', 'tf'],
+  javascript: ['js', 'jsx'],
+  markdown: ['md'],
+  plain: ['text', 'txt'],
+  powershell: ['ps', 'pwsh'],
+  python: ['py'],
+  ruby: ['rb'],
+  rust: ['rs'],
+  typescript: ['ts'],
+  yaml: ['yml'],
+}
+
+/** Languages for what was typed: exact names first, then names that start with it, then the rest that hold it. */
+export function matchLanguages(query: string): CodeLanguage[] {
+  const typed = query.trim().toLowerCase()
+  if (!typed) return LANGUAGES
+  const words = (language: CodeLanguage) => [
+    LANGUAGE_NAMES[language].toLowerCase(),
+    ...(ALIASES[language] ?? []),
+  ]
+  const rank = (language: CodeLanguage) => {
+    const all = words(language)
+    if (all.includes(typed)) return 0
+    if (all.some((word) => word.startsWith(typed))) return 1
+    return all.some((word) => word.includes(typed)) ? 2 : 3
+  }
+  // A stable sort keeps the list's own order inside each rank.
+  return LANGUAGES.filter((language) => rank(language) < 3).sort((a, b) => rank(a) - rank(b))
+}

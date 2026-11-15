@@ -565,3 +565,83 @@ def test_only_the_apis_reminders_change_and_go_with_their_card(admin, setup):
     assert gone.status_code == 204
     left = elements(key, board_id)
     assert "agent-c" not in left and "agent-r" not in left and "t-person" in left
+
+
+PERSONS_CODE = {
+    "nodes": [
+        {
+            "id": "k1",
+            "type": "code",
+            "position": {"x": 0, "y": 0},
+            "width": 480,
+            "data": {"text": "x = 1", "language": "plain"},
+        }
+    ],
+    "edges": [],
+}
+
+
+def test_code_blocks_are_added_and_changed(app, admin, setup):
+    board_id, key = setup
+    long = "print(1)\n" * 700
+    made = add(
+        key,
+        board_id,
+        {"id": "agent-k", "kind": "code", "text": long, "language": "python", "title": "Loop"},
+        {"id": "agent-k2", "kind": "code", "text": "a\nb", "marked": [2], "numbered": True},
+    )
+    assert made.status_code == 200, made.json()
+    now = elements(key, board_id)
+    block = now["agent-k"]
+    assert (block["kind"], block["language"], block["title"], block["w"]) == (
+        "code",
+        "python",
+        "Loop",
+        480,
+    )
+    assert block["text"] == long and block["editable"] is True
+    assert (now["agent-k2"]["language"], now["agent-k2"]["marked"]) == ("plain", [2])
+    url = f"/api/v1/boards/{board_id}/elements"
+    changed = key.patch(
+        url,
+        json={"changes": [{"id": "agent-k", "text": "x", "language": "go", "collapsed": True}]},
+    )
+    assert changed.status_code == 200, changed.json()
+    block = elements(key, board_id)["agent-k"]
+    assert (block["text"], block["language"], block["collapsed"]) == ("x", "go", True)
+    # A person's block: how it shows its code is anyone's, the code is theirs.
+    persons = board(admin, "Persons", PERSONS_CODE)
+    shown = key.patch(
+        f"/api/v1/boards/{persons}/elements",
+        json={"changes": [{"id": "k1", "language": "python", "numbered": True, "marked": [1]}]},
+    )
+    assert shown.status_code == 200, shown.json()
+    words = key.patch(
+        f"/api/v1/boards/{persons}/elements", json={"changes": [{"id": "k1", "text": "y = 2"}]}
+    )
+    assert (words.status_code, code(words)) == (409, "not_api_element")
+
+
+@pytest.mark.parametrize(
+    "item",
+    [
+        {"kind": "note", "text": "x", "language": "python"},
+        {"kind": "note", "text": "x" * 5001},
+        {"kind": "code", "text": "x", "h": 100},
+        {"kind": "code", "text": "x", "language": "cobol"},
+        {"kind": "code", "text": "x", "marked": [0]},
+        {"kind": "code", "text": "x" * 10_001},
+    ],
+)
+def test_a_code_field_off_its_block_is_refused(setup, item):
+    board_id, key = setup
+    refused = add(key, board_id, item)
+    assert (refused.status_code, code(refused)) == (422, "invalid_request")
+
+
+def test_a_note_takes_no_code_change(setup):
+    board_id, key = setup
+    refused = key.patch(
+        f"/api/v1/boards/{board_id}/elements", json={"changes": [{"id": "n1", "marked": [1]}]}
+    )
+    assert (refused.status_code, code(refused)) == (422, "validation_failed")

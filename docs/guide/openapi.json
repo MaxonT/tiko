@@ -1420,6 +1420,86 @@
       },
       "Change": {
         "properties": {
+          "language": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "plain",
+                  "bash",
+                  "c",
+                  "csharp",
+                  "cpp",
+                  "css",
+                  "dockerfile",
+                  "go",
+                  "graphql",
+                  "hcl",
+                  "html",
+                  "java",
+                  "javascript",
+                  "json",
+                  "kotlin",
+                  "markdown",
+                  "php",
+                  "powershell",
+                  "python",
+                  "ruby",
+                  "rust",
+                  "sql",
+                  "swift",
+                  "toml",
+                  "tsx",
+                  "typescript",
+                  "xml",
+                  "yaml"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "collapsed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Collapsed"
+          },
+          "numbered": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Numbered"
+          },
+          "marked": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer",
+                  "maximum": 10000.0,
+                  "minimum": 1.0
+                },
+                "type": "array",
+                "maxItems": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Marked"
+          },
           "bold": {
             "anyOf": [
               {
@@ -1613,7 +1693,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "maxLength": 5000
+                "maxLength": 10000
               },
               {
                 "type": "null"
@@ -2597,6 +2677,86 @@
       },
       "NewElement": {
         "properties": {
+          "language": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "plain",
+                  "bash",
+                  "c",
+                  "csharp",
+                  "cpp",
+                  "css",
+                  "dockerfile",
+                  "go",
+                  "graphql",
+                  "hcl",
+                  "html",
+                  "java",
+                  "javascript",
+                  "json",
+                  "kotlin",
+                  "markdown",
+                  "php",
+                  "powershell",
+                  "python",
+                  "ruby",
+                  "rust",
+                  "sql",
+                  "swift",
+                  "toml",
+                  "tsx",
+                  "typescript",
+                  "xml",
+                  "yaml"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "collapsed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Collapsed"
+          },
+          "numbered": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Numbered"
+          },
+          "marked": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer",
+                  "maximum": 10000.0,
+                  "minimum": 1.0
+                },
+                "type": "array",
+                "maxItems": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Marked"
+          },
           "bold": {
             "anyOf": [
               {
@@ -2695,6 +2855,7 @@
               "card",
               "note",
               "text",
+              "code",
               "shape",
               "frame",
               "arrow",
@@ -2770,7 +2931,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "maxLength": 5000
+                "maxLength": 10000
               },
               {
                 "type": "null"

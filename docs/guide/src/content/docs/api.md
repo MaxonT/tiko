@@ -70,14 +70,14 @@ A key with read and write access can change the boards you can edit:
 |---|---|---|
 | `POST /api/v1/boards` | Makes a new board | [Make Board](../reference/operations/make-board/) |
 | `PATCH /api/v1/boards/<id>` with `{"name": "…"}` | Renames a board | [Rename](../reference/operations/rename/) |
-| `POST /api/v1/boards/<id>/elements` | Adds notes, text, shapes, frames, cards (by a task key or link) and arrows | [Add Elements](../reference/operations/add-elements/) |
+| `POST /api/v1/boards/<id>/elements` | Adds notes, text, code blocks, shapes, frames, cards (by a task key or link) and arrows | [Add Elements](../reference/operations/add-elements/) |
 | `PATCH /api/v1/boards/<id>/elements` | Moves and resizes elements, puts them in and out of frames, and changes their look | [Change Elements](../reference/operations/change-elements/) |
 | `POST /api/v1/boards/<id>/arrange` | Lays cards out as a grid or in a column per status, in a frame or below the board. Only the cards you name move. | [Arrange](../reference/operations/arrange/) |
 | `POST /api/v1/boards/<id>/elements/remove` | Removes elements | [Remove Elements](../reference/operations/remove-elements/) |
 
 - **Placing:** without `x` and `y`, new elements are laid out in rows below what is on the board, or inside the frame you name, which grows to hold them.
 - **Retries:** give each element your own `id` and a retry never adds it twice.
-- **Look:** `color`, `bold`, `size` (`small`, `medium`, `large`), `opacity` (10 to 100 in steps of 5), `rotation` (degrees), and a shape's `stroke` (1, 1.5, 3) and `dash`. New elements take the same fields. A field an element does not have in the web app, such as bold on a frame, is refused.
+- **Look:** `color`, `bold`, `size` (`small`, `medium`, `large`), `opacity` (10 to 100 in steps of 5), `rotation` (degrees), and a shape's `stroke` (1, 1.5, 3) and `dash`. A code block's `language`, `collapsed`, `numbered` and `marked` lines count as its look too, so a key may fix the language of a block a person made. New elements take the same fields; a code block holds up to 10,000 characters of `text`. A field an element does not have in the web app, such as bold on a frame, is refused.
 
 ```bash
 curl -H "Authorization: Bearer tiko_…" -H "Content-Type: application/json" \

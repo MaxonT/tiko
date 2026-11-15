@@ -122,7 +122,7 @@ Without parameters, an outline:
 | `card` | `source`, `key`, `task`: `{title, status, assignee, due, url, fetched_at}`, or `null` when the person's credentials cannot read it |
 | `note` | `text`, `color` |
 | `text` | `text` |
-| `code` | `title` (empty for none), `text`, `language` (one of the 28 ids of spec 049, `plain` for none), `collapsed`, `numbered`, `marked` (line numbers from 1); read-only until spec 049 slice code-api |
+| `code` | `title` (empty for none), `text`, `language` (one of the 28 ids of spec 049, `plain` for none), `collapsed`, `numbered`, `marked` (line numbers from 1) |
 | `shape` | `shape` (`rectangle`, `rounded`, `ellipse`, `rhombus`, `triangle`, `parallelogram`, `hexagon`, `cylinder`), `text`, `color` |
 | `frame` | `title`, `color` |
 | `arrow` | `from`, `to`: element ids, or `null` for an end that points at no element; no `x`, `y`, `w`, `h`, `frame` |
@@ -149,7 +149,8 @@ Without parameters, an outline:
 - `id` is optional: `[A-Za-z0-9-]{1,64}`, not a name `Object.prototype` holds, free among elements and arrows. Without one, a retry adds the element again.
 - `x` and `y` come together or not at all. Without them, the call's new elements are placed in a grid of 4 per row below everything on the board, or below the content of `frame` when it is given; the frame grows downwards to hold them.
 - A card takes `ref`: a key or a link, resolved the way the card tool resolves it. At most 50 cards per call.
-- Sizes: `w` and `h` within 1 – 20 000 for notes, shapes and frames, `w` only for text; cards take none. Coordinates within ±1 000 000.
+- A code block (spec 049) takes `text` up to 10 000 characters, `language` (default `plain`), `title`, `collapsed`, `numbered` and `marked`; those fields on any other kind, or `text` over 5000 characters on one, answer `422`.
+- Sizes: `w` and `h` within 1 – 20 000 for notes, shapes and frames, `w` only for text and code; cards take none. Coordinates within ±1 000 000.
 - An arrow joins two elements of the board or of the same call, never an element to itself. v1 makes no arrow with a free end.
 - Answers `200` with `{"elements": [...], "created": [ids]}`: the elements as they now stand, and which of them this call made. A re-add of an id the person already added through the API answers with the element as it is and leaves it out of `created`.
 
@@ -163,6 +164,7 @@ Without parameters, an outline:
 ```
 
 - On any element: `x`, `y` (together), `w`, `h` (as for adding), `frame`.
+- On any code block: `language`, `collapsed`, `numbered`, `marked`.
 - Only on elements added through the API: `text`, `title`, `color`, `shape`.
 - `frame: null` takes the element out of its frame and keeps it where it is on the board. Leaving `frame` out never changes it, even when `x` and `y` move the element outside the frame. Moving a frame moves its content.
 - Answers with the changed elements.

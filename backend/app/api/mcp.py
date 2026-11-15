@@ -22,6 +22,7 @@ from app.api.v1.tasks import SearchIn, SearchOut
 from app.domain.api_gantt import narrow
 from app.domain.api_keys import KeyIdentity
 from app.domain.batch import Change, NewElement
+from app.domain.boards import CodeLanguage
 from app.domain.errors import DomainError, NotFound
 from app.domain.workspaces import in_workspace
 
@@ -362,6 +363,40 @@ def create(app: FastAPI) -> TikoMCP:
         return write(ctx, board, lambda request: adds(board, items, request))
 
     @server.tool(annotations=_ADDS)
+    def add_code(
+        ctx: Context,
+        board: Annotated[str, _BOARD],
+        code: Annotated[str, Field(max_length=10_000, description="The code, as it is.")],
+        language: Annotated[
+            CodeLanguage,
+            Field(description="Its language for the colors; plain for none."),
+        ] = "plain",
+        title: Annotated[
+            str | None,
+            Field(max_length=200, description="A title, shown when the block is folded."),
+        ] = None,
+        marked: Annotated[
+            list[int] | None,
+            Field(description="Lines to mark, counted from 1; turns line numbers on."),
+        ] = None,
+        frame: Annotated[str | None, _FRAME] = None,
+        id: Annotated[str | None, _ID] = None,
+    ) -> dict[str, Any]:
+        """Puts a code block on a board, below what is there or in a frame: a config, a request,
+        a query next to the cards it belongs to, colored in its language."""
+        given = {"title": title, "marked": marked, "numbered": True if marked else None, "id": id}
+        items = [
+            NewElement(
+                kind="code",
+                text=code,
+                language=language,
+                frame=frame,
+                **{name: value for name, value in given.items() if value is not None},
+            )
+        ]
+        return write(ctx, board, lambda request: adds(board, items, request))
+
+    @server.tool(annotations=_ADDS)
     def add_frame(
         ctx: Context,
         board: Annotated[str, _BOARD],
@@ -441,8 +476,9 @@ def create(app: FastAPI) -> TikoMCP:
         changes: Annotated[list[Change], Field(min_length=1, max_length=200)],
     ) -> dict[str, Any]:
         """Moves, resizes or puts elements in and out of frames, and restyles any element:
-        colour, bold, text size, opacity, rotation, a shape's stroke and dash. Changes the text
-        of what you added; text people wrote is theirs and cannot be changed here."""
+        colour, bold, text size, opacity, rotation, a shape's stroke and dash, a code block's
+        language, folding, line numbers and marked lines. Changes the text of what you added;
+        text people wrote is theirs and cannot be changed here."""
         body = elements.ChangeIn(changes=changes)
         return write(
             ctx,

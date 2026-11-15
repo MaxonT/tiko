@@ -32,7 +32,8 @@ import { ClientRouter } from 'astro:transitions'
 </script>
 
 <script>
-  // Sections that moved off a page to their own page: old links with the anchor still land on them.
+  // Sections that moved or were renamed: old links with the anchor still land on them.
+  // A target with its own `#` replaces the anchor; a bare page keeps it.
   const MOVED: Record<string, Record<string, string>> = {
     '/gantt/': {
       stages: '/gantt/stages/',
@@ -43,11 +44,43 @@ import { ClientRouter } from 'astro:transitions'
       'time-off': '/gantt/working-time/',
       workload: '/gantt/working-time/',
     },
+    '/adding-tasks/': {
+      'around-the-cards': '/on-the-board/#add-elements',
+      'ways-to-add-a-card': '/adding-tasks/#add-cards-by-key-link-or-query',
+      paste: '/adding-tasks/#paste-tasks',
+      'card-details': '/adding-tasks/#read-a-card',
+    },
+    '/data-and-upgrades/': {
+      updates: '/data-and-upgrades/#upgrade-by-hand',
+    },
+    '/monitoring/': {
+      'letting-prometheus-in': '/monitoring/#let-prometheus-in',
+    },
+    '/moving-boards/': {
+      export: '/moving-boards/#export-a-board',
+      import: '/moving-boards/#import-a-board',
+    },
+    '/search/': {
+      filters: '/search/#filter-the-results',
+      'commands-and-boards': '/search/#run-commands',
+    },
+    '/working-together/': {
+      'three-ways-to-share-a-board': '/working-together/#share-a-board',
+      viewers: '/working-together/#roles',
+      'public-link': '/working-together/#share-a-public-link',
+      'who-is-here': '/working-together/live-editing/#see-who-is-here',
+      'what-merges': '/working-together/live-editing/',
+      undo: '/working-together/live-editing/',
+      'your-view-is-yours': '/working-together/live-editing/',
+      'when-the-connection-drops': '/working-together/live-editing/',
+      reactions: '/working-together/reactions-and-voting/#react-to-a-note',
+      voting: '/working-together/reactions-and-voting/#run-a-vote',
+    },
   }
   const follow = () => {
     const anchor = location.hash.slice(1)
-    const page = MOVED[location.pathname]?.[anchor]
-    if (page) location.replace(`${page}#${anchor}`)
+    const target = MOVED[location.pathname]?.[anchor]
+    if (target) location.replace(target.includes('#') ? target : `${target}#${anchor}`)
   }
   document.addEventListener('astro:page-load', follow)
   // A hash typed on the page itself changes it without a page load.
@@ -147,4 +180,36 @@ import { ClientRouter } from 'astro:transitions'
     },
     { capture: true, passive: true },
   )
+</script>
+
+<script>
+  // API reference: each response folds under its status, coloured by class; only success stays open.
+  const fold = () => {
+    const heading = document.getElementById('responses')?.closest('.sl-heading-wrapper')
+    let node = heading?.nextElementSibling
+    while (node?.matches('section.sl-openapi-section')) {
+      const section = node
+      node = node.nextElementSibling
+      if (section.querySelector(':scope > .tiko-response')) continue
+      const title = section.querySelector(':scope > .sl-heading-wrapper')
+      const status = title?.querySelector('h3')?.id ?? ''
+      const box = document.createElement('details')
+      box.className = 'tiko-response'
+      box.dataset.status = /^[1-5]/.test(status) ? `${status[0]}xx` : 'default'
+      box.open = status.startsWith('2')
+      const summary = document.createElement('summary')
+      summary.append(...[title, section.querySelector(':scope > .sl-openapi-section-pre-panel')].filter((el) => el !== null))
+      box.append(summary, ...section.children)
+      section.append(box)
+    }
+    reveal()
+  }
+  // A link to one status, from the page's contents or elsewhere, opens it.
+  const reveal = () => {
+    const target = location.hash && document.getElementById(decodeURIComponent(location.hash.slice(1)))
+    const box = target ? target.closest('details.tiko-response') : null
+    if (box instanceof HTMLDetailsElement) box.open = true
+  }
+  document.addEventListener('astro:page-load', fold)
+  addEventListener('hashchange', reveal)
 </script>

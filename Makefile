@@ -1,4 +1,4 @@
-.PHONY: help up down backup logs dev-db dev-api dev-web test lint fmt check smoke release clean-clone render-validate audit licenses
+.PHONY: help up down backup logs dev-db dev-api dev-web test lint fmt check openapi smoke release clean-clone render-validate audit licenses
 
 # The ports of this checkout's stack: a worktree set up by scripts/worktree-setup.sh has its own.
 # Digits only: Compose also takes a quoted value and a comment after it.
@@ -53,6 +53,11 @@ fmt:  ## auto-format
 	cd frontend && npm run fmt
 
 check: lint test  ## gate before every merge to main
+
+openapi:  ## write the API v1 schema for the guide's reference to docs/guide/openapi.json
+	cd backend && PYTHONPATH=. uv run -q python ../scripts/openapi.py > ../docs/guide/openapi.json.tmp \
+		&& mv ../docs/guide/openapi.json.tmp ../docs/guide/openapi.json \
+		|| { rm -f ../docs/guide/openapi.json.tmp; exit 1; }
 
 smoke:  ## main scenario against a running stack (make up first)
 	docker compose exec -T -e SMOKE_PASSWORD -e SMOKE_FIRST_PASSWORD api python - < scripts/smoke.py

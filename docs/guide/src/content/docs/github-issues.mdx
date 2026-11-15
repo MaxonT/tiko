@@ -3,13 +3,19 @@ title: GitHub Issues
 description: Put issues and pull requests of GitHub repositories on a board. Public ones need no token and no setup, private ones your own token.
 ---
 
+import { Steps } from '@astrojs/starlight/components'
+
 Issues and pull requests of public repositories on github.com become live cards on any tiko. There is nothing to connect: public repositories are read without a token. For private repositories each person adds [their own token](#your-own-token).
 
 ## Add a card
 
-Copy the link of an issue or a pull request and paste it on the board with `⌘V` (`Ctrl+V`), or pick the card tool (`C`) and type the link or `owner/repo#12`. Several at once work too.
+Copy the link of an issue or a pull request and paste it on the board with `⌘V` (`Ctrl+V`), or pick the card tool (`C`) and type the link or `owner/repo#12`. Several at once work too. All the forms are in [What you can add](../what-you-can-add/#github).
 
-The card shows the kind (issue or pull request), the short key `repo#12`, the title and the status. Click a card for the mini-card: the full key with the repository, the assignee, the author, the labels as chips in their GitHub colors, and a link to GitHub. On a board that also has tasks of another tracker, GitHub cards carry the GitHub mark.
+## Read a card
+
+- **On the board:** the kind (issue or pull request), the short key `repo#12`, the title and the status.
+- **The mini-card**, on click: the full key with the repository, the assignee, the author, the labels as chips in their GitHub colors, and a link to GitHub.
+- **The GitHub mark** on each GitHub card, on a board that also has tasks of another tracker.
 
 ## Statuses
 
@@ -25,9 +31,11 @@ The card shows the kind (issue or pull request), the short key `repo#12`, the ti
 
 Many projects keep the state of an open issue in a label. An open issue with one of these labels shows the label as its status:
 
-- not started: `planned`, `todo`, `to do`, `backlog`
-- in progress: `in progress`, `in-progress`, `wip`, `doing`, `in review`
-- done: `shipped`, `done`, `released`
+| Shown as | Labels |
+|---|---|
+| Not started | `planned`, `todo`, `to do`, `backlog` |
+| In progress | `in progress`, `in-progress`, `wip`, `doing`, `in review` |
+| Done | `shipped`, `done`, `released` |
 
 A closed issue is always closed, whatever its labels.
 
@@ -38,7 +46,7 @@ GitHub cards work with no token at all. There are two tokens you may add, for tw
 | | No token | Instance token | Your own token |
 |---|---|---|---|
 | Who sets it | Nobody | Whoever runs tiko | Each person, for themselves |
-| Where | | `GITHUB_TOKEN` in the environment | Settings → My tracker |
+| Where | | `GITHUB_TOKEN` in the environment | **Settings → My tracker** |
 | Public repositories | Yes | Yes | Yes |
 | Private repositories | No | No, never | The ones the token reads, shown to you only |
 | How often cards update | Every few minutes | At the board's pace | At the board's pace |
@@ -57,11 +65,15 @@ To get the board's pace back, whoever runs tiko sets `GITHUB_TOKEN` in the envir
 
 The token needs no access at all: any token raises the limit, and public repositories are readable without permissions. To create one:
 
+<Steps>
+
 1. Open [New personal access token (classic)](https://github.com/settings/tokens/new) on GitHub.
 2. Name it in **Note**, for example `tiko – public read-only`.
 3. Set **Expiration** to "No expiration", or pick a date and replace the token before it.
 4. Leave every scope unchecked.
 5. Press **Generate token** and copy it: GitHub shows it once.
+
+</Steps>
 
 A fine-grained token with "Public repositories (read-only)" access and no permissions works the same way.
 
@@ -77,7 +89,7 @@ If the limit does run out, the GitHub row turns red and says when the next try i
 
 ## Your own token
 
-A person adds their own GitHub token in Settings → My tracker. From then on:
+A person adds their own GitHub token in **Settings → My tracker**. From then on:
 
 - issues and pull requests of private repositories the token can read are live cards, added by link or key like any other;
 - all their GitHub cards, public ones too, refresh at the board's pace on the request limit of their own GitHub account, not on the one the instance shares.
@@ -88,13 +100,17 @@ The token is stored encrypted, is sent to api.github.com only and is never shown
 
 Create a fine-grained token, so that it can only read:
 
+<Steps>
+
 1. Open [New fine-grained personal access token](https://github.com/settings/personal-access-tokens/new) on GitHub.
 2. Name it, for example `tiko – read issues`, and choose an expiration.
 3. In **Resource owner** choose the account or the organization that owns the repositories. An organization may have to approve the token first.
 4. In **Repository access** choose "Only select repositories" and pick the ones you want on your boards.
 5. In **Permissions** press **Add permissions** and tick **Issues** and **Pull requests**. The list starts empty, and picking repositories alone gives the token no access to them.
 6. Check that both read "Access: Read-only". GitHub adds **Metadata** itself, so the **Repositories** tab counts 3.
-7. Press **Generate token**, copy it and paste it into Settings → My tracker.
+7. Press **Generate token**, copy it and paste it into **Settings → My tracker**.
+
+</Steps>
 
 If a card of a private repository answers "was not found on GitHub, or your token cannot read its repository", open the token on GitHub and check steps 4 to 6: the repository is picked and both permissions are there. Press **Update** after a change; the token itself stays the same, so there is nothing to enter in tiko again.
 
@@ -129,7 +145,7 @@ Everyone on the team adds their own token that reads the repository. There is no
 
 GitHub counts requests per account, not per token: a second token of yours does not add to the 5000 an hour, and your other tools spend the same limit. tiko stops asking when a tenth of your limit is left and starts again when GitHub resets it; the GitHub row of the sync indicator says so, and cards keep their last data meanwhile.
 
-If GitHub rejects your token (it expired or you revoked it), public cards keep updating without it, private ones show the key, and the GitHub row says "GitHub rejected your token". Enter a new one in Settings → My tracker.
+If GitHub rejects your token (it expired or you revoked it), public cards keep updating without it, private ones show the key, and the GitHub row says "GitHub rejected your token". Enter a new one in **Settings → My tracker**.
 
 ## Due dates
 

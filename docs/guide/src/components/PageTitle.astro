@@ -20,14 +20,16 @@ const trail = (items: Entry[]): string[] => {
   return []
 }
 const groups = trail(sidebar)
-// Every guide page has a Markdown twin at /<page>.md (src/pages/[...slug].md.ts).
+// Guide pages and API operations have a Markdown twin at /<page>.md; the reference overview does not.
+const reference = entry.id.startsWith('reference')
+const hasTwin = !reference || entry.id.startsWith('reference/operations/')
 const markdown = entry.id === 'index' ? '/index.md' : `/${entry.id}.md`
 ---
 
 {groups.length > 0 && <p class="tiko-eyebrow">{groups.join(' · ')}</p>}
 <div class="tiko-title-row">
   <h1 id="_top" class="tiko-title">{entry.data.title}</h1>
-  <CopyPage {markdown} />
+  {hasTwin && <CopyPage {markdown} />}
 </div>
 {entry.data.description && <p class="tiko-lead">{entry.data.description}</p>}
 {

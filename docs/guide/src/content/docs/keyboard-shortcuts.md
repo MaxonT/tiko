@@ -1,6 +1,6 @@
 ---
 title: Keyboard shortcuts
-description: Every tool and action has a key.
+description: Every key for tools, editing and moving around the board, in one place.
 ---
 
 Press `?` in the app to see this list. `⌘` is `Ctrl` on Windows and Linux.

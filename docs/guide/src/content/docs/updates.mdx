@@ -1,0 +1,128 @@
+---
+title: Updates
+description: How tiko tells you about a new release, how one-click updates work, and what the updater service can and cannot do.
+---
+
+import { Steps, Tabs, TabItem } from '@astrojs/starlight/components'
+
+tiko checks for new releases on its own. With one-click updates on, the server admin installs a release from the **About** button, and a small service next to tiko swaps the containers.
+
+## Learn about a release
+
+tiko asks GitHub for new releases every 30 minutes, unless `UPDATE_CHECK=false`. The check sends GitHub no data about you or your boards.
+
+A dot on the **About** button in the bottom left means a newer release is out; **Check now** in About asks right away. About lists every release you missed and marks how much each one matters:
+
+| Mark | Means | What you see |
+|---|---|---|
+| **Security** | Fixes a security issue | A red dot, and a banner for the server admin until they update. Closed, it comes back the next day. |
+| **Breaking changes** | Something works differently | About asks you to read the notes before you update |
+| **Hotfix** | Fixes a bug in the release before it | |
+| No mark | New features and fixes | |
+
+If you are several releases behind, About shows the most important mark among them.
+
+## Update with one click
+
+The server admin opens **About** and clicks **Update now**. Everyone else sees "Ask the server admin to update". Then tiko:
+
+<Steps>
+
+1. Downloads the new release and shows the progress in About.
+2. Stops the `api` container and dumps the database to `data/backups/pre-update-<version>.dump`, so the dump holds every change made up to that moment. It keeps the 3 newest of these dumps and leaves other backups alone.
+3. Starts `api` on the new release, then restarts the `web` container the same way.
+4. Shows a **Reload** button in About once the new version serves the page. Other people get a notice with a **Reload** button, so nobody loses a change they have not saved yet.
+
+</Steps>
+
+After a good update tiko removes images older than the previous release. The disk then holds two releases: the one running and the one before it.
+
+### When something goes wrong
+
+| What happens | What tiko does |
+|---|---|
+| A new container does not start within 2 minutes | Goes back on its own: starts the previous containers again and restores the database from the dump. About says the update failed and shows its log. |
+| The disk is too full for the dump | Does not start the update; About tells you how much space it needs. |
+| The disk fills up during the download | The download fails before any container is touched; the running version stays as it was. |
+| Your own Postgres server in `DATABASE_URL` | The update still runs, but its dump is of the local `db` container, not your server. Turn one-click updates off, back your server up yourself and run the installer; see [Your own Postgres server](../data-and-upgrades/#your-own-postgres-server). |
+
+:::note[One more restart after a one-click update]
+The first `docker compose up -d` you run by hand after a one-click update recreates `api` and `web` once more, so tiko is down for about 10 seconds. Compose recognizes its containers by a hash of the whole service config, and the updater cannot compute that hash for the new version. Data is not affected, and the next `up` leaves the containers alone. Restarts of the host or of Docker do not trigger it.
+:::
+
+### When a release needs the installer
+
+Some releases change more than the `api` and `web` containers, for example by adding a container next to them. **Update now** cannot install those, so their notes carry the line `Requires: installer`. When any release you missed has it, About shows the installer command instead of the button, and nothing is stopped. About does the same when tiko is more than 100 releases behind, because it cannot see the marks that far back.
+
+Run the installer again on the server, with `--dir` (`-Dir` on Windows) if tiko lives in another folder:
+
+<Tabs syncKey="os">
+<TabItem label="Linux">
+
+```bash
+curl -fsSL https://tiko.run/install.sh | sh
+```
+
+</TabItem>
+<TabItem label="macOS">
+
+```bash
+curl -fsSL https://tiko.run/install.sh | sh
+```
+
+</TabItem>
+<TabItem label="Windows">
+
+In PowerShell:
+
+```powershell
+irm https://tiko.run/install.ps1 | iex
+```
+
+</TabItem>
+</Tabs>
+
+The installer keeps your `.env`, your answers and your data, and updates to the latest release. After that, **Update now** works again for the releases that follow.
+
+## What the updater is
+
+A container cannot replace itself, so something outside the tiko containers has to stop them and start the new ones. That is the `updater`: a small service that runs next to tiko. It is one Python file with no dependencies, [`updater/updater.py`](https://github.com/tiko-run/tiko/blob/main/updater/updater.py), published as the image `ghcr.io/tiko-run/tiko-updater` with every release. Nextcloud All-in-One and Coolify update themselves the same way.
+
+:::caution[The Docker socket is root on the host]
+To start and stop containers the updater talks to Docker through the Docker socket, `/var/run/docker.sock`. Access to that socket gives full control of Docker on the host, which is about the same as root. That is why the updater is a separate service, it is optional, and the `api` container, the part that faces the network, never gets the socket.
+:::
+
+What the updater does:
+
+- downloads the `tiko-api` and `tiko-web` images of the new release from `ghcr.io`;
+- replaces the `api` and `web` containers of your tiko with the same settings, ports and volumes;
+- writes the new version into your `compose.yaml`, so a later `docker compose up` stays on it;
+- copies the database aside once the old `api` has stopped, and back if the new version fails;
+- removes old tiko images.
+
+What it never does:
+
+- **Update on its own.** It acts only when the server admin clicks **Update now**, never on a schedule.
+- **Open a port.** It cannot be reached from outside the tiko network, and answers only requests that carry the token in `data/updater-token`, which the `api` container creates on its first start.
+- **Touch other containers.** It finds `api` and `web` by the labels Docker Compose puts on your tiko.
+- **Read or send data.** It reads no boards; its only traffic out is the image download from `ghcr.io`.
+- **Update itself.** Running the installer again updates the updater.
+
+## Turn it on or off
+
+The one-line installers ask "Turn on one-click updates?", yes by default, and store the answer in `.env`. On later runs they do not ask again.
+
+| To | Do |
+|---|---|
+| Install without it | `--no-updater` (`-NoUpdater` on Windows), or `TIKO_UPDATER=no` |
+| Change the stored answer | Run the installer again with `TIKO_UPDATER=yes` or `TIKO_UPDATER=no` |
+| Turn it off later | Set `COMPOSE_PROFILES=` in `.env` in the tiko folder, then run `docker compose rm -sf updater` and `docker compose up -d --remove-orphans` |
+| Turn it on later | Set `COMPOSE_PROFILES=updater` in `.env`, then run `docker compose up -d` |
+
+Without the updater, About tells you to run the installer again, and the steps in [Upgrade by hand](../data-and-upgrades/#upgrade-by-hand) still work.
+
+Where there is no updater:
+
+- **Rootless Docker:** the updater cannot reach Docker, so the installer leaves it off.
+- **Railway and Render:** the platform runs the containers, so About says to redeploy the service instead. The release that moves to Postgres needs a database first: see [On Railway and Render](../data-and-upgrades/#on-railway-and-render).
+- **A build from source** updates with `git pull`.

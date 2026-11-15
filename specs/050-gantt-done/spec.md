@@ -1,6 +1,6 @@
 # Feature Specification: Mark Gantt rows and stages done
 
-**Status**: Draft, waiting for G2.
+**Status**: Approved at G2 on 2026-11-15 (Decision 9: done stages leave the workload; Decision 4: a task row's stages are ticked by hand).
 
 **Input**: A Gantt row that is not a tracker task cannot be marked done. Finished work either stays on the plan looking unfinished or gets moved to a "Shipped" group at the top, which breaks the plan's structure. Planning stages have the same gap: a row with discovery, build and review shows no way to say build is over. Teams that plan in their own Gantt tools tick rows off, see a done bar hatched and struck through, and read progress on a group as "2/8".
 
@@ -27,17 +27,25 @@ Principles check:
 1. **A row without a tracker task is ticked by hand.** Such a leaf row gets a checkbox in the label column, left of its title. Ticking stores `done: true` on the row; unticking removes the field, so content saved before this spec stays the same.
 2. **A task row takes done from its tracker.** A row with a `key` shows the same checkbox, ticked when the task's status category is `done`, and it cannot be clicked; the tooltip says "Done in <tracker>" or "Open in <tracker>". The backend refuses `done` on a row with a `key`.
 3. **A parent is not ticked.** Its label shows `done/total` over the leaves of its branch, task rows included, as "2/8" in the group's row. All done → the number turns green. A parent stores no `done`; a row that gets children keeps a stored `done`, which is not drawn while it has children, as parents' stages are today.
+   - The number counts the whole branch, filters aside: a filter hides rows, not progress.
+   - A collapsed parent shows its number too.
 4. **Stages, with Planning on.** A stage gets its own `done`, ticked from the stage's menu and from a checkbox that shows on the bar on hover. A leaf with stages counts as done in its parent's number when every stage is done; its own checkbox ticks or unticks all its stages at once. A task row's stages are ticked by hand too: stages are tiko's plan, not the tracker's.
+   - A hand row with stages keeps `done` equal to "every stage done" on every change, so switching Planning off shows the same mark. A new stage that is not done unticks the row.
+   - With Planning off a task row shows the tracker's status, as stages are not drawn.
+   - A done stage gives no time off warning: the work is over.
 
 ### How done looks
 
 5. **A done bar is hatched and its title struck through**, in the bar's own colour, as task rows look today when the tracker says done (`line-through`, muted text). A done stage is hatched on its own; the other stages of the row stay as they are.
-6. **Nothing moves.** A done row keeps its place, dates and links. Dates are not changed when a row is ticked.
+6. **Nothing moves.** A done row keeps its place, dates and links. Dates are not changed when a row is ticked. A row dragged out of the Gantt onto the board becomes a note or a card as today; the mark stays behind, as notes have none.
+   - With Planning on, a leaf without stages is drawn by the stage bar, not the plain bar; both get the done look.
 
 ### Who and where
 
 7. **Editors tick, viewers see.** A view-only board, a public link and the board preview show marks and numbers but no clickable checkbox.
-8. **Undo, live and transfer.** A tick is a change of the module's content: it goes through Undo, reaches everyone with the board open, and travels in a `.tiko` file. No new storage.
+8. **Undo, live and transfer.** A tick is a change of the module's content: it goes through Undo, reaches everyone with the board open, and travels in a `.tiko` file and in a copied module. No new storage.
+   - The Gantt on the welcome board and the demo's sample plan get a few done rows, so the feature shows on first open.
+   - The board thumbnail stays as it is.
 
 ### Workload
 
@@ -46,7 +54,7 @@ Principles check:
 
 ### API
 
-10. **Reads show done.** In `GET /api/v1/boards/{id}/modules/{module_id}` (spec 047) a leaf row gains `done: true` when it is done by Decision 1, 2 or 4, absent otherwise; a parent gains `progress: {done, total}`; a stage gains `done: true`. An addition to v1. Writing done through the API is not in this spec, as writing the Gantt is not.
+10. **Reads show done.** In `GET /api/v1/boards/{id}/modules/{module_id}` (spec 047) and MCP `read_gantt` a leaf row gains `done: true` when it is done by Decision 1, 2 or 4, absent otherwise; a parent gains `progress: {done, total}`, counted before `read_gantt` narrows or folds the answer; a stage gains `done: true`. An addition to v1. Writing done through the API is not in this spec, as writing the Gantt is not.
 
 ## Requirements
 

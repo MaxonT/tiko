@@ -47,6 +47,7 @@ Reads the plan as the Gantt draws it, all rows at once, collapsed or filtered ou
 - Rows come in the order you see them, with `parent` and `depth` for the tree. A task row carries `key`, `source` (its tracker) and `task`, as a card does; a plain row carries its `title`.
 - `start` and `end` are the dates the bar shows. `dates` says where they come from: `tracker` for a row that follows the tracker (`guessed` names a side the tracker has no date for, drawn a week from the other), `own` for dates set on the plan, and `stored` for a row that follows the tracker while its task cannot be read right now.
 - `tracker` appears where the task's own dates differ from the bar, as the dashed frame does on screen. A parent row carries `span`, the dates its whole branch covers.
+- `done: true` marks a row that is [done](../gantt/#track-progress): ticked on the plan, or done in the tracker for a task row. A parent row carries `progress`, `{done, total}` over the rows of its whole branch.
 - With Planning on, a row carries its `stages`, with the type and the people on each, and the values of the columns the Gantt shows. Each comes with its id and name, since two people may share a name.
 - `milestones` and `links` complete the plan; a link means its `to` row starts after its `from` row ends.
 

@@ -22,6 +22,8 @@ export const ganttSchema = z.object({
         collapsed: z.boolean().optional(),
         // Draws the task's dates from the tracker; absent keeps the row's own.
         follow: z.boolean().optional(),
+        // Ticked by hand; absent when not. A task row takes done from its tracker instead.
+        done: z.boolean().optional(),
         stages: z
           .array(
             z.object({

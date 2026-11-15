@@ -22,11 +22,11 @@ An element of kind `module` gains `"module": "gantt"`. `rows` is present for a g
     "rows": [
       {"id": "r1", "depth": 0, "title": "Payments",
        "start": "2026-11-02", "end": "2026-12-04", "dates": "own",
-       "span": {"start": "2026-11-02", "end": "2026-12-18"},
+       "span": {"start": "2026-11-02", "end": "2026-12-18"}, "progress": {"done": 1, "total": 2},
        "values": [{"field": {"id": "f1", "name": "Priority"}, "value": "High", "inherited": false}]},
       {"id": "r2", "parent": "r1", "depth": 1, "key": "PROJ-12", "source": "jira",
        "task": {"title": "Refunds", "status": "In Progress", "assignee": "Mira Example", "due": "2026-12-18", "url": "...", "fetched_at": "..."},
-       "start": "2026-12-12", "end": "2026-12-18", "dates": "tracker", "guessed": "start",
+       "start": "2026-12-12", "end": "2026-12-18", "dates": "tracker", "guessed": "start", "done": true,
        "stages": [],
        "values": [{"field": {"id": "f1", "name": "Priority"}, "value": "High", "inherited": true}]},
       {"id": "r3", "parent": "r1", "depth": 1, "key": "PROJ-13", "source": "jira", "task": {"...": "..."},
@@ -52,6 +52,8 @@ An element of kind `module` gains `"module": "gantt"`. `rows` is present for a g
 - `dates`: `tracker` (the task's dates; `guessed` names a side the tracker has no date for), `stored` (follows the tracker, but the task cannot be read or has no dates: the dates last stored), `own`.
 - `tracker`: `{start, end, guessed?}`, present when the task's dates disagree with what the row shows, a guessed side not compared; a parent is compared on its `span`.
 - `span`: on parents, what the whole branch covers.
+- `done`: `true` on a leaf that is done, absent otherwise: a task row when its tracker says done, any other row when ticked in tiko (spec 050).
+- `progress`: on parents, `{done, total}` over the leaves of the whole branch, counted before an MCP answer is narrowed or folded.
 - `stages`: rows without children, Planning on; `[]` when none. Stage people carry `id` and `name` only; `GET /planning` says who is archived.
 - `values`: fields the gantt shows as columns; `inherited` when the value comes from an ancestor.
 - An id Planning does not know comes with `name: null`.

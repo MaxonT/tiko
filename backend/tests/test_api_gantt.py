@@ -277,3 +277,24 @@ def test_too_many_rows_fold_to_the_top_level_also_after_narrowing():
     assert len(small) == 153 and note is None
     one, note = narrow(rows, branch="t0", cap=10)
     assert [(r.id, r.holds) for r in one] == [("t0", 50)] and note
+
+
+def test_done_leaves_and_progress_over_the_whole_branch():
+    plain = {"title": "", "start": "2026-10-05", "end": "2026-10-09"}
+    rows = [
+        {"id": "p", **plain},
+        {"id": "a", "parent": "p", "done": True, **plain},
+        ROW | {"id": "b", "parent": "p", "key": "DEMO-1"},
+        ROW | {"id": "c", "parent": "p", "key": "DEMO-2"},
+        {"id": "q", "parent": "p", **plain},
+        {"id": "d", "parent": "q", **plain},
+    ]
+    found = [task(status_category="done"), task("DEMO-2", status_category="done", state="no_token")]
+    out = {row.id: dump(row) for row in view(content(*rows), found)}
+    assert out["p"]["progress"] == {"done": 2, "total": 4}
+    assert out["q"]["progress"] == {"done": 0, "total": 1}
+    assert out["a"]["done"] is True and out["b"]["done"] is True
+    assert "done" not in out["c"] and "done" not in out["d"] and "done" not in out["p"]
+    assert "progress" not in out["a"]
+    folded, _ = narrow(view(content(*rows), found), cap=1)
+    assert [dump(row)["progress"] for row in folded] == [{"done": 2, "total": 4}]

@@ -1140,3 +1140,61 @@ test('a viewer who cannot edit reads the tracker dates without a reason about ch
   expect(screen.queryByRole('button', { name: 'Follow tracker dates' })).toBeNull()
   expect(screen.queryByText('Rows with children keep their own dates.')).toBeNull()
 })
+
+test('a plain row is ticked done and back, a task row shows its tracker', () => {
+  renderGantt()
+  const tracked = screen.getByRole('checkbox', { name: 'Mark not done: DEMO-1' })
+  expect(tracked.hasAttribute('disabled')).toBe(true)
+  expect(tracked.getAttribute('title')).toBe('Done in the demo tracker')
+  expect(screen.getByRole('slider', { name: /DEMO-1/ }).className).toContain('done-hatch')
+
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Mark done: Design review' }))
+  expect(rows()[1].done).toBe(true)
+  expect(screen.getByRole('slider', { name: 'Design review dates' }).className).toContain(
+    'done-hatch',
+  )
+  expect(screen.getAllByText('Design review')[0].className).toContain('line-through')
+
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Mark not done: Design review' }))
+  expect('done' in rows()[1]).toBe(false)
+})
+
+test('a parent shows done leaves of its whole branch', () => {
+  renderGantt(
+    {},
+    {
+      ...content,
+      rows: [
+        { id: 'p', title: 'Release', start: '2026-10-05', end: '2026-10-14' },
+        { ...content.rows[0], parent: 'p' },
+        { ...content.rows[1], parent: 'p' },
+      ],
+    },
+  )
+  expect(screen.getByTitle('1 of 2 done').textContent).toBe('1/2')
+  expect(screen.queryByRole('checkbox', { name: /Release/ })).toBeNull()
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Mark done: Design review' }))
+  expect(screen.getByTitle('2 of 2 done').className).toContain('text-status-done-foreground')
+})
+
+test('a viewer sees done marks but cannot tick', () => {
+  renderGantt(
+    {},
+    { ...content, rows: [content.rows[0], { ...content.rows[1], done: true }] },
+    OFF,
+    undefined,
+    true,
+  )
+  const box = screen.getByRole('checkbox', { name: 'Mark not done: Design review' })
+  expect(box.hasAttribute('disabled')).toBe(true)
+  expect(box.getAttribute('data-state')).toBe('checked')
+})
+
+test('with Planning on a done row without stages is hatched too', () => {
+  renderGantt(
+    {},
+    { ...content, rows: [{ ...content.rows[1], done: true }] },
+    { ...OFF, enabled: true },
+  )
+  expect(document.querySelector('[data-gantt-stages] [data-done]')).toBeTruthy()
+})

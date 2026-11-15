@@ -62,6 +62,8 @@ type Props = {
   guess?: Guess
   /** Where the bar's dates came from, under the dates in the tooltip. */
   notes?: string[]
+  /** A done leaf: its bars are hatched and struck through. */
+  done?: boolean
   onRow: (row: Row) => void
 }
 
@@ -89,6 +91,7 @@ export function GanttStages({
   label,
   guess,
   notes,
+  done,
   onRow,
 }: Props) {
   const getZoom = useZoom()
@@ -169,6 +172,7 @@ export function GanttStages({
           // Only the bar of a row without stages can be drawn from the tracker.
           guess={stage.id === BARE ? guess : undefined}
           notes={stage.id === BARE ? notes : undefined}
+          done={done}
           open={open === stage.id}
           onOpen={(next) => setOpen(next ? stage.id : null)}
           onRow={onRow}
@@ -203,6 +207,7 @@ type BarProps = {
   label: string
   guess?: Guess
   notes?: string[]
+  done?: boolean
   open: boolean
   onOpen: (open: boolean) => void
   onRow: (row: Row) => void
@@ -221,6 +226,7 @@ function StageBar({
   label,
   guess,
   notes,
+  done,
   open,
   onOpen,
   onRow,
@@ -311,10 +317,12 @@ function StageBar({
               'peer absolute top-1.5 flex h-[22px] cursor-grab items-center overflow-hidden rounded-[4px] px-1.5 text-[12px] leading-[22px] font-semibold whitespace-nowrap select-none active:cursor-grabbing',
               !type && 'bg-card text-muted-foreground border font-medium',
               guess && GUESS_EDGE[guess],
+              done && 'done-hatch',
               box.clippedStart && 'rounded-l-none',
               box.clippedEnd && 'rounded-r-none',
             )}
             data-guess={guess}
+            data-done={done || undefined}
             style={{
               left: box.left,
               width: Math.max(box.width, 4),

@@ -35,11 +35,13 @@ type Props = {
   guess?: Guess
   /** Where the dates came from, under the dates in the tooltip. */
   notes?: string[]
+  /** A done leaf: hatched and struck through, whether ticked here or done in the tracker. */
+  done?: boolean
   onSpan: (span: Span) => void
 }
 
 /** A row's bar: drag the body to move it, an end to change that date, in whole days. */
-export function GanttBar({ span, axis, label, task, summary, guess, notes, onSpan }: Props) {
+export function GanttBar({ span, axis, label, task, summary, guess, notes, done, onSpan }: Props) {
   const getZoom = useZoom()
   const drag = useRef<{ x: number; zoom: number; grip: Grip; span: Span } | null>(null)
   const [dragging, setDragging] = useState(false)
@@ -179,10 +181,13 @@ export function GanttBar({ span, axis, label, task, summary, guess, notes, onSpa
           missing && 'border-dashed opacity-70',
           guess && GUESS_EDGE[guess],
           task?.status_category === 'done' && 'line-through',
+          done && 'done-hatch',
+          done && !task && 'text-muted-foreground',
           box.clippedStart && 'rounded-l-none',
           box.clippedEnd && 'rounded-r-none',
         )}
         data-guess={guess}
+        data-done={done || undefined}
         style={{
           left: box.left,
           width: Math.max(box.width, 4),

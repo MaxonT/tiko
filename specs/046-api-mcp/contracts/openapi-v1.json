@@ -1747,6 +1747,24 @@
         "title": "PlanningOut",
         "type": "object"
       },
+      "Progress": {
+        "properties": {
+          "done": {
+            "title": "Done",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "done",
+          "total"
+        ],
+        "title": "Progress",
+        "type": "object"
+      },
       "RemoveIn": {
         "properties": {
           "ids": {
@@ -1779,6 +1797,17 @@
           "depth": {
             "title": "Depth",
             "type": "integer"
+          },
+          "done": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Done"
           },
           "end": {
             "format": "date",
@@ -1836,6 +1865,16 @@
               }
             ],
             "title": "Parent"
+          },
+          "progress": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Progress"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "source": {
             "anyOf": [

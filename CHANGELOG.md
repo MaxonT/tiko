@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [2026.11.1] - 2026-11-15
+
 ### Added
 
 - See how far along a plan is: tick a Gantt row done, and its bar is hatched and struck through where it was planned instead of moving to a "done" group. Tracker tasks count as done when the tracker says so, and every parent row shows how many rows under it are done, such as 3/5. With Planning on, tick stages one by one: a finished stage stops counting in its people's workload. The API and MCP read the marks and the numbers too. See [Track progress](https://docs.tiko.run/gantt/#track-progress).

@@ -1,0 +1,73 @@
+---
+title: '2026.11.1'
+description: Ask your AI agent about your boards and plans, see how far along a plan is, put code on the board, and move a board to another tiko.
+date: '2026-11-15'
+cover: /casts/agent-overview.jpg
+prev: false
+next: false
+---
+
+import Feature from '../../../components/Feature.astro'
+import Details from '../../../components/Details.astro'
+import Detail from '../../../components/Detail.astro'
+
+## ✨ New
+
+<Feature area="API" title="Your AI agent on the board" href="/ai-agents/" video="/casts/agent-overview.mp4" poster="/casts/agent-overview.jpg">
+  Ask Claude Code, Codex or another agent what is on your boards and plans, and get answers with the live status of every card. With write access it lays the board out for you while you watch, and what people wrote stays theirs: an agent may move it, never rewrite or delete it.
+</Feature>
+
+<Feature area="API" title="API keys" href="/api-keys/">
+  Let your scripts read and arrange your boards with a personal key, for all boards or only the ones you pick. Every call is in the guide with samples in curl, Python, JavaScript and Go, ready to copy for your agent.
+
+  <Details>
+    <Detail title="A key per job" image="/casts/api-keys.webp">
+      Read for a report script, read and write for your agent, and revoke either in one click.
+    </Detail>
+  </Details>
+</Feature>
+
+<Feature area="Gantt" title="Track progress" href="/gantt/#track-progress" video="/casts/gantt-progress.mp4" poster="/casts/gantt-progress.jpg">
+  See how far along a plan is at a glance. A done row stays where it was planned, hatched, and every parent counts what is done under it; tracker tasks are done when the tracker says so.
+</Feature>
+
+<Feature area="Board" title="Code on the board" href="/on-the-board/#code" video="/casts/board-code.mp4" poster="/casts/board-code.jpg">
+  Put code next to the task it belongs to. Paste it with `⇧⌘V`, and it lands colored in its language; click a line number to point at the line you mean.
+</Feature>
+
+<Feature area="Board" title="Move a board" href="/moving-boards/">
+  Take a board from your laptop to your company's tiko in one file, pictures and Gantts included.
+
+  <Details>
+    <Detail title="What still needs a hand" image="/casts/move-import-report.webp">
+      Cards from a tracker this tiko does not read yet keep their titles until you connect it.
+    </Detail>
+  </Details>
+</Feature>
+
+## 💎 Improvements
+
+- **Gantt:** A new tiko starts with Planning on, so stages, people and workload are there from the first board. Running instances keep their setting.
+- **Sharing:** Enter adds the person in Share when the search finds exactly one.
+- **Trackers:** Enter adds the ticked tasks, or the only one found, in the CalDAV task picker.
+- **Guide:** Shorter pages with tables and steps instead of long paragraphs, and a sidebar grouped by what you do. Old links still land on the right section.
+- **Site:** A Features menu on tiko.run, and a page on planning a Gantt from your tracker tasks.
+
+## 🐞 Fixes
+
+- **Board:** Fixed cards that a teammate or an agent adds showing Loading on your open board until the next refresh.
+- **Board:** Fixed arrows drawn by an agent or a script looping through the top of both elements.
+- **Board:** Fixed Fit view and the first open of a board, which left out everything off screen.
+- **Board:** Fixed a pasted or dropped picture blinking a moment after it appears.
+- **Board:** Fixed the "In vote" label staying on notes after a vote was ended and deleted.
+- **Settings:** Fixed Enter doing nothing in forms such as sign-in in browsers that hold it back, such as Aside. Sign-in also takes a name and password the browser filled in.
+- **Settings:** Fixed the X that did not close Settings; only Esc did.
+- **Settings:** Fixed the sections list cut off in a short window.
+- **Guide:** Fixed note boxes that stayed dark in the light theme.
+
+<details>
+<summary>🔧 Under the hood</summary>
+
+- **Server:** On a tiko updated from an earlier version, API keys start switched off; an admin turns them on in Settings.
+
+</details>

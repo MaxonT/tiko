@@ -31,6 +31,7 @@ All notable changes to this project are documented here. The format follows [Kee
 - Fixed the "In vote" label that stayed on notes after a vote was ended and deleted.
 - Fixed a picture you paste or drop on a board blinking a moment after it appears.
 - Fixed cards that a teammate or an AI agent adds showing Loading on your open board until the next refresh: they show their task at once.
+- Fixed arrows your AI agent or a script draws, which looped into the top of both elements: they join the sides that face each other.
 
 ## [2026.11.0] - 2026-11-09
 

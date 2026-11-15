@@ -5,7 +5,12 @@ import type { AppNode } from '@/canvas/types'
 import { missingTasks, useArrivedTasks } from './useArrivedTasks'
 
 const card = (key: string): AppNode =>
-  ({ id: key, type: 'task_card', position: { x: 0, y: 0 }, data: { key, source: 'demo' } }) as AppNode
+  ({
+    id: key,
+    type: 'task_card',
+    position: { x: 0, y: 0 },
+    data: { key, source: 'demo' },
+  }) as AppNode
 const task = (key: string) => ({ key, source: 'demo' }) as Task
 const known = (...keys: string[]) => Object.fromEntries(keys.map((k) => [`demo:${k}`, task(k)]))
 

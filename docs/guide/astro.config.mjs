@@ -26,6 +26,7 @@ export default defineConfig({
     '/whats-new/latest': `/${releases[0].slug}/`,
     '/roadmap': 'https://demo.tiko.run/p/IGoVOBKKIi7IE-kGjrckETccZclVnrCM',
     '/focus-and-timers': '/focus-and-reminders/',
+    '/architecture': 'https://github.com/tiko-run/tiko/blob/main/CONTRIBUTING.md',
   },
   integrations: [
     starlight({
@@ -138,7 +139,6 @@ export default defineConfig({
                   items: ['configuration', 'updates', 'data-and-upgrades', 'monitoring', 'demo'],
                 },
                 { label: 'Security and privacy', items: ['security', 'privacy'] },
-                { label: 'Project', items: ['architecture'] },
               ],
             },
             {

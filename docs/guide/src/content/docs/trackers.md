@@ -30,6 +30,6 @@ What the card tool takes for each tracker is in [What you can add](../what-you-c
 
 ## Add a tracker
 
-tiko talks to trackers through one provider interface, so a new tracker does not touch the board. That makes a provider a good first contribution: see [Architecture](../architecture/) for the interface and [CONTRIBUTING.md](https://github.com/tiko-run/tiko/blob/main/CONTRIBUTING.md) for the setup.
+tiko talks to trackers through one provider interface, so a new tracker does not touch the board. That makes a provider a good first contribution: see [CONTRIBUTING.md](https://github.com/tiko-run/tiko/blob/main/CONTRIBUTING.md) for the setup.
 
 Missing your tracker? Vote or ask in [Discussions](https://github.com/tiko-run/tiko/discussions).

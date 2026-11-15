@@ -57,6 +57,7 @@ import {
   withFollow,
   type Tracked,
 } from '@/modules/gantt/follow'
+import { leafDone, progress, syncDone, tickRow } from '@/modules/gantt/done'
 import {
   addLink,
   addMilestone,
@@ -203,7 +204,7 @@ export function GanttModule({
   // Every change passes here, so no tree edit leaves a leaf apart from its stages, and a bar
   // a person moved keeps the dates they gave it.
   const onChange = (next: GanttContent) => {
-    const { content: kept, detached } = detachEdited(content, fitLeaves(next))
+    const { content: kept, detached } = detachEdited(content, fitLeaves(syncDone(next)))
     write(kept)
     if (detached.length === 0) return
     toast(
@@ -407,6 +408,15 @@ export function GanttModule({
                   row.key && !hasChildren && !row.stages?.length ? Boolean(row.follow) : undefined
                 }
                 onFollow={(follow) => setFollow([row.id], follow)}
+                done={!hasChildren && leafDone(row, taskOf(row))}
+                onDone={
+                  readOnly || row.key
+                    ? undefined
+                    : (done) => onChange(tickRow(content, row.id, done))
+                }
+                progress={
+                  hasChildren ? progress(content.rows, indexOf.get(row.id)!, taskOf) : undefined
+                }
               />
             ))}
             <div
@@ -526,6 +536,7 @@ export function GanttModule({
                     assignees={assignees}
                     below={content.people === 'below'}
                     label={stagesLabel(row, taskOf(row))}
+                    done={leafDone(row, task)}
                     {...trackerNotes(row, hasChildren, task, off)}
                     onRow={(next) => onChange(updateRow(content, row.id, () => next))}
                   />
@@ -540,6 +551,7 @@ export function GanttModule({
                         : row.title
                     }
                     task={task}
+                    done={!hasChildren && leafDone(row, task)}
                     {...trackerNotes(row, hasChildren, task, off)}
                     onSpan={(next) =>
                       hasChildren

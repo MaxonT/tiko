@@ -695,6 +695,20 @@
   }
 }
 
+/* A done Gantt bar: stripes in its own text colour, over an inline background as well. */
+@utility done-hatch {
+  text-decoration-line: line-through;
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border-radius: inherit;
+    opacity: 0.2;
+    background-image: repeating-linear-gradient(-45deg, currentColor 0 3px, transparent 3px 7px);
+  }
+}
+
 /* Elements of a running vote: a grey frame that says they are held until it ends. */
 .react-flow__node.in-vote::after {
   content: '';
@@ -717,4 +731,12 @@
 /* Voting: what is not in the round steps back. */
 .react-flow.voting .react-flow__node:not(.in-vote) {
   opacity: 0.35;
+}
+
+/* Code colors of both themes ride on each token; the theme class picks one. */
+.code-token {
+  color: var(--code-light);
+}
+.dark .code-token {
+  color: var(--code-dark);
 }

@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { useContext, useRef, useState, type PointerEvent } from 'react'
 import type { Task } from '@/api/tasks'
+import { Checkbox } from '@/components/ui/checkbox'
 import { TypeIcon } from '@/canvas/nodes/TaskBits'
 import type { Row } from '@/modules/gantt/rows'
 import { useZoom } from '@/modules/expanded'
@@ -51,6 +52,12 @@ type Props = {
   /** Whether the bar follows the tracker's dates; undefined for a row that cannot. */
   follow?: boolean
   onFollow?: (follow: boolean) => void
+  /** A leaf's done, ticked here or read from the tracker. */
+  done?: boolean
+  /** Ticks a row tiko owns; undefined for a task row and for viewers. */
+  onDone?: (done: boolean) => void
+  /** A parent's done leaves over all leaves of its branch. */
+  progress?: { done: number; total: number }
 }
 
 /** The row's label: drag it to reorder, or out of the module to put it back on the board. */
@@ -72,6 +79,9 @@ export function GanttLabel({
   onEject,
   follow,
   onFollow,
+  done: leafDone = false,
+  onDone,
+  progress,
 }: Props) {
   const getZoom = useZoom()
   const readOnly = useReadOnly()
@@ -168,6 +178,27 @@ export function GanttLabel({
       ) : (
         <span className="w-2.5 shrink-0" />
       )}
+      {!hasChildren && (
+        <Checkbox
+          checked={leafDone}
+          disabled={!onDone}
+          onCheckedChange={(checked) => onDone?.(checked === true)}
+          aria-label={`${leafDone ? 'Mark not done' : 'Mark done'}: ${name}`}
+          title={
+            row.key
+              ? `${leafDone ? 'Done' : 'Open'} in ${task ? sourceName(task.source) : 'the tracker'}`
+              : undefined
+          }
+          className={cn(
+            'data-checked:border-status-done-foreground data-checked:bg-status-done-foreground mr-0.5 size-3.5',
+            // A tracker task's box only follows the tracker: dimmed until done, never clickable.
+            // A viewer's box of a row tiko owns keeps full strength.
+            row.key
+              ? 'disabled:cursor-not-allowed disabled:not-data-checked:opacity-40'
+              : 'disabled:cursor-default disabled:opacity-100',
+          )}
+        />
+      )}
       {row.key ? (
         <span
           className={cn(
@@ -194,7 +225,7 @@ export function GanttLabel({
               {shortKey(task?.source ?? row.source, row.key, task?.type_name)}
             </span>
           )}
-          <span className="truncate" title={task?.summary}>
+          <span className={cn('truncate', done && 'line-through')} title={task?.summary}>
             {task?.state === 'not_found'
               ? 'not found'
               : task?.state === 'no_token'
@@ -233,9 +264,21 @@ export function GanttLabel({
             'truncate',
             !row.title && 'text-muted-foreground',
             hasChildren && 'font-semibold',
+            leafDone && 'text-muted-foreground line-through',
           )}
         >
           {row.title || 'Untitled'}
+        </span>
+      )}
+      {progress && progress.total > 0 && (
+        <span
+          title={`${progress.done} of ${progress.total} done`}
+          className={cn(
+            'text-muted-foreground shrink-0 pl-1 text-[12px] tabular-nums',
+            progress.done === progress.total && 'text-status-done-foreground font-medium',
+          )}
+        >
+          {progress.done}/{progress.total}
         </span>
       )}
       <span className="bg-panel ml-auto hidden shrink-0 items-center group-hover/label:flex">

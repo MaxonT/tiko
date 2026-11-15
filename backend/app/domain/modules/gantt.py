@@ -35,6 +35,8 @@ class Stage(_Strict):
     people: list[Annotated[str, Field(max_length=40)]] = Field(
         default_factory=list, max_length=MAX_STAGE_PEOPLE
     )
+    # Ticked by hand, on a task row too; absent when not.
+    done: bool | None = None
 
     @model_validator(mode="after")
     def _rules(self) -> Self:
@@ -57,6 +59,8 @@ class Row(_Strict):
     collapsed: bool = False
     # Draws the task's dates from the tracker; absent on rows that keep their own.
     follow: bool | None = None
+    # Ticked by hand; absent when not. A task row takes done from its tracker instead.
+    done: bool | None = None
     # Absent, not empty, on a row without stages, so content saved before them stays the same.
     stages: list[Stage] | None = Field(default=None, max_length=MAX_STAGES)
     # Field id to its value on this row; ids come from /api/planning.
@@ -66,6 +70,8 @@ class Row(_Strict):
     def _dates(self) -> Self:
         if self.key is not None and not valid_key(self.source, self.key):
             raise ValueError("invalid issue key")
+        if self.key is not None and self.done is not None:
+            raise ValueError(f"row {self.id} takes done from its tracker")
         if self.end < self.start:
             raise ValueError(f"row {self.id} ends before it starts")
         stages = self.stages or []

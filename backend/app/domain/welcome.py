@@ -169,7 +169,16 @@ def _plain_gantt(day: Callable[[int], str]) -> dict[str, Any]:
         "end": day(42),
         "scale": "week",
         "rows": [
-            {"id": epic, "key": "DEMO-4", "source": "demo", "start": day(-3), "end": day(16)},
+            {"id": epic, "key": "DEMO-4", "source": "demo", "start": day(-7), "end": day(16)},
+            # Ticked done, so the epic's row shows progress from the first open.
+            {
+                "id": _id(),
+                "title": "Kickoff",
+                "start": day(-7),
+                "end": day(-4),
+                "parent": epic,
+                "done": True,
+            },
             {
                 "id": crash,
                 "key": "DEMO-7",
@@ -218,6 +227,9 @@ def _planned_gantt(today: date) -> dict[str, Any]:
         }
 
     epic = _id()
+    kickoff = row(
+        [stage(sample.DISCOVERY, -5, -5, sample.ANNA)], title="Kickoff", parent=epic, done=True
+    )
     crash = row(
         [
             stage(sample.DISCOVERY, -4, -1, sample.ANNA),
@@ -255,10 +267,11 @@ def _planned_gantt(today: date) -> dict[str, Any]:
                 "id": epic,
                 "key": "DEMO-4",
                 "source": "demo",
-                "start": crash["start"],
+                "start": kickoff["start"],
                 "end": story["end"],
                 "values": {"priority": "High", "team": "Web"},
             },
+            kickoff,
             crash,
             story,
             notes,

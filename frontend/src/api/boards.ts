@@ -43,6 +43,7 @@ const docNodeSchema = z.object({
     'sticky',
     'shape',
     'text',
+    'code',
     'image',
     'module',
     'anchor',

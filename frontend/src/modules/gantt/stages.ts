@@ -26,7 +26,9 @@ export const stageSpan = (stage: Stage): Span => ({
 /** What a row draws in Planning: its stages, or its own bar as one stage without a type. */
 export function shownStages(row: Row): Stage[] {
   if (row.stages?.length) return row.stages
-  return [{ id: BARE, type: '', start: row.start, end: row.end, people: [] }]
+  // A ticked row keeps its tick when its bar turns into its first stage.
+  const done = !row.key && row.done ? { done: true } : {}
+  return [{ id: BARE, type: '', start: row.start, end: row.end, people: [], ...done }]
 }
 
 /** Stages sorted, with the row's dates following their span; none leaves the row's dates. */

@@ -163,6 +163,52 @@ class TextData(_Strict):
     rotation: absent_or(Rotation) = None
 
 
+CodeLanguage = Literal[
+    "plain",
+    "bash",
+    "c",
+    "csharp",
+    "cpp",
+    "css",
+    "dockerfile",
+    "go",
+    "graphql",
+    "hcl",
+    "html",
+    "java",
+    "javascript",
+    "json",
+    "kotlin",
+    "markdown",
+    "php",
+    "powershell",
+    "python",
+    "ruby",
+    "rust",
+    "sql",
+    "swift",
+    "toml",
+    "tsx",
+    "typescript",
+    "xml",
+    "yaml",
+]
+
+
+class CodeData(_Strict):
+    # Shown in place of the first line when the block is folded.
+    title: absent_or(Annotated[str, Field(max_length=200)]) = None
+    text: str = Field(default="", max_length=10_000)
+    language: CodeLanguage = "plain"
+    collapsed: absent_or(bool) = None
+    # Line numbers shown in the gutter.
+    numbered: absent_or(bool) = None
+    # Marked lines, counted from 1; the web app moves them with their lines on an edit.
+    marked: absent_or(
+        Annotated[list[Annotated[int, Field(ge=1, le=10_000)]], Field(max_length=500)]
+    ) = None
+
+
 FileId = Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{32}$")]
 PictureSide = Annotated[int, Field(ge=1, le=100_000)]
 
@@ -227,6 +273,11 @@ class TextNode(_NodeBase):
     data: TextData
 
 
+class CodeNode(_NodeBase):
+    type: Literal["code"]
+    data: CodeData
+
+
 class ImageNode(_NodeBase):
     type: Literal["image"]
     data: ImageData
@@ -283,6 +334,7 @@ Node = Annotated[
     | StickyNode
     | ShapeNode
     | TextNode
+    | CodeNode
     | ImageNode
     | ModuleNode
     | AnchorNode
@@ -507,6 +559,9 @@ def planned_stages(doc: BoardDoc) -> list[PlannedStage]:
                 continue
             title = row.get("title") or row.get("key") or ""
             for stage in row.get("stages") or []:
+                # Work that is over keeps nobody busy.
+                if stage.get("done"):
+                    continue
                 for person in stage.get("people", []):
                     out.append(
                         PlannedStage(person, title, stage["type"], stage["start"], stage["end"])

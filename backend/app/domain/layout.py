@@ -9,6 +9,8 @@ SIZES: dict[str, tuple[float, float]] = {
     "task_card": (320, 50),
     "sticky": (200, 200),
     "text": (240, 40),
+    # Its height follows the code; a few lines is the usual guess.
+    "code": (480, 120),
     "frame": (480, 320),
     "shape": (160, 100),
     "timer": (40, 40),

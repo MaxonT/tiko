@@ -26,6 +26,7 @@ With any key, the agent can:
 With a key that can also write, it can:
 
 - **Make and rename boards**, add cards, notes and frames, and draw arrows.
+- **Put code next to the plan:** "add the config you changed next to DEMO-7, mark the line with the port". The block comes colored in its language, with the lines that matter marked.
 - **Lay cards out** in rows or a column per status: "put the open tasks of the release on a new board, by status".
 - **Tidy what is there:** colours, bold, text size, opacity, rotation: "make the headings bold and colour the blocked frame pink".
 - **Set reminders,** at a time or for when a task on the board moves: "remind me at 3 pm to call about DEMO-4", "tell me when DEMO-2 leaves In progress". A reminder rings in tiko while the board is open in a tab; the agent cannot reach you anywhere else.

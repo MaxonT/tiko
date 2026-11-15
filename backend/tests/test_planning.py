@@ -427,6 +427,16 @@ def test_a_parent_rows_hidden_stages_do_not_count(client: TestClient) -> None:
     assert weeks["weeks"][0] == {"start": "2026-10-05", "stages": 1, "overlap": False, "off": False}
 
 
+def test_a_done_stage_keeps_nobody_busy(client: TestClient) -> None:
+    client.patch("/api/planning", json={"enabled": True})
+    ivan = client.post("/api/planning/people", json={"name": "Ivan"}).json()["id"]
+    done = staged("a", "Payment API", ivan, "2026-10-05", "2026-10-09")
+    done["stages"][0]["done"] = True
+    plan_board(client, "Plan", [done, staged("b", "Checkout UI", ivan, "2026-10-05", "2026-10-09")])
+    weeks = client.get(f"/api/planning/people/{ivan}/workload?from=2026-10-05&weeks=1").json()
+    assert weeks["weeks"][0] == {"start": "2026-10-05", "stages": 1, "overlap": False, "off": False}
+
+
 def test_workload_rules(client: TestClient) -> None:
     off(client)
     assert client.get("/api/planning/people/p1/workload").status_code == 422

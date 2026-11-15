@@ -52,6 +52,16 @@ class StageOut(BaseModel):
     start: date
     end: date
     people: list[Named]
+    done: bool | None = None
+
+    @model_serializer(mode="wrap")
+    def _absent(self, handler):
+        return _without_none(handler(self))
+
+
+class Progress(BaseModel):
+    done: int
+    total: int
 
 
 class ValueOut(BaseModel):
@@ -74,6 +84,9 @@ class RowOut(BaseModel):
     guessed: Side | None = None
     tracker: Tracked | None = None
     span: Span | None = None
+    # True on a done leaf, absent otherwise; a parent has `progress` over its branch's leaves.
+    done: bool | None = None
+    progress: Progress | None = None
     stages: list[StageOut] | None = None
     values: list[ValueOut] | None = None
     # Rows under this one, only in an answer folded to its top level.
@@ -146,6 +159,16 @@ def drift(task: Task | None, shown: Span) -> Tracked | None:
     return tracked if start or end else None
 
 
+def leaf_done(row: Row, task: Task | None) -> bool:
+    """A task row is done when its tracker says so; one tiko owns, when it is ticked."""
+    if row.key is not None:
+        return task is not None and task.state == "ok" and task.status_category == "done"
+    # A row with stages is done when every stage is, whatever its stored flag says.
+    if row.stages:
+        return all(stage.done for stage in row.stages)
+    return bool(row.done)
+
+
 def _subtree_end(depths: list[int], index: int) -> int:
     end = index + 1
     while end < len(depths) and depths[end] > depths[index]:
@@ -200,15 +223,20 @@ def gantt_view(
     def named(table: dict[str, str], item: str) -> Named:
         return Named(id=item, name=table.get(item))
 
+    done = [row.id not in parents and leaf_done(row, task_of(row)) for row in rows]
+
     out: list[RowOut] = []
     for index, row in enumerate(rows):
         start, end, source, guessed = shown[index]
         parent = row.id in parents
         task = task_of(row)
-        span = None
+        span = progress = None
         if parent:
-            branch = shown[index : _subtree_end(depths, index)]
+            stop = _subtree_end(depths, index)
+            branch = shown[index:stop]
             span = Span(start=min(s[0] for s in branch), end=max(s[1] for s in branch))
+            leaves = [i for i in range(index + 1, stop) if rows[i].id not in parents]
+            progress = Progress(done=sum(done[i] for i in leaves), total=len(leaves))
         off = None
         if row.key and not follows(row, parent):
             off = drift(task, span or Span(start=start, end=end))
@@ -222,6 +250,7 @@ def gantt_view(
                         start=stage.start,
                         end=stage.end,
                         people=[named(names.people, person) for person in stage.people],
+                        done=stage.done or None,
                     )
                     for stage in row.stages or []
                 ]
@@ -251,6 +280,8 @@ def gantt_view(
                 guessed=guessed,
                 tracker=off,
                 span=span,
+                done=done[index] or None,
+                progress=progress,
                 stages=stages,
                 values=values or None,
             )

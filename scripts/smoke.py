@@ -170,6 +170,13 @@ try:
                 "height": 100,
                 "data": {"shape": "rhombus", "text": "Valid?", "color": "none", "opacity": 60, "stroke": 3, "dash": True, "bold": True, "size": "large"},
             },
+            {
+                "id": "k",
+                "type": "code",
+                "position": {"x": 900, "y": 240},
+                "width": 480,
+                "data": {"title": "Ping", "text": "SELECT 1;", "language": "sql", "collapsed": True, "numbered": True, "marked": [1]},
+            },
         ],
         "edges": [
             {
@@ -189,7 +196,7 @@ try:
 
     status, body = call("GET", f"{API}/api/boards/{board['id']}")
     check(
-        body["doc"] == doc, "board with styled frame, sticky, text, shape and arrow reopens unchanged"
+        body["doc"] == doc, "board with styled frame, sticky, text, shape, code and arrow reopens unchanged"
     )
     check(
         set(body["tasks"]) == {"demo:DEMO-1", "demo:DEMO-2"},

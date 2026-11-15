@@ -11,9 +11,11 @@ import {
 } from 'react'
 import { addStageType, freeHue, storeStageType, type Person, type StageType } from '@/api/planning'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { DatesTip } from '@/modules/gantt/GanttBar'
+import { tickStage } from '@/modules/gantt/done'
 import { GUESS_EDGE, GUESS_FADE, type Guess } from '@/modules/gantt/follow'
 import type { Row } from '@/modules/gantt/rows'
 import { StagePeople, stagePeople, type Named } from '@/modules/gantt/StagePeople'
@@ -62,6 +64,8 @@ type Props = {
   guess?: Guess
   /** Where the bar's dates came from, under the dates in the tooltip. */
   notes?: string[]
+  /** A done leaf: its bars are hatched and struck through. */
+  done?: boolean
   onRow: (row: Row) => void
 }
 
@@ -89,6 +93,7 @@ export function GanttStages({
   label,
   guess,
   notes,
+  done,
   onRow,
 }: Props) {
   const getZoom = useZoom()
@@ -169,6 +174,7 @@ export function GanttStages({
           // Only the bar of a row without stages can be drawn from the tracker.
           guess={stage.id === BARE ? guess : undefined}
           notes={stage.id === BARE ? notes : undefined}
+          done={done}
           open={open === stage.id}
           onOpen={(next) => setOpen(next ? stage.id : null)}
           onRow={onRow}
@@ -203,6 +209,7 @@ type BarProps = {
   label: string
   guess?: Guess
   notes?: string[]
+  done?: boolean
   open: boolean
   onOpen: (open: boolean) => void
   onRow: (row: Row) => void
@@ -221,6 +228,7 @@ function StageBar({
   label,
   guess,
   notes,
+  done,
   open,
   onOpen,
   onRow,
@@ -249,7 +257,10 @@ function StageBar({
   const name = stage.type === '' ? 'No stage' : (type?.name ?? 'Unknown')
   const named = stagePeople(stage.people, people)
   const names = named.map((p) => p.name).join(', ')
-  const away = awayDuring(span, stage.people, people).map(awayLine)
+  // A done stage is hatched on its own; a done row hatches all of its stages.
+  const finished = Boolean(done || stage.done)
+  // Work that is over raises no time off warning.
+  const away = finished ? [] : awayDuring(span, stage.people, people).map(awayLine)
   // Names that do not fit turn into a people button; the hidden copy says how wide they are.
   useLayoutEffect(() => {
     const needed = (measure.current?.offsetWidth ?? 0) + (below ? BELOW_PADDING : BAR_PADDING)
@@ -311,10 +322,12 @@ function StageBar({
               'peer absolute top-1.5 flex h-[22px] cursor-grab items-center overflow-hidden rounded-[4px] px-1.5 text-[12px] leading-[22px] font-semibold whitespace-nowrap select-none active:cursor-grabbing',
               !type && 'bg-card text-muted-foreground border font-medium',
               guess && GUESS_EDGE[guess],
+              finished && 'done-hatch',
               box.clippedStart && 'rounded-l-none',
               box.clippedEnd && 'rounded-r-none',
             )}
             data-guess={guess}
+            data-done={finished || undefined}
             style={{
               left: box.left,
               width: Math.max(box.width, 4),
@@ -394,6 +407,7 @@ function StageBar({
             people={people}
             assignees={assignees}
             away={away}
+            onDone={stage.id === BARE ? undefined : (next) => onRow(tickStage(row, stage.id, next))}
             onRow={onRow}
             onReopen={onReopen}
             onClose={() => onOpen(false)}
@@ -482,6 +496,7 @@ function StageForm({
   assignees,
   dates,
   away,
+  onDone,
   onRow,
   onReopen,
   onClose,
@@ -495,6 +510,8 @@ function StageForm({
   assignees: string[]
   /** "Anna is away Mon Oct 5 – Fri Oct 9", one per range that falls on the stage. */
   away: string[]
+  /** Ticks this stage; undefined for the bar of a row without stages. */
+  onDone?: (done: boolean) => void
   onRow: (row: Row) => void
   onReopen: (id: string) => void
   onClose: () => void
@@ -525,11 +542,16 @@ function StageForm({
     if (current.id === BARE && next.stages?.length) onReopen(next.stages[0].id)
   }
 
+  // A type picked after an async add lands on the row as it is by then, edits since kept. Once
+  // the form is closed there is no current row to apply it to, so the new type only joins the
+  // list.
   const change = (part: Partial<Omit<Stage, 'id'>>) => {
-    const next = updateStage(row, stage.id, part)
-    onRow(next)
+    const now = latest.current
+    if (!now) return
+    const next = updateStage(now.row, now.id, part)
+    now.onRow(next)
     // The bare bar turns into a stage with an id of its own; the popover follows it.
-    if (stage.id === BARE && next.stages?.length) onReopen(next.stages[0].id)
+    if (now.id === BARE && next.stages?.length) onReopen(next.stages[0].id)
   }
   const pick = (type: string) => change({ type })
   const create = async (event: FormEvent) => {
@@ -601,7 +623,19 @@ function StageForm({
           </Button>
         </form>
       )}
-      <div className="text-muted-foreground text-[12px] tabular-nums">{dates}</div>
+      <div className="flex items-center gap-2">
+        <span className="text-muted-foreground flex-1 text-[12px] tabular-nums">{dates}</span>
+        {onDone && (
+          <label className="flex cursor-pointer items-center gap-1.5 text-[12px]">
+            <Checkbox
+              checked={stage.done === true}
+              onCheckedChange={(checked) => onDone(checked === true)}
+              className="data-checked:border-status-done-foreground data-checked:bg-status-done-foreground size-3.5"
+            />
+            Done
+          </label>
+        )}
+      </div>
       {away.map((line) => (
         <p key={line} className="text-destructive text-[12px]">
           {line}

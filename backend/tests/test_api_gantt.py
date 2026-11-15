@@ -277,3 +277,56 @@ def test_too_many_rows_fold_to_the_top_level_also_after_narrowing():
     assert len(small) == 153 and note is None
     one, note = narrow(rows, branch="t0", cap=10)
     assert [(r.id, r.holds) for r in one] == [("t0", 50)] and note
+
+
+def test_done_leaves_and_progress_over_the_whole_branch():
+    plain = {"title": "", "start": "2026-10-05", "end": "2026-10-09"}
+    rows = [
+        {"id": "p", **plain},
+        {"id": "a", "parent": "p", "done": True, **plain},
+        ROW | {"id": "b", "parent": "p", "key": "DEMO-1"},
+        ROW | {"id": "c", "parent": "p", "key": "DEMO-2"},
+        {"id": "q", "parent": "p", **plain},
+        {"id": "d", "parent": "q", **plain},
+    ]
+    found = [task(status_category="done"), task("DEMO-2", status_category="done", state="no_token")]
+    out = {row.id: dump(row) for row in view(content(*rows), found)}
+    assert out["p"]["progress"] == {"done": 2, "total": 4}
+    assert out["q"]["progress"] == {"done": 0, "total": 1}
+    assert out["a"]["done"] is True and out["b"]["done"] is True
+    assert "done" not in out["c"] and "done" not in out["d"] and "done" not in out["p"]
+    assert "progress" not in out["a"]
+    folded, _ = narrow(view(content(*rows), found), cap=1)
+    assert [dump(row)["progress"] for row in folded] == [{"done": 2, "total": 4}]
+
+
+def test_a_stage_says_when_it_is_done():
+    stages = [
+        {"id": "s1", "type": "t1", "start": "2026-10-05", "end": "2026-10-06", "done": True},
+        {"id": "s2", "type": "t1", "start": "2026-10-07", "end": "2026-10-09"},
+    ]
+    row = {"id": "a", "title": "Rollout", "start": "2026-10-05", "end": "2026-10-09"}
+    out = dump(view(content(row | {"stages": stages}), names=Names())[0])
+    assert out["stages"][0]["done"] is True and "done" not in out["stages"][1]
+
+
+def test_a_row_with_stages_is_done_by_its_stages_not_its_flag():
+    def staged(row_id: str, flag: bool, *done: bool) -> dict:
+        stages = [
+            {
+                "id": f"{row_id}{i}",
+                "type": "t1",
+                "start": f"2026-10-0{i + 1}",
+                "end": f"2026-10-0{i + 1}",
+            }
+            | ({"done": True} if d else {})
+            for i, d in enumerate(done)
+        ]
+        row = {"id": row_id, "title": "", "start": stages[0]["start"], "end": stages[-1]["end"]}
+        return row | {"stages": stages} | ({"done": True} if flag else {})
+
+    out = {
+        r.id: dump(r)
+        for r in view(content(staged("a", False, True, True), staged("b", True, True, False)))
+    }
+    assert out["a"]["done"] is True and "done" not in out["b"]

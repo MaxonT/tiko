@@ -171,3 +171,15 @@ def test_a_caldav_card_is_drawn_without_its_long_id():
         board([node("c", "task_card", {"key": "stand-apple-1", "source": "caldav"}, 20, 30)])
     )
     assert "stand-apple-1" not in texts(root)
+
+
+def test_a_code_block_is_drawn_in_monospace_and_folded_without_its_lines():
+    doc = board(
+        [
+            node("k", "code", {"text": "def f():\n    return 1", "language": "python"}),
+            node("z", "code", {"title": "Health", "text": "SECRET", "collapsed": True}, 0, 300),
+        ]
+    )
+    svg, root = parsed(doc)
+    assert texts(root) == ["def f():return 1", "Health"]
+    assert "font-family='monospace'" in svg

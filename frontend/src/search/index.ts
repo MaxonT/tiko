@@ -13,7 +13,7 @@ function cardLabel(source: string | undefined, key: string, task: Task | undefin
 }
 
 export type EntryKind =
-  'card' | 'sticky' | 'shape' | 'text' | 'frame' | 'timer' | 'module' | 'row' | 'milestone'
+  'card' | 'sticky' | 'shape' | 'text' | 'code' | 'frame' | 'timer' | 'module' | 'row' | 'milestone'
 
 export type Entry = Searchable & {
   /** Unique per entry; a module's rows share the module's node. */
@@ -97,6 +97,12 @@ export function buildIndex(nodes: AppNode[], tasks: Record<string, Task>): Entry
           push({ ...base, kind: node.type, text: node.data.text, context: frameOf(node) })
         }
         break
+      case 'code': {
+        // The title leads, so a result names the block the way its folded header does.
+        const text = [node.data.title, node.data.text].filter((part) => part?.trim()).join('\n')
+        if (text) push({ ...base, kind: 'code', text, context: frameOf(node) })
+        break
+      }
       case 'frame':
         push({ ...base, kind: 'frame', text: node.data.title || UNTITLED_FRAME })
         break

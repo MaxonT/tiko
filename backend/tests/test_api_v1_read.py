@@ -230,3 +230,32 @@ def test_the_contract_documents_the_error_body_v1_sends(app):
     search = document["paths"]["/tasks/search"]["post"]["responses"]
     assert search["422"]["content"]["application/json"]["schema"]["$ref"].endswith("/Error")
     assert {"401", "403", "404", "429"} <= set(search)
+
+
+def test_a_code_block_reads_as_code(app, admin):
+    code = {
+        "id": "k1",
+        "type": "code",
+        "position": {"x": 0, "y": 0},
+        "width": 480,
+        "data": {"title": "Hello", "text": "print(1)", "language": "python"},
+    }
+    board_id = board(admin, doc={"nodes": [code], "edges": []})
+    key = with_key(app, make_key(admin)["token"])
+    (element,) = key.get(f"/api/v1/boards/{board_id}?elements=all").json()["elements"]
+    assert element == {
+        "id": "k1",
+        "kind": "code",
+        "x": 0,
+        "y": 0,
+        "w": 480,
+        "h": None,
+        "frame": None,
+        "editable": False,
+        "title": "Hello",
+        "text": "print(1)",
+        "language": "python",
+        "collapsed": False,
+        "numbered": False,
+        "marked": [],
+    }

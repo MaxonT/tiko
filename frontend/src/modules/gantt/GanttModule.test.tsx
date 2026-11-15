@@ -1140,3 +1140,153 @@ test('a viewer who cannot edit reads the tracker dates without a reason about ch
   expect(screen.queryByRole('button', { name: 'Follow tracker dates' })).toBeNull()
   expect(screen.queryByText('Rows with children keep their own dates.')).toBeNull()
 })
+
+test('a plain row is ticked done and back, a task row shows its tracker', () => {
+  renderGantt()
+  const tracked = screen.getByRole('checkbox', { name: 'Mark not done: DEMO-1' })
+  expect(tracked.hasAttribute('disabled')).toBe(true)
+  expect(tracked.getAttribute('title')).toBe('Done in the demo tracker')
+  expect(screen.getByRole('slider', { name: /DEMO-1/ }).className).toContain('done-hatch')
+
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Mark done: Design review' }))
+  expect(rows()[1].done).toBe(true)
+  expect(screen.getByRole('slider', { name: 'Design review dates' }).className).toContain(
+    'done-hatch',
+  )
+  expect(screen.getAllByText('Design review')[0].className).toContain('line-through')
+
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Mark not done: Design review' }))
+  expect('done' in rows()[1]).toBe(false)
+})
+
+test('a parent shows done leaves of its whole branch', () => {
+  renderGantt(
+    {},
+    {
+      ...content,
+      rows: [
+        { id: 'p', title: 'Release', start: '2026-10-05', end: '2026-10-14' },
+        { ...content.rows[0], parent: 'p' },
+        { ...content.rows[1], parent: 'p' },
+      ],
+    },
+  )
+  expect(screen.getByTitle('1 of 2 done').textContent).toBe('1/2')
+  expect(screen.queryByRole('checkbox', { name: /Release/ })).toBeNull()
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Mark done: Design review' }))
+  expect(screen.getByTitle('2 of 2 done').className).toContain('text-status-done-foreground')
+})
+
+test('a viewer sees done marks but cannot tick', () => {
+  renderGantt(
+    {},
+    { ...content, rows: [content.rows[0], { ...content.rows[1], done: true }] },
+    OFF,
+    undefined,
+    true,
+  )
+  const box = screen.getByRole('checkbox', { name: 'Mark not done: Design review' })
+  expect(box.hasAttribute('disabled')).toBe(true)
+  expect(box.getAttribute('data-state')).toBe('checked')
+})
+
+test('with Planning on a done row without stages is hatched too', () => {
+  renderGantt(
+    {},
+    { ...content, rows: [{ ...content.rows[1], done: true }] },
+    { ...OFF, enabled: true },
+  )
+  expect(document.querySelector('[data-gantt-stages] [data-done]')).toBeTruthy()
+})
+
+test('an open tracker task has a dimmed box that cannot be ticked', () => {
+  renderGantt({}, content, OFF, { 'DEMO-1': { ...task, status_category: 'new' } })
+  const box = screen.getByRole('checkbox', { name: 'Mark done: DEMO-1' })
+  expect(box.hasAttribute('disabled')).toBe(true)
+  expect(box.className).toContain('disabled:not-data-checked:opacity-40')
+  fireEvent.click(box)
+  expect('done' in rows()[0]).toBe(false)
+  expect(screen.getByText('Rotate the staging certificates').className).not.toContain(
+    'line-through',
+  )
+})
+
+test('a done tracker task is ticked and struck through like any done row', () => {
+  renderGantt()
+  expect(
+    screen.getByRole('checkbox', { name: 'Mark not done: DEMO-1' }).getAttribute('data-state'),
+  ).toBe('checked')
+  expect(screen.getByText('Rotate the staging certificates').className).toContain('line-through')
+})
+
+const twoStages: GanttContent = {
+  ...content,
+  rows: [
+    {
+      id: 'a',
+      title: 'Payment API',
+      start: '2026-10-05',
+      end: '2026-10-16',
+      stages: [
+        { id: 's1', type: 't1', start: '2026-10-05', end: '2026-10-07', people: [] },
+        { id: 's2', type: 't3', start: '2026-10-12', end: '2026-10-16', people: [] },
+      ],
+    },
+  ],
+}
+
+test('stages are ticked one by one; the row is done when all are', () => {
+  renderGantt({}, twoStages, PLANNING)
+  press(screen.getByRole('slider', { name: 'Discovery stage of Payment API' }), 300)
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Done' }))
+  expect(rows()[0].stages![0].done).toBe(true)
+  expect(rows()[0].done).toBeUndefined()
+  expect(
+    screen.getByRole('slider', { name: 'Discovery stage of Payment API' }).className,
+  ).toContain('done-hatch')
+  expect(
+    screen.getByRole('slider', { name: 'Build stage of Payment API' }).className,
+  ).not.toContain('done-hatch')
+
+  press(screen.getByRole('slider', { name: 'Build stage of Payment API' }), 500)
+  fireEvent.click(screen.getAllByRole('checkbox', { name: 'Done' }).at(-1)!)
+  expect(rows()[0].done).toBe(true)
+
+  // The row's own box unticks every stage at once.
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Mark not done: Payment API' }))
+  expect(rows()[0].stages!.some((s) => s.done)).toBe(false)
+  expect(rows()[0].done).toBeUndefined()
+})
+
+test('a done stage raises no time off warning', () => {
+  const away: PlanningState = {
+    ...PLANNING,
+    people: [
+      {
+        id: 'p1',
+        name: 'Anna',
+        teams: [],
+        source: 'manual',
+        archived: false,
+        off: [{ id: 'o1', start: '2026-10-05', end: '2026-10-09' }],
+      },
+    ],
+  }
+  const staffed = (done: boolean): GanttContent => ({
+    ...twoStages,
+    rows: [
+      {
+        ...twoStages.rows[0],
+        stages: [
+          { ...twoStages.rows[0].stages![0], people: ['p1'], ...(done && { done: true }) },
+          twoStages.rows[0].stages![1],
+        ],
+      },
+    ],
+  })
+  renderGantt({}, staffed(false), away)
+  expect(screen.getByLabelText('Someone is away')).toBeTruthy()
+  document.body.innerHTML = ''
+  renderGantt({}, staffed(true), away)
+  expect(screen.queryByLabelText('Someone is away')).toBeNull()
+})

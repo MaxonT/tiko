@@ -30,6 +30,7 @@ def test_sizes_match_what_the_web_app_makes():
         assert match, name
         assert layout.SIZES[kind] == (int(match.group(1)), int(match.group(2)))
     assert re.search(r"text: { width: (\d+)", shown).group(1) == str(int(layout.SIZES["text"][0]))
+    assert re.search(r"code: { width: (\d+)", shown).group(1) == str(int(layout.SIZES["code"][0]))
     pattern = r"CARD_GUESS: Size = { width: (\d+), height: (\d+)"
     card = re.search(pattern, (FRONTEND / "layout.ts").read_text())
     assert layout.SIZES["task_card"] == (int(card.group(1)), int(card.group(2)))

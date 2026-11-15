@@ -1,5 +1,6 @@
 import {
   AlarmClock,
+  Code,
   Frame,
   ImagePlus,
   Maximize2,
@@ -25,7 +26,7 @@ import { CardSources } from '@/canvas/Toolbar'
 import { MODULES } from '@/modules/registry'
 
 export type MenuTarget = { kind: 'pane'; point: XYPosition } | { kind: 'selection' }
-export type PlaceTool = 'frame' | 'sticky' | 'text' | 'timer'
+export type PlaceTool = 'frame' | 'sticky' | 'text' | 'code' | 'timer'
 
 type Props = {
   target: MenuTarget | null
@@ -46,6 +47,7 @@ const PLACE: { tool: PlaceTool; label: string; Icon: typeof Frame }[] = [
   { tool: 'frame', label: 'Add frame', Icon: Frame },
   { tool: 'sticky', label: 'Add sticky note', Icon: StickyNote },
   { tool: 'text', label: 'Add text', Icon: Type },
+  { tool: 'code', label: 'Add code', Icon: Code },
   { tool: 'timer', label: 'Add reminder', Icon: AlarmClock },
 ]
 

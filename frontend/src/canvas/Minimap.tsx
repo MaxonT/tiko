@@ -47,6 +47,8 @@ export function minimapLook(node: AppNode): { fill: string; stroke: string } {
     case 'task_card':
     case 'module':
       return { fill: 'var(--muted-foreground)', stroke: 'transparent' }
+    case 'code':
+      return { fill: 'var(--muted-foreground)', stroke: 'transparent' }
     case 'text':
       return { fill: 'var(--border)', stroke: 'transparent' }
     case 'image':

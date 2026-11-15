@@ -378,3 +378,44 @@ def test_invalid_module_content_rejected(client):
     response = client.put(f"/api/boards/{board['id']}", json=body)
     assert response.status_code == 422
     assert "gantt: end before start" in response.json()["error"]["message"]
+
+
+CODE = {
+    "id": "k",
+    "type": "code",
+    "position": {"x": 0, "y": 400},
+    "width": 480,
+    "data": {
+        "title": "Ping",
+        "text": "SELECT 1;\n",
+        "language": "sql",
+        "collapsed": True,
+        "numbered": True,
+        "marked": [1],
+    },
+}
+
+
+def test_code_block_round_trip(client):
+    board = create(client)
+    doc = {"nodes": [CODE], "edges": [], "viewport": DOC["viewport"]}
+    assert client.put(f"/api/boards/{board['id']}", json={"version": 1, "doc": doc}).status_code
+    assert client.get(f"/api/boards/{board['id']}").json()["doc"]["nodes"] == [CODE]
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        {"text": "", "language": "cobol"},
+        {"text": "x" * 10_001, "language": "plain"},
+        {"text": "", "language": "plain", "collapsed": None},
+        {"text": "", "language": "plain", "title": "x" * 201},
+        {"text": "", "language": "plain", "marked": [0]},
+        {"text": "", "language": "plain", "marked": list(range(1, 502))},
+    ],
+)
+def test_bad_code_block_rejected(client, data):
+    board = create(client)
+    doc = {"nodes": [CODE | {"data": data}]}
+    response = client.put(f"/api/boards/{board['id']}", json={"version": 1, "doc": doc})
+    assert response.status_code == 422

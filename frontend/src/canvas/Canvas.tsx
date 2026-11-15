@@ -19,7 +19,8 @@ import {
   type OnBeforeDelete,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { ArrowLeft, Map as MapIcon, Maximize } from 'lucide-react'
+import { ArrowLeft, Code, Map as MapIcon, Maximize } from 'lucide-react'
+import { useCommands } from '@/search/commands'
 import {
   useCallback,
   useEffect,
@@ -75,6 +76,10 @@ import { TaskCardNode } from '@/canvas/nodes/TaskCardNode'
 import { ModuleNode } from '@/canvas/nodes/ModuleNode'
 import { StickyNode } from '@/canvas/nodes/StickyNode'
 import { TextNode } from '@/canvas/nodes/TextNode'
+import { CodeNode } from '@/canvas/nodes/CodeNode'
+import { conversionOf } from '@/canvas/code/convert'
+import { detectLanguage } from '@/canvas/code/detect'
+import { CODE_MAX_CHARS } from '@/canvas/code/languages'
 import { hasMixedSources } from '@/canvas/node-tasks'
 import { indexTasks, taskRef, TasksContext } from '@/canvas/tasks-context'
 import { BoardSourcesContext } from '@/sources/board-sources'
@@ -93,6 +98,7 @@ import {
   FarShape,
   FarSticky,
   FarText,
+  FarCode,
   farView,
 } from '@/canvas/nodes/far'
 import { MAX_LIVE_DRAG, useBoardTravel } from '@/live/presence'
@@ -187,6 +193,7 @@ const nodeTypes = {
   sticky: withPresence(farView(StickyNode, FarSticky)),
   shape: withPresence(farView(ShapeNode, FarShape)),
   text: withPresence(farView(TextNode, FarText)),
+  code: withPresence(farView(CodeNode, FarCode)),
   // Far out a picture is still itself: its smallest copy is as cheap as a block.
   image: withPresence(ImageNode),
   module: withPresence(farView(ModuleNode, FarModule)),
@@ -222,6 +229,7 @@ const NEW_NODES = {
   frame: { width: 480, height: 320, data: { title: '' } },
   sticky: { width: 200, height: 200, data: { text: '', color: 'yellow' } },
   text: { width: 240, height: undefined, data: { text: '' } },
+  code: { width: 480, height: undefined, data: { text: '', language: 'plain' } },
 } as const
 
 const LIVE_NOTICE: Partial<Record<LiveStatus, string>> = {
@@ -362,7 +370,8 @@ export function BoardCanvas({
   const [shapeKind, setShapeKind] = useState<ShapeKind>('rectangle')
   // Frames and shapes are drawn by dragging; the other creation tools place on a click.
   const drawing = tool === 'frame' || tool === 'shape'
-  const placing = drawing || tool === 'sticky' || tool === 'text' || tool === 'timer'
+  const placing =
+    drawing || tool === 'sticky' || tool === 'text' || tool === 'code' || tool === 'timer'
   // Last pointer position over the canvas, where pasted items land.
   const pointer = useRef<XYPosition | null>(null)
   // Screen point where the current arrow drag started.
@@ -783,6 +792,56 @@ export function BoardCanvas({
     )
   }
 
+  // A code block of the copied text, in the language it is plainly written in.
+  const addCode = (text: string, screen: XYPosition) => {
+    if (!text.trim()) return
+    const point = screenToFlowPosition(screen)
+    const { width } = NEW_NODES.code
+    const node: AppNode = {
+      id: newId(),
+      type: 'code',
+      position: { x: point.x - width / 2, y: point.y },
+      width,
+      initialHeight: 28,
+      selected: true,
+      data: { text: text.slice(0, CODE_MAX_CHARS), language: detectLanguage(text) },
+    }
+    setNodes((current) =>
+      reparent([...current.map((n) => ({ ...n, selected: false })), node], [node.id]),
+    )
+  }
+  // Shift turns the next paste into code; the paste event itself does not say Shift was down.
+  const pasteAsCode = useRef(false)
+  useShortcut(
+    'pasteCode',
+    () => {
+      pasteAsCode.current = true
+      setTimeout(() => (pasteAsCode.current = false), 500)
+    },
+    { enabled: !readOnly, preventDefault: false },
+  )
+  useCommands(
+    readOnly
+      ? []
+      : [
+          {
+            id: 'paste-code',
+            title: 'Paste as code',
+            group: 'Commands',
+            Icon: Code,
+            shortcut: 'pasteCode',
+            run: () =>
+              void navigator.clipboard.readText().then(
+                (text) => addCode(text, viewportCenter()),
+                () =>
+                  toast.error('Not pasted', {
+                    description: 'The browser did not allow the clipboard. Press ⇧⌘V instead.',
+                  }),
+              ),
+          },
+        ],
+  )
+
   // Native clipboard events rather than shortcuts: only they can read and write the
   // system clipboard. Both step aside for text fields, dialogs and selected page text.
   const clipboard = useRef<Record<'copy' | 'cut' | 'paste', (event: ClipboardEvent) => void>>(null)
@@ -812,6 +871,14 @@ export function BoardCanvas({
       },
       paste: (event) => {
         if (readOnly || isEditable(event.target) || !event.clipboardData) return
+        if (pasteAsCode.current) {
+          pasteAsCode.current = false
+          event.preventDefault()
+          return addCode(
+            event.clipboardData.getData('text/plain'),
+            pointer.current ?? viewportCenter(),
+          )
+        }
         const paste = classifyPaste(event.clipboardData, clipboardId())
         if (!paste) return
         event.preventDefault()
@@ -921,7 +988,11 @@ export function BoardCanvas({
     } as AppNode
     if (kind === 'frame') return addFrame(node)
     markFresh(node.id)
-    setNodes((current) => reparent([...current, node], [node.id]))
+    // A new code block comes selected, so its language can be picked right away.
+    const others = (current: AppNode[]) =>
+      kind === 'code' ? current.map((n) => ({ ...n, selected: false })) : current
+    const added = kind === 'code' ? { ...node, selected: true } : node
+    setNodes((current) => reparent([...others(current), added], [node.id]))
   }
 
   // The store also holds what is only drawn, such as the stand-ins of a copying drag.
@@ -1169,6 +1240,11 @@ export function BoardCanvas({
     !nodes.some((n) => n.dragging || n.resizing)
   const timerHolder = selected.length === 1 && holdsTimers(selected[0]) ? selected[0] : undefined
   const soleSelected = inBar.length === 1 ? inBar[0] : undefined
+  // An element in a running vote keeps its type until the end, like its text.
+  const conversion =
+    soleSelected && !locked?.has(soleSelected.id) ? conversionOf(soleSelected) : null
+  const convertTo = (node: AppNode) =>
+    setNodes((current) => current.map((n) => (n.id === node.id ? node : n)))
   const controls =
     soleSelected?.type === 'module'
       ? (side: 'top' | 'bottom') =>
@@ -1424,6 +1500,9 @@ export function BoardCanvas({
             !guest && !votingRound && voteElements(nodes).length > 0
               ? () => setVoteStarting(true)
               : undefined
+          }
+          onConvert={
+            conversion ? { to: conversion.to, run: () => convertTo(conversion.node) } : undefined
           }
           onDuplicate={duplicate}
           onDelete={deleteSelection}

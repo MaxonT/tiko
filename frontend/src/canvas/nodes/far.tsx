@@ -1,10 +1,11 @@
-import type { NodeProps } from '@xyflow/react'
+import { useStoreApi, type NodeProps } from '@xyflow/react'
 import { memo, useContext, useEffect, useState, type ComponentType } from 'react'
 import { FarContext } from '@/canvas/readonly'
 import { faded, fillCss } from '@/canvas/selection-props'
 import { shapePath, textInset } from '@/canvas/shapes'
 import { useTask } from '@/canvas/tasks-context'
 import type {
+  CodeNode,
   FrameNode,
   ModuleNode,
   ShapeNode,
@@ -226,6 +227,27 @@ export const FarCard = memo(function FarCard({
         />
       )}
       <Bars count={1} className="h-2 flex-1" />
+    </div>
+  )
+})
+
+export const FarCode = memo(function FarCode({ id, data, selected }: NodeProps<CodeNode>) {
+  const store = useStoreApi()
+  // The block keeps the height the full element had, so zooming out does not move arrows.
+  const [height] = useState(() => {
+    const measured = store.getState().nodeLookup.get(id)?.measured.height
+    if (measured) return measured
+    return data.collapsed ? 34 : 58 + 20 * Math.max(1, data.text.split('\n').length)
+  })
+  return (
+    <div
+      className={cn(
+        'bg-card flex w-full flex-col gap-2.5 rounded-md border p-3 pt-11',
+        selected && 'ring-primary ring-2',
+      )}
+      style={{ height }}
+    >
+      {!data.collapsed && <Bars count={lines(data.text)} />}
     </div>
   )
 })

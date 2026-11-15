@@ -10,6 +10,7 @@ const KINDS: [string, string, string][] = [
   ['stickies', 'sticky', 'stickies'],
   ['shapes', 'shape', 'shapes'],
   ['texts', 'text', 'texts'],
+  ['code', 'code block', 'code blocks'],
   ['frames', 'frame', 'frames'],
   ['pictures', 'picture', 'pictures'],
   ['modules', 'Gantt', 'Gantts'],

@@ -41,6 +41,7 @@
 | zod | MIT | API response validation |
 | react-hotkeys-hook | MIT | Keyboard shortcuts |
 | sonner | MIT | Toasts |
+| Shiki | MIT | Code colors, loaded only when a board shows code; grammars and GitHub themes from its bundles (MIT) |
 | marked | MIT | Markdown → HTML for legal pages at build time |
 | pip-licenses | MIT | Python dependency license check (`make licenses`) |
 | license-checker-rseidelsohn | BSD-3-Clause | npm dependency license check (`make licenses`) |

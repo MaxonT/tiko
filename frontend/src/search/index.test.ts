@@ -203,3 +203,17 @@ test('a keystroke on a board of 5000 elements stays within a frame', () => {
   }
   expect(bestMs).toBeLessThan(16)
 })
+
+test('a code block is found by its title and by its code', () => {
+  const code: AppNode = {
+    id: 'k',
+    type: 'code',
+    position: at,
+    data: { title: 'Health check', text: 'curl -s localhost/health', language: 'bash' },
+  }
+  const index = buildIndex([code], {})
+  for (const query of ['health check', 'curl']) {
+    expect(search(index, words(query)).entries.map((e) => e.id)).toEqual(['k'])
+  }
+  expect(index[0].text.split('\n')[0]).toBe('Health check')
+})

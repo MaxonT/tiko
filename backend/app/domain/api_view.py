@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_serializer
 from app.domain.boards import (
     AnchorNode,
     BoardDoc,
+    CodeNode,
     Edge,
     FrameNode,
     ImageNode,
@@ -25,7 +26,9 @@ from app.domain.tasks import Task, task_ref
 
 PAGE = 500
 
-Kind = Literal["card", "note", "text", "shape", "frame", "arrow", "image", "module", "timer"]
+Kind = Literal[
+    "card", "note", "text", "code", "shape", "frame", "arrow", "image", "module", "timer"
+]
 
 _PLACED = ("id", "kind", "x", "y", "w", "h", "frame", "editable")
 # What each kind answers with; a field of its kind stays even when it is null.
@@ -33,6 +36,7 @@ FIELDS: dict[str, tuple[str, ...]] = {
     "card": (*_PLACED, "source", "key", "task"),
     "note": (*_PLACED, "text", "color", "bold", "opacity", "rotation"),
     "text": (*_PLACED, "text", "bold", "size", "opacity", "rotation"),
+    "code": (*_PLACED, "title", "text", "language", "collapsed", "numbered", "marked"),
     "shape": (
         *_PLACED,
         "shape",
@@ -101,6 +105,10 @@ class Element(BaseModel):
     stroke: float | None = None
     dash: bool | None = None
     shape: str | None = None
+    language: str | None = None
+    collapsed: bool | None = None
+    numbered: bool | None = None
+    marked: list[int] | None = None
     module: str | None = None
     source: str | None = None
     key: str | None = None
@@ -238,6 +246,19 @@ class BoardShape:
         if isinstance(node, TextNode):
             return Element(
                 **base, **_look(node.data), kind="text", frame=frame, text=node.data.text
+            )
+        if isinstance(node, CodeNode):
+            data = node.data
+            return Element(
+                **base,
+                kind="code",
+                frame=frame,
+                title=data.title or "",
+                text=data.text,
+                language=data.language,
+                collapsed=bool(data.collapsed),
+                numbered=bool(data.numbered),
+                marked=data.marked or [],
             )
         if isinstance(node, ShapeNode):
             data = node.data

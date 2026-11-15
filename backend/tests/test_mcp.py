@@ -180,6 +180,7 @@ def test_a_removed_member_loses_mcp_too(served):
 
 WRITE_TOOLS = [
     "add_cards",
+    "add_code",
     "add_frame",
     "add_notes",
     "add_reminder",
@@ -231,6 +232,23 @@ def test_a_write_key_lays_a_board_out(served):
             "add_notes", {"board": board_id, "notes": [{"text": "x", "size": "large"}]}
         )
         assert sized.is_error and "plain text" in sized.content[0].text
+        block = await client.call_tool(
+            "add_code",
+            {
+                "board": board_id,
+                "code": "SELECT 1;",
+                "language": "sql",
+                "title": "Ping",
+                "marked": [1],
+            },
+        )
+        made = block.structured_content["elements"][0]
+        assert (made["kind"], made["language"], made["numbered"], made["marked"]) == (
+            "code",
+            "sql",
+            True,
+            [1],
+        )
         watched = await client.call_tool(
             "add_reminder", {"board": board_id, "note": "Tell me", "task": "DEMO-2"}
         )

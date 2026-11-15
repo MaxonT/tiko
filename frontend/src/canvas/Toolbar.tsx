@@ -1,6 +1,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import {
   AlarmClock,
+  Code,
   Frame,
   Hand,
   ImagePlus,
@@ -42,7 +43,7 @@ import { SHORTCUTS, useShortcut, withShortcut } from '@/lib/shortcuts'
 import { useAutoTour } from '@/onboarding/start'
 import { readRecentInputs, rememberInput } from '@/lib/recent-inputs'
 
-export type Tool = 'select' | 'hand' | 'frame' | 'sticky' | 'text' | 'shape' | 'timer'
+export type Tool = 'select' | 'hand' | 'frame' | 'sticky' | 'text' | 'code' | 'shape' | 'timer'
 
 const TOOLS: { tool: Exclude<Tool, 'shape'>; Icon: LucideIcon }[] = [
   { tool: 'select', Icon: MousePointer2 },
@@ -50,6 +51,7 @@ const TOOLS: { tool: Exclude<Tool, 'shape'>; Icon: LucideIcon }[] = [
   { tool: 'frame', Icon: Frame },
   { tool: 'sticky', Icon: StickyNote },
   { tool: 'text', Icon: Type },
+  { tool: 'code', Icon: Code },
   { tool: 'timer', Icon: AlarmClock },
 ]
 
@@ -57,6 +59,7 @@ const TOOLS: { tool: Exclude<Tool, 'shape'>; Icon: LucideIcon }[] = [
 const PLACE_COMMANDS = [
   { tool: 'sticky', title: 'Add sticky note', Icon: StickyNote },
   { tool: 'text', title: 'Add text', Icon: Type },
+  { tool: 'code', title: 'Add code', Icon: Code },
   { tool: 'frame', title: 'Add frame', Icon: Frame },
   { tool: 'timer', title: 'Add reminder', Icon: AlarmClock },
 ] as const
@@ -279,6 +282,7 @@ export function Toolbar({
   useShortcut('frame', () => onTool('frame'))
   useShortcut('sticky', () => onTool('sticky'))
   useShortcut('text', () => onTool('text'))
+  useShortcut('code', () => onTool('code'))
   useShortcut('shape', () => setShapesOpen(true))
   useShortcut('timer', () => onTool('timer'))
   useShortcut('image', pickImages)

@@ -11,6 +11,8 @@ type Props = {
   maxLength: number
   placeholder: string
   singleLine?: boolean
+  /** False for a second field of an element, so the element's main field takes its first edit. */
+  startFresh?: boolean
   className?: string
 }
 
@@ -22,11 +24,12 @@ export function EditableText({
   maxLength,
   placeholder,
   singleLine,
+  startFresh = true,
   className,
 }: Props) {
   const { updateNodeData } = useReactFlow()
   const readOnly = useReadOnly()
-  const [editing, setEditing] = useState(() => takeFresh(nodeId))
+  const [editing, setEditing] = useState(() => startFresh && takeFresh(nodeId))
   const [draft, setDraft] = useState(value)
 
   const start = () => {

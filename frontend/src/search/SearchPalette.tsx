@@ -1,5 +1,6 @@
 import {
   AlarmClock,
+  Code,
   Diamond,
   Frame,
   LayoutTemplate,
@@ -39,6 +40,7 @@ const ICONS: Record<Exclude<Entry['kind'], 'card' | 'module'>, LucideIcon> = {
   sticky: StickyNote,
   shape: Shapes,
   text: Type,
+  code: Code,
   frame: Frame,
   timer: AlarmClock,
   row: Rows3,

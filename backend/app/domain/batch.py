@@ -6,12 +6,12 @@ applied whole or not at all.
 """
 
 from datetime import UTC, datetime
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.domain import layout
-from app.domain.boards import Opacity, ShapeKind, TextSize
+from app.domain.boards import CodeLanguage, Opacity, ShapeKind, TextSize
 from app.domain.errors import (
     Conflict,
     KeepsPeopleWork,
@@ -44,6 +44,7 @@ _TYPES = {
     "card": "task_card",
     "note": "sticky",
     "text": "text",
+    "code": "code",
     "shape": "shape",
     "frame": "frame",
     "timer": "timer",
@@ -51,7 +52,7 @@ _TYPES = {
 # Waiting reminders a board may hold before the API stops adding them; the web app sets none.
 MAX_TIMERS = 50
 # What a reminder attaches to, and where it sits: left of the top edge (`attach.ts`).
-_HOLDERS = {"task_card", "sticky", "shape", "text", "image", "module"}
+_HOLDERS = {"task_card", "sticky", "shape", "text", "code", "image", "module"}
 _BESIDE = {"x": -46.0, "y": 0.0}
 Repeat = Literal["daily", "weekdays", "weekly"]
 # The data key that holds each stored type's text.
@@ -65,7 +66,21 @@ _STYLES = {
     "frame": {"color", "opacity"},
 }
 _STYLE_FIELDS = ("bold", "size", "opacity", "rotation", "stroke", "dash")
-_SIZED = {"sticky": "wh", "shape": "wh", "frame": "wh", "text": "w"}
+_SIZED = {"sticky": "wh", "shape": "wh", "frame": "wh", "text": "w", "code": "w"}
+# A code block's own fields: how it shows its code, not the code itself, so any element's
+# block takes them, as the look of a note does.
+_CODE = ("language", "collapsed", "numbered", "marked")
+TEXT_MAX = 5000
+CODE_MAX = 10_000
+Marked = Annotated[list[Annotated[int, Field(ge=1, le=10_000)]], Field(max_length=500)]
+
+
+def _code_only(kind: str | None, given: set[str], text: str | None) -> None:
+    if kind != "code":
+        if code := sorted(given & set(_CODE)):
+            raise ValueError(f"only a code block takes {code[0]}")
+        if text is not None and len(text) > TEXT_MAX:
+            raise ValueError(f"text holds up to {TEXT_MAX} characters; a code block {CODE_MAX}")
 
 
 def _free_name(value: str | None) -> str | None:
@@ -75,6 +90,10 @@ def _free_name(value: str | None) -> str | None:
 
 
 class _Styled(BaseModel):
+    language: CodeLanguage | None = None
+    collapsed: bool | None = None
+    numbered: bool | None = None
+    marked: Marked | None = None
     bold: bool | None = None
     size: TextSize | None = None
     opacity: Opacity | None = None
@@ -96,13 +115,13 @@ class NewElement(_Styled):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
     id: str | None = Field(default=None, pattern=ID_PATTERN)
-    kind: Literal["card", "note", "text", "shape", "frame", "arrow", "timer"]
+    kind: Literal["card", "note", "text", "code", "shape", "frame", "arrow", "timer"]
     x: float | None = _PLACE
     y: float | None = _PLACE
     w: float | None = _SIZE
     h: float | None = _SIZE
     frame: str | None = Field(default=None, max_length=100)
-    text: str | None = Field(default=None, max_length=5000)
+    text: str | None = Field(default=None, max_length=CODE_MAX)
     title: str | None = Field(default=None, max_length=200)
     color: str | None = Field(default=None, max_length=20)
     shape: ShapeKind | None = None
@@ -120,6 +139,7 @@ class NewElement(_Styled):
     @model_validator(mode="after")
     def _fits_its_kind(self) -> "NewElement":
         _free_name(self.id)
+        _code_only(self.kind, self.model_fields_set, self.text)
         timed = {"note", "at", "repeat", "status", "on"} & self.model_fields_set
         if self.kind != "timer" and timed:
             raise ValueError(f"only a reminder takes {sorted(timed)[0]}")
@@ -145,8 +165,10 @@ class NewElement(_Styled):
             raise ValueError("a card needs ref: a key or a link")
         if self.kind == "card" and (self.w or self.h):
             raise ValueError("a card takes no size: the board measures it")
-        if self.kind == "text" and self.h:
-            raise ValueError("text takes a width only")
+        if self.kind in ("text", "code") and self.h:
+            raise ValueError(
+                f"{'a code block' if self.kind == 'code' else 'text'} takes a width only"
+            )
         if self.kind == "shape" and self.shape is None:
             raise ValueError("a shape needs shape")
         if self.kind == "frame" and self.frame is not None:
@@ -169,7 +191,7 @@ class Change(_Styled):
     h: float | None = _SIZE
     # Null takes the element out of its frame; left out, the frame stays as it is.
     frame: str | None = Field(default=None, max_length=100)
-    text: str | None = Field(default=None, max_length=5000)
+    text: str | None = Field(default=None, max_length=CODE_MAX)
     title: str | None = Field(default=None, max_length=200)
     color: str | None = Field(default=None, max_length=20)
     shape: ShapeKind | None = None
@@ -178,7 +200,7 @@ class Change(_Styled):
     def _together(self) -> "Change":
         if (self.x is None) != (self.y is None):
             raise ValueError("give x and y together, or neither")
-        for name in ("x", "y", "w", "h", "note", "at", *_STYLE_FIELDS):
+        for name in ("x", "y", "w", "h", "note", "at", *_STYLE_FIELDS, *_CODE):
             if name in self.model_fields_set and getattr(self, name) is None:
                 raise ValueError(f"{name} cannot be null; leave it out to keep it")
         return self
@@ -372,6 +394,10 @@ class _Plan:
             return {"text": element.text or "", "color": element.color or "yellow"}
         if element.kind == "text":
             return {"text": element.text or ""}
+        if element.kind == "code":
+            data = {"text": element.text or "", "language": element.language or "plain"}
+            shown = {name: getattr(element, name) for name in ("title", *_CODE[1:])}
+            return data | {name: value for name, value in shown.items() if value is not None}
         if element.kind == "shape":
             data = {"shape": element.shape, "text": element.text or ""}
             return data | {"color": element.color or "none"}
@@ -445,7 +471,7 @@ class _Plan:
 
     def _restyle(self, change: Change, node: dict[str, Any], given: set[str]) -> dict[str, Any]:
         words = given & {"text", "title", "shape"}
-        looks = given & {"color", *_STYLE_FIELDS}
+        looks = given & {"color", *_STYLE_FIELDS, *_CODE}
         if not (words or looks):
             return node
         # Words and form are the person's; the look is not, so tidying needs no ownership.
@@ -455,10 +481,16 @@ class _Plan:
             raise VoteRunning(f"{change.id} is in a running vote.")
         data = dict(node["data"])
         kind = node["type"]
+        try:
+            _code_only(kind, given, change.text)
+        except ValueError as error:
+            raise ValidationFailed(f"{change.id}: {error}") from error
         for name in words | looks:
             value = getattr(change, name)
             if name == "shape":
                 key = "shape" if kind == "shape" else None
+            elif kind == "code" and name in ("text", "title", *_CODE):
+                key = name
             elif name in ("text", "title"):
                 key = _TEXT.get(kind)
             else:

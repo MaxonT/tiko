@@ -68,7 +68,7 @@
         },
         "security": [
           {
-            "HTTPBearer": []
+            "API key": []
           }
         ]
       }
@@ -135,7 +135,7 @@
         },
         "security": [
           {
-            "HTTPBearer": []
+            "API key": []
           }
         ]
       },
@@ -220,7 +220,7 @@
         },
         "security": [
           {
-            "HTTPBearer": []
+            "API key": []
           }
         ]
       }
@@ -235,7 +235,7 @@
         "operationId": "read-board",
         "security": [
           {
-            "HTTPBearer": []
+            "API key": []
           }
         ],
         "parameters": [
@@ -380,7 +380,7 @@
         "operationId": "rename",
         "security": [
           {
-            "HTTPBearer": []
+            "API key": []
           }
         ],
         "parameters": [
@@ -478,7 +478,7 @@
         "operationId": "read-module",
         "security": [
           {
-            "HTTPBearer": []
+            "API key": []
           }
         ],
         "parameters": [
@@ -575,7 +575,7 @@
         "operationId": "add-elements",
         "security": [
           {
-            "HTTPBearer": []
+            "API key": []
           }
         ],
         "parameters": [
@@ -671,7 +671,7 @@
         "operationId": "change-elements",
         "security": [
           {
-            "HTTPBearer": []
+            "API key": []
           }
         ],
         "parameters": [
@@ -769,7 +769,7 @@
         "operationId": "remove-elements",
         "security": [
           {
-            "HTTPBearer": []
+            "API key": []
           }
         ],
         "parameters": [
@@ -860,7 +860,7 @@
         "operationId": "arrange",
         "security": [
           {
-            "HTTPBearer": []
+            "API key": []
           }
         ],
         "parameters": [
@@ -1030,7 +1030,7 @@
         },
         "security": [
           {
-            "HTTPBearer": []
+            "API key": []
           }
         ]
       }
@@ -1097,7 +1097,7 @@
         },
         "security": [
           {
-            "HTTPBearer": []
+            "API key": []
           }
         ]
       }
@@ -1112,7 +1112,7 @@
         "operationId": "read-workload",
         "security": [
           {
-            "HTTPBearer": []
+            "API key": []
           }
         ],
         "parameters": [
@@ -3581,9 +3581,9 @@
       }
     },
     "securitySchemes": {
-      "HTTPBearer": {
+      "API key": {
         "type": "http",
-        "description": "An API key from Settings → API keys.",
+        "description": "Send an API key in the `Authorization` header of every call:\n\n```\nAuthorization: Bearer tiko_…\n```\n\nMake one in Settings → API keys, for all your boards or only the ones you pick. See [API keys](/api-keys/) for what a key may do and how long it lives.",
         "scheme": "bearer"
       }
     }

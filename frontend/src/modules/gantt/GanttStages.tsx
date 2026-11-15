@@ -542,9 +542,12 @@ function StageForm({
     if (current.id === BARE && next.stages?.length) onReopen(next.stages[0].id)
   }
 
-  // A type picked after an async add lands on the row as it is by then, edits since kept.
+  // A type picked after an async add lands on the row as it is by then, edits since kept. Once
+  // the form is closed there is no current row to apply it to, so the new type only joins the
+  // list.
   const change = (part: Partial<Omit<Stage, 'id'>>) => {
-    const now = latest.current ?? { row, id: stage.id, onRow }
+    const now = latest.current
+    if (!now) return
     const next = updateStage(now.row, now.id, part)
     now.onRow(next)
     // The bare bar turns into a stage with an id of its own; the popover follows it.

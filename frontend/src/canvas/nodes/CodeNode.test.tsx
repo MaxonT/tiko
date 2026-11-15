@@ -176,3 +176,15 @@ test('an editor that leaves unchanged writes nothing', () => {
   act(() => setCurrent((nodes) => nodes.map((n) => ({ ...n, hidden: true }))))
   expect(current[0].data).toBe(before)
 })
+
+test('an unchanged draft never overwrites text someone else saved meanwhile', () => {
+  show({ text: 'A', language: 'plain' })
+  fireEvent.doubleClick(screen.getByText('A'))
+  act(() =>
+    setCurrent((nodes) =>
+      nodes.map((n) => ({ ...n, data: { ...(n.data as CodeData), text: 'B' } }) as AppNode),
+    ),
+  )
+  act(() => setCurrent((nodes) => nodes.map((n) => ({ ...n, hidden: true }))))
+  expect(saved().text).toBe('B')
+})

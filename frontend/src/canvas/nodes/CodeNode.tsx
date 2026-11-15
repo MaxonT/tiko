@@ -167,6 +167,9 @@ function CodeNodeView({ id, data, selected, height }: NodeProps<CodeNodeType>) {
   }, [height, id, readOnly, updateNode])
   const [editing, setEditing] = useState(() => takeFresh(id))
   const [draft, setDraft] = useState(data.text)
+  // The text editing started from: a draft equal to it changed nothing, even when the stored
+  // text moved on meanwhile, as on a live board.
+  const [base, setBase] = useState(data.text)
   const [copied, setCopied] = useState(false)
   // A viewer may unfold a block for themselves; it is not saved.
   const [ownFold, setOwnFold] = useState<boolean | null>(null)
@@ -177,27 +180,28 @@ function CodeNodeView({ id, data, selected, height }: NodeProps<CodeNodeType>) {
   const start = () => {
     if (readOnly) return
     setDraft(data.text)
+    setBase(data.text)
     setEditing(true)
   }
   // Marks go with their lines, so a line added above does not move them onto another.
-  const commit = (text: string, stored: CodeData) => {
-    if (text === stored.text) return
+  const commit = (text: string, from: string, stored: CodeData) => {
+    if (text === from || text === stored.text) return
     const marked = stored.marked?.length ? followMarks(stored.text, text, stored.marked) : undefined
     updateNodeData(id, marked ? { text, marked } : { text })
   }
   const finish = () => {
     setEditing(false)
-    commit(draft, data)
+    commit(draft, base, data)
   }
   // Far zoom and off-screen culling unmount the editor without a blur; the draft is kept.
-  const open = useRef({ editing, draft, data, commit })
+  const open = useRef({ editing, draft, base, data, commit })
   useEffect(() => {
-    open.current = { editing, draft, data, commit }
+    open.current = { editing, draft, base, data, commit }
   })
   useEffect(
     () => () => {
       const now = open.current
-      if (now.editing) now.commit(now.draft, now.data)
+      if (now.editing) now.commit(now.draft, now.base, now.data)
     },
     [],
   )

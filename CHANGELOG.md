@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Changed
+
+- One-click updates are now off unless you turn them on: the one-line installers ask with no as the default answer, and an install without a terminal leaves them off. The updater has root-level access to Docker, so it is your call, not a default. Installs that already answered keep their choice.
+
 ## [2026.11.1] - 2026-11-15
 
 ### Added
@@ -21,7 +25,6 @@ All notable changes to this project are documented here. The format follows [Kee
 - The guide is easier to read: every page has short sections, tables and steps instead of long paragraphs, Adding tasks and Working together are split into shorter pages, and the sidebar groups pages by what you do. The API pages link each call to its reference. Old links still land on the right section.
 - The API has a full reference in the guide: every call with its fields, errors and samples in curl, Python, JavaScript and Go, each one ready to copy as Markdown for your agent. See [API reference](https://docs.tiko.run/reference/).
 - A new tiko starts with Planning on, so the Gantt shows stages, people and workload from the first board. Instances already running keep their setting.
-- One-click updates are now off unless you turn them on: the one-line installers ask with no as the default answer, and an install without a terminal leaves them off. The updater has root-level access to Docker, so it is your call, not a default. Installs that already answered keep their choice.
 - Enter now adds a person in Share when the search finds exactly one, and adds the ticked tasks, or the only one found, in the CalDAV task picker.
 
 ### Fixed

@@ -29,9 +29,10 @@ Principles check:
 3. **A parent is not ticked.** Its label shows `done/total` over the leaves of its branch, task rows included, as "2/8" in the group's row. All done → the number turns green. A parent stores no `done`; a row that gets children keeps a stored `done`, which is not drawn while it has children, as parents' stages are today.
    - The number counts the whole branch, filters aside: a filter hides rows, not progress.
    - A collapsed parent shows its number too.
-4. **Stages, with Planning on.** A stage gets its own `done`, ticked from the stage's menu and from a checkbox that shows on the bar on hover. A leaf with stages counts as done in its parent's number when every stage is done; its own checkbox ticks or unticks all its stages at once. A task row's stages are ticked by hand too: stages are tiko's plan, not the tracker's.
-   - A hand row with stages keeps `done` equal to "every stage done" on every change, so switching Planning off shows the same mark. A new stage that is not done unticks the row.
-   - With Planning off a task row shows the tracker's status, as stages are not drawn.
+4. **Stages, with Planning on.** A stage gets its own `done`, ticked in the stage's popover. A done stage is hatched on its own.
+   - A row tiko owns with stages is done when every stage is: it keeps `done` equal to "every stage done" on every change, so Planning on and off show the same mark. Its own checkbox ticks or unticks all its stages at once. A new stage that is not done unticks the row.
+   - A task row's stages are ticked by hand too, as stages are tiko's plan, but they never tick the row: a task row is done only when its tracker says so (Decision 2). A task done in the tracker hatches all its stages.
+   - Amended in the build, 2026-11-15: the first draft let a task row count as done when all its stages were, which could show a task done while the tracker has it open. The hover checkbox on the stage bar was dropped: at month scale the bars are too narrow for it, and the popover is one click away.
    - A done stage gives no time off warning: the work is over.
 
 ### How done looks

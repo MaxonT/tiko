@@ -54,7 +54,7 @@ An element of kind `module` gains `"module": "gantt"`. `rows` is present for a g
 - `span`: on parents, what the whole branch covers.
 - `done`: `true` on a leaf that is done, absent otherwise: a task row when its tracker says done, any other row when ticked in tiko (spec 050).
 - `progress`: on parents, `{done, total}` over the leaves of the whole branch, counted before an MCP answer is narrowed or folded.
-- `stages`: rows without children, Planning on; `[]` when none. Stage people carry `id` and `name` only; `GET /planning` says who is archived.
+- `stages`: rows without children, Planning on; `[]` when none. Stage people carry `id` and `name` only; `GET /planning` says who is archived. A stage ticked done carries `done: true` (spec 050).
 - `values`: fields the gantt shows as columns; `inherited` when the value comes from an ancestor.
 - An id Planning does not know comes with `name: null`.
 - `links`: `to` starts after `from` ends.

@@ -32,6 +32,7 @@ export const ganttSchema = z.object({
               start: isoDate,
               end: isoDate,
               people: z.array(z.string()).default([]),
+              done: z.boolean().optional(),
             }),
           )
           .optional(),

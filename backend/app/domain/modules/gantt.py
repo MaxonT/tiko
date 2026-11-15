@@ -35,6 +35,8 @@ class Stage(_Strict):
     people: list[Annotated[str, Field(max_length=40)]] = Field(
         default_factory=list, max_length=MAX_STAGE_PEOPLE
     )
+    # Ticked by hand, on a task row too; absent when not.
+    done: bool | None = None
 
     @model_validator(mode="after")
     def _rules(self) -> Self:

@@ -298,3 +298,13 @@ def test_done_leaves_and_progress_over_the_whole_branch():
     assert "progress" not in out["a"]
     folded, _ = narrow(view(content(*rows), found), cap=1)
     assert [dump(row)["progress"] for row in folded] == [{"done": 2, "total": 4}]
+
+
+def test_a_stage_says_when_it_is_done():
+    stages = [
+        {"id": "s1", "type": "t1", "start": "2026-10-05", "end": "2026-10-06", "done": True},
+        {"id": "s2", "type": "t1", "start": "2026-10-07", "end": "2026-10-09"},
+    ]
+    row = {"id": "a", "title": "Rollout", "start": "2026-10-05", "end": "2026-10-09"}
+    out = dump(view(content(row | {"stages": stages}), names=Names())[0])
+    assert out["stages"][0]["done"] is True and "done" not in out["stages"][1]

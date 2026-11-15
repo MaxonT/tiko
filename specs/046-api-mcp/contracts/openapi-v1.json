@@ -2130,6 +2130,17 @@
       },
       "StageOut": {
         "properties": {
+          "done": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Done"
+          },
           "end": {
             "format": "date",
             "title": "End",

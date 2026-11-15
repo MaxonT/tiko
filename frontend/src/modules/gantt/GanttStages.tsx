@@ -11,9 +11,11 @@ import {
 } from 'react'
 import { addStageType, freeHue, storeStageType, type Person, type StageType } from '@/api/planning'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { DatesTip } from '@/modules/gantt/GanttBar'
+import { tickStage } from '@/modules/gantt/done'
 import { GUESS_EDGE, GUESS_FADE, type Guess } from '@/modules/gantt/follow'
 import type { Row } from '@/modules/gantt/rows'
 import { StagePeople, stagePeople, type Named } from '@/modules/gantt/StagePeople'
@@ -255,7 +257,10 @@ function StageBar({
   const name = stage.type === '' ? 'No stage' : (type?.name ?? 'Unknown')
   const named = stagePeople(stage.people, people)
   const names = named.map((p) => p.name).join(', ')
-  const away = awayDuring(span, stage.people, people).map(awayLine)
+  // A done stage is hatched on its own; a done row hatches all of its stages.
+  const finished = Boolean(done || stage.done)
+  // Work that is over raises no time off warning.
+  const away = finished ? [] : awayDuring(span, stage.people, people).map(awayLine)
   // Names that do not fit turn into a people button; the hidden copy says how wide they are.
   useLayoutEffect(() => {
     const needed = (measure.current?.offsetWidth ?? 0) + (below ? BELOW_PADDING : BAR_PADDING)
@@ -317,12 +322,12 @@ function StageBar({
               'peer absolute top-1.5 flex h-[22px] cursor-grab items-center overflow-hidden rounded-[4px] px-1.5 text-[12px] leading-[22px] font-semibold whitespace-nowrap select-none active:cursor-grabbing',
               !type && 'bg-card text-muted-foreground border font-medium',
               guess && GUESS_EDGE[guess],
-              done && 'done-hatch',
+              finished && 'done-hatch',
               box.clippedStart && 'rounded-l-none',
               box.clippedEnd && 'rounded-r-none',
             )}
             data-guess={guess}
-            data-done={done || undefined}
+            data-done={finished || undefined}
             style={{
               left: box.left,
               width: Math.max(box.width, 4),
@@ -402,6 +407,7 @@ function StageBar({
             people={people}
             assignees={assignees}
             away={away}
+            onDone={stage.id === BARE ? undefined : (next) => onRow(tickStage(row, stage.id, next))}
             onRow={onRow}
             onReopen={onReopen}
             onClose={() => onOpen(false)}
@@ -490,6 +496,7 @@ function StageForm({
   assignees,
   dates,
   away,
+  onDone,
   onRow,
   onReopen,
   onClose,
@@ -503,6 +510,8 @@ function StageForm({
   assignees: string[]
   /** "Anna is away Mon Oct 5 – Fri Oct 9", one per range that falls on the stage. */
   away: string[]
+  /** Ticks this stage; undefined for the bar of a row without stages. */
+  onDone?: (done: boolean) => void
   onRow: (row: Row) => void
   onReopen: (id: string) => void
   onClose: () => void
@@ -609,7 +618,19 @@ function StageForm({
           </Button>
         </form>
       )}
-      <div className="text-muted-foreground text-[12px] tabular-nums">{dates}</div>
+      <div className="flex items-center gap-2">
+        <span className="text-muted-foreground flex-1 text-[12px] tabular-nums">{dates}</span>
+        {onDone && (
+          <label className="flex cursor-pointer items-center gap-1.5 text-[12px]">
+            <Checkbox
+              checked={stage.done === true}
+              onCheckedChange={(checked) => onDone(checked === true)}
+              className="data-checked:border-status-done-foreground data-checked:bg-status-done-foreground size-3.5"
+            />
+            Done
+          </label>
+        )}
+      </div>
       {away.map((line) => (
         <p key={line} className="text-destructive text-[12px]">
           {line}

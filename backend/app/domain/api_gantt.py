@@ -52,6 +52,11 @@ class StageOut(BaseModel):
     start: date
     end: date
     people: list[Named]
+    done: bool | None = None
+
+    @model_serializer(mode="wrap")
+    def _absent(self, handler):
+        return _without_none(handler(self))
 
 
 class Progress(BaseModel):
@@ -242,6 +247,7 @@ def gantt_view(
                         start=stage.start,
                         end=stage.end,
                         people=[named(names.people, person) for person in stage.people],
+                        done=stage.done or None,
                     )
                     for stage in row.stages or []
                 ]

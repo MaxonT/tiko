@@ -87,6 +87,12 @@ def test_a_task_row_takes_done_from_its_tracker():
         gantt(rows=[row("a", key="DEV-1", done=True)])
 
 
+def test_a_stage_is_ticked_done_on_a_task_row_too():
+    stages = [stage("s1", "2026-10-05", "2026-10-09", done=True)]
+    content = gantt(rows=[row("a", key="DEV-1", stages=stages)])
+    assert content.rows[0].stages[0].done is True
+
+
 def test_a_row_that_gets_children_keeps_its_done():
     content = gantt(rows=[row("a", done=True), row("b", parent="a")])
     assert content.rows[0].done is True

@@ -1,6 +1,7 @@
 import { expect, test } from 'vitest'
 import type { Task } from '@/api/tasks'
-import { leafDone, progress, tickRow } from '@/modules/gantt/done'
+import { leafDone, progress, syncDone, tickRow, tickStage } from '@/modules/gantt/done'
+import { shownStages } from '@/modules/gantt/stages'
 import type { Row } from '@/modules/gantt/rows'
 import type { GanttContent } from '@/modules/gantt/schema'
 
@@ -70,4 +71,54 @@ test('ticking stores done, unticking removes it, a task row is left alone', () =
   expect(ticked.rows[0].done).toBe(true)
   expect('done' in tickRow(ticked, 'a', false).rows[0]).toBe(false)
   expect(tickRow(content, 't', true).rows[1]).toBe(content.rows[1])
+})
+
+const staged = (done?: boolean): Row =>
+  row('a', {
+    start: '2026-10-05',
+    end: '2026-10-16',
+    stages: [
+      { id: 's1', type: 't1', start: '2026-10-05', end: '2026-10-07', people: [] },
+      {
+        id: 's2',
+        type: 't1',
+        start: '2026-10-12',
+        end: '2026-10-16',
+        people: [],
+        ...(done && { done }),
+      },
+    ],
+  })
+
+test('ticking a row with stages ticks them all, so Planning on and off agree', () => {
+  const ticked = tickRow(gantt([staged()]), 'a', true).rows[0]
+  expect(ticked.done).toBe(true)
+  expect(ticked.stages!.every((s) => s.done)).toBe(true)
+  const back = tickRow(gantt([ticked]), 'a', false).rows[0]
+  expect(back.stages!.some((s) => 'done' in s)).toBe(false)
+})
+
+test('a row tiko owns is done exactly when every stage is', () => {
+  const one = tickStage(staged(), 's1', true)
+  expect(syncDone(gantt([one])).rows[0].done).toBeUndefined()
+  const both = tickStage(one, 's2', true)
+  expect(syncDone(gantt([both])).rows[0].done).toBe(true)
+  // A new stage that is not done unticks the row.
+  const more = {
+    ...both,
+    done: true,
+    stages: [
+      ...both.stages!,
+      { id: 's3', type: 't1', start: '2026-10-19', end: '2026-10-20', people: [] },
+    ],
+  }
+  expect('done' in syncDone(gantt([more])).rows[0]).toBe(false)
+  // A task row's stages never tick the row: the tracker does.
+  const task = { ...both, key: 'DEMO-1' }
+  expect(syncDone(gantt([task])).rows[0].done).toBeUndefined()
+})
+
+test('a ticked row keeps its tick when its bar becomes its first stage', () => {
+  expect(shownStages(row('a', { done: true }))[0].done).toBe(true)
+  expect(shownStages(row('a', { key: 'DEMO-1' }))[0].done).toBeUndefined()
 })

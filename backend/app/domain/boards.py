@@ -507,6 +507,9 @@ def planned_stages(doc: BoardDoc) -> list[PlannedStage]:
                 continue
             title = row.get("title") or row.get("key") or ""
             for stage in row.get("stages") or []:
+                # Work that is over keeps nobody busy.
+                if stage.get("done"):
+                    continue
                 for person in stage.get("people", []):
                     out.append(
                         PlannedStage(person, title, stage["type"], stage["start"], stage["end"])

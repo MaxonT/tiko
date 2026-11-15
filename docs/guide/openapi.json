@@ -3374,6 +3374,17 @@
             },
             "type": "array",
             "title": "People"
+          },
+          "done": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Done"
           }
         },
         "type": "object",

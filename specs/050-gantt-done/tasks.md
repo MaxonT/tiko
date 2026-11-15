@@ -17,7 +17,7 @@
 - [ ] T009 `leafDone` and `tickLeaf` for stages; unit tests
 - [ ] T009a A hand row with stages keeps `done` equal to every stage done on each change; split and merge of stages keep `done`; unit tests
 - [ ] T009b No time off warning on a done stage
-- [ ] T010 Stage menu "Mark done", hover checkbox on the stage bar, hatch per stage; component tests
+- [ ] T010 "Done" in the stage popover, hatch per stage; component tests
 - [ ] T011 `planned_stages` skips done stages; workload test
 - [ ] T012 API read: stage `done`; API test, contract
 - [ ] T013 Guide `gantt/stages.md`, CHANGELOG line

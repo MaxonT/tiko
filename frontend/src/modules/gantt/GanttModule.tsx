@@ -57,7 +57,7 @@ import {
   withFollow,
   type Tracked,
 } from '@/modules/gantt/follow'
-import { leafDone, progress, tickRow } from '@/modules/gantt/done'
+import { leafDone, progress, syncDone, tickRow } from '@/modules/gantt/done'
 import {
   addLink,
   addMilestone,
@@ -204,7 +204,7 @@ export function GanttModule({
   // Every change passes here, so no tree edit leaves a leaf apart from its stages, and a bar
   // a person moved keeps the dates they gave it.
   const onChange = (next: GanttContent) => {
-    const { content: kept, detached } = detachEdited(content, fitLeaves(next))
+    const { content: kept, detached } = detachEdited(content, fitLeaves(syncDone(next)))
     write(kept)
     if (detached.length === 0) return
     toast(

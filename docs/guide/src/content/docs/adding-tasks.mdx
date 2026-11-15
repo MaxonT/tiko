@@ -1,0 +1,40 @@
+---
+title: Adding tasks
+description: Put tasks from your tracker on a board by key, link, query or paste.
+---
+
+import { CardGrid, LinkCard } from '@astrojs/starlight/components'
+
+A card on the board is a live task from your tracker: its type, key, title and status. Statuses refresh every 30 seconds with one batched request per board, and closed tasks are struck through.
+
+## Add cards by key, link or query
+
+Pick the card tool (`C`) and type one of these:
+
+- a key, such as `PROJ-123`;
+- a link to the task;
+- a range of keys;
+- a query, like JQL in Jira.
+
+Several new cards land close together in columns of five, read top to bottom. What each tracker takes, with examples, is in [What you can add](../what-you-can-add/).
+
+## Paste tasks
+
+Press `⌘V` (`Ctrl+V`) on the board. Links copied from your tracker tabs or from GitHub, keys and ranges of keys become cards. Any other text becomes a sticky note, placed at the cursor.
+
+## Read a card
+
+- **Details:** click a card for assignee, priority, last update and a link to the task.
+- **Links** open in a new tab. **Settings → Preferences** can open them in this one.
+- **Collapse** cards to one line when the board gets busy: select them and use the bar above the selection.
+
+## Check that your tracker syncs
+
+A colored dot in the corner of the screen shows whether every tracker syncs. Click it to see why one fails.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="On the board" description="Frames, notes, shapes, pictures, stickers, and how to get around." href="/on-the-board/" />
+  <LinkCard title="What you can add" description="Keys, links and queries each tracker takes, with examples." href="/what-you-can-add/" />
+</CardGrid>

@@ -1,0 +1,63 @@
+---
+title: Working together
+description: Share a board with people, the whole workspace or a public link, and pick who can edit.
+---
+
+import { CardGrid, LinkCard } from '@astrojs/starlight/components'
+
+A shared board is live: everyone who has it open sees each other's changes as they happen, with no reload and no "someone else changed this board" warnings.
+
+## Share a board
+
+**Share** in the top bar gives a board to people in three ways. Only the owner (and an admin) changes them.
+
+| | People you add | Everyone in this workspace | Public link |
+|---|---|---|---|
+| Who gets in | The people you pick | Every member of the workspace | Anyone who has the link |
+| Sign-in | Yes | Yes | No |
+| Role | **Can edit** or **Can view**, per person | **Can edit** or **Can view**, one for all | View only |
+| Board in their list | Yes | Yes | No, they need the link |
+| Tasks from your tracker | In full, as their own token allows | In full, as their own token allows | The key only |
+
+- **People you add:** type a name or a username in **Add people**, pick a role, click the person.
+- **Everyone in this workspace** gives a role to the whole team at once, so you do not add people one by one. It does not reach demo visitors. On an instance where anyone can sign up it is not offered: there "everyone" would mean strangers.
+- **Public link** is for people without an account, such as a client. See [Share a public link](#share-a-public-link).
+
+## Bring your team in
+
+Copy the board link at the top of **Share** and post it in your team chat. It opens the board for everyone who has access. Someone who has none yet sees "You don't have access to this board" and gets in once you add them.
+
+## Roles
+
+- **Can edit:** changes anything on the board.
+- **Can view:** sees changes live but cannot change anything. The server ignores edits sent from a viewer's browser.
+- **Two roles at once:** when a person is added and **Everyone in this workspace** is on too, the higher role wins. Adding someone as **Can view** does not take editing away from them while everyone can edit.
+
+## Share a public link
+
+The owner of a board can show it to anyone, with no account: in **Share**, turn on **Public link** and copy the link.
+
+:::caution[A link is the access]
+Anyone the link is forwarded to can open the board. Pages opened by a link ask search engines not to index them.
+:::
+
+What a guest gets:
+
+- **The board, read-only:** pan, zoom and search. Changes made by people on the board show up as they happen. When more than 200 guests watch one board, or the guest's network blocks WebSockets, the page checks for changes every few seconds instead.
+- **Tasks as keys only:** tasks from your tracker show a guest only their key, as a link to the tracker. Titles, statuses and assignees are fetched with each person's own token and are never published. Demo tasks are shown in full.
+- **No presence:** a guest does not see who is on the board, and nobody sees the guest.
+- **Focus timer and music** work: they live in the guest's browser. Reminders on the board are shown, but they ring only for the people on it.
+
+How the link behaves:
+
+- **Signed-in people** who can open the board anyway land on the board itself, with their own role. Others keep the guest view; a guest can sign in from the page and is taken to the board if it is shared with them.
+- **Turning the link off** stops it at once, and it never works again: turning it on later makes a new link. Moving the board to the trash stops it too, and restoring the board brings the same link back.
+- **The Public mark:** a board with a link has a **Public** mark in the top bar and a globe in the board menu, for everyone on it. Only the owner (and an admin) sees the link itself.
+- **Switched off for everyone:** an admin can turn public links off for the whole tiko in **Settings → Sharing**. Every link stops while it is off.
+
+## More on working together
+
+<CardGrid>
+  <LinkCard title="Live editing" description="Who is here, what merges, undo and what happens when the connection drops." href="/working-together/live-editing/" />
+  <LinkCard title="Reactions and voting" description="React to notes and run a vote in a retro." href="/working-together/reactions-and-voting/" />
+</CardGrid>

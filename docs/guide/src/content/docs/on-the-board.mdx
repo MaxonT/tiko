@@ -1,0 +1,88 @@
+---
+title: On the board
+description: Add frames, notes, shapes, pictures and stickers around your cards, change them together and find your way around a big board.
+---
+
+import { CardGrid, LinkCard } from '@astrojs/starlight/components'
+
+Around the cards from your tracker, a board holds frames, notes, shapes, text, arrows, pictures and stickers. The board is saved on the server and reopens exactly as you left it.
+
+## Add elements
+
+| Element | Key | What it does |
+|---|---|---|
+| **Frame** | `F` | Groups cards. Drag cards in and out; moving a frame moves everything inside. Takes a fill color. |
+| **Sticky note** | `N` | Holds up to 2000 characters; the text shrinks to fit the note. |
+| **Shape** | `S` | Rectangle, rounded rectangle, ellipse, rhombus, triangle, parallelogram, hexagon or cylinder, for a flowchart next to the tasks. Holds a short text and takes a fill color. |
+| **Text** | `T` | Text anywhere on the board. |
+| **Arrow** | | Joins any two elements, or points at an empty spot. |
+| **Picture** | `I` | A screenshot or a photo, see [Pictures](#pictures). |
+| **Sticker** | `E` | An animated emoji or your team's own, see [Stickers](#stickers). |
+
+Pick a shape, then drag to set its size or click to place it. Each creation tool shows its icon next to the crosshair, so you see which one is picked.
+
+## Pictures
+
+Add a picture in any of three ways:
+
+- paste a screenshot or a copied picture with `⌘V` (`Ctrl+V`);
+- drop files from your computer onto the board;
+- press `I`, or right-click the board and choose **Add image**, to pick files.
+
+PNG, JPEG, WebP and GIF up to 25 MB each. Location and camera data are removed from photos. See [Pictures](../data-and-upgrades/#pictures) for where they are kept.
+
+- **Upload:** a picture shows the moment you add it and uploads behind it. If an upload fails, the picture says why and offers **Retry**.
+- **An upload that never finishes**, for example because the tab was closed, says so after two minutes. Anyone who can edit the board can then pick the file again.
+- **Speed:** the board loads a smaller copy that is as sharp as the picture is on your screen, and the original only when you zoom in close. A board full of 4K screenshots stays as quick to pan and zoom as one of notes.
+- **GIFs** play when at least 80 pixels wide on your screen. Smaller, or when your system asks for reduced motion, a GIF shows its first frame.
+
+## Stickers
+
+Press `E` or the sticker button in the toolbar. Click a sticker to put it in the middle of the view, or drag it where it goes.
+
+- **The panel** holds about 880 animated emoji in sections, a **Recent** tab and a search by name. A sticker plays when the pointer rests on it; on the board it plays like a GIF.
+- **Your team's stickers** live in the **Workspace** tab. Select a picture on the board and pick **Save to stickers** in the bar above it, and everyone in the workspace finds it there.
+- **Removing** a sticker from the panel leaves it on the boards that show it.
+
+The built-in set is [Noto Animated Emoji](https://googlefonts.github.io/noto-emoji-animation/) by Google, under CC BY 4.0.
+
+## Select and change elements
+
+Drag a box from an empty spot to select several elements. The box takes every element it touches, and a frame only when it covers the whole frame, so you can pick notes inside a frame without the frame.
+
+A bar appears next to the selection: above it, or below it when there is no room. The bar shows what every selected element has in common:
+
+- **Fill:** pick a color and every selected element takes it, with one Undo to bring them back. Rest the pointer on a color to see it on the board before you pick.
+- **Opacity:** a slider fades the elements.
+- **Outline:** a thicker or dashed outline for shapes.
+- **Text:** size and bold.
+- **Align:** with two or more elements, line up their edges or centers; with three or more, space them evenly. One Undo step.
+- **Collapse** cards, add a **reminder**, **duplicate** and **delete**.
+
+Each control shows only where every selected element can take it. A selection of several kinds starts with "N objects": open it and choose a kind to keep only those selected.
+
+## Move, resize and rotate
+
+- **Resize** from a corner, or from one side to change only the width or the height.
+- **Smart guides** snap what you drag or resize to the edges, centers and gaps of its neighbors. Hold `⌘` (`Ctrl`) while you drag to move without them.
+- **Copy by dragging:** hold `Alt` and start dragging; you can let go of `Alt` after that. The originals stay where they were, and their copies land where you drop them, arrows between them included. One Undo takes the copies back.
+- **Rotate** a sticky note, a shape, a text or a picture: select it and drag from just outside any corner, where the pointer turns into a circular arrow. Hold `Shift` to turn in 15° steps.
+
+The angle shows next to the pointer while you rotate, positive counterclockwise and negative clockwise, as in geometry. It lights up and pulls in when the element is a few degrees from straight, diagonal or upside down, so a crooked element is easy to set right again. A turned element still resizes from its own sides and corners, and its arrows follow its turned sides.
+
+## Get around the board
+
+- **Mouse and trackpad:** a mouse wheel zooms around the pointer and a two-finger swipe on a trackpad pans, as in most whiteboards. A pinch and `Ctrl` + wheel zoom, `Shift` + wheel pans sideways, and dragging with the wheel held pans. If your mouse pans instead of zooming, set **Settings → Preferences → Mouse wheel** to **Always zoom**.
+- **Minimap:** the whole board in the bottom right corner, with the part you see framed. Click a spot to go there or drag the frame. The map button under the zoom buttons hides it, and your browser remembers that. Phones and narrow windows don't show it.
+- **Back:** after search or the reminder list moves the board, press `B` or the arrow under the zoom buttons to return.
+- **Zoom in on one element:** double-click it.
+- **Switch boards** from the menu or the palette.
+
+At 20% zoom and below, elements turn into blocks in their colors, with grey bars where the text was, and keep their arrows. A big board stays smooth to pan and zoom. Elements still select and move there; to edit text or draw a new arrow, zoom in.
+
+## Related
+
+<CardGrid>
+  <LinkCard title="Adding tasks" description="Put tasks from your tracker on the board." href="/adding-tasks/" />
+  <LinkCard title="Keyboard shortcuts" description="Every key on one page." href="/keyboard-shortcuts/" />
+</CardGrid>

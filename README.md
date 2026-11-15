@@ -67,7 +67,7 @@ Add cards by key, link or query, or paste links straight from your tracker tabs.
 
 ### Arrange them the way you think
 
-Frames, sticky notes, text and arrows around the cards, with smart guides that snap things into place. [The board →](https://docs.tiko.run/adding-tasks/#around-the-cards)
+Frames, sticky notes, text and arrows around the cards, with smart guides that snap things into place. [The board →](https://docs.tiko.run/on-the-board/)
 
 [![A smart guide lines up a card, a frame groups two cards, and an arrow joins a sticky note to a card](https://media.tiko.run/readme/readme-arrange.webp)](https://media.tiko.run/readme/readme-arrange.mp4)
 
@@ -152,7 +152,7 @@ Everything else lives at [docs.tiko.run](https://docs.tiko.run/).
 | Use tiko | [Adding tasks](https://docs.tiko.run/adding-tasks/) · [Working together](https://docs.tiko.run/working-together/) · [Search](https://docs.tiko.run/search/) · [Gantt](https://docs.tiko.run/gantt/) · [Reminders and focus](https://docs.tiko.run/focus-and-reminders/) · [Shortcuts](https://docs.tiko.run/keyboard-shortcuts/) |
 | Trackers | [Supported trackers](https://docs.tiko.run/trackers/) · [Connect Jira Data Center](https://docs.tiko.run/jira-data-center/) |
 | Self-host | [Configuration](https://docs.tiko.run/configuration/) · [Data, backups and upgrades](https://docs.tiko.run/data-and-upgrades/) · [Updates](https://docs.tiko.run/updates/) · [Security and privacy](https://docs.tiko.run/security/) |
-| Project | [Roadmap](https://demo.tiko.run/p/IGoVOBKKIi7IE-kGjrckETccZclVnrCM) · [Architecture](https://docs.tiko.run/architecture/) · [Changelog](CHANGELOG.md) |
+| Project | [Roadmap](https://demo.tiko.run/p/IGoVOBKKIi7IE-kGjrckETccZclVnrCM) · [Changelog](CHANGELOG.md) |
 
 ## Community
 
@@ -170,7 +170,7 @@ Details: [Security and privacy](https://docs.tiko.run/security/). Report vulnera
 
 ## Contributing
 
-Bug reports, ideas and pull requests are welcome, and a new tracker provider is a good first contribution. Start with [CONTRIBUTING.md](CONTRIBUTING.md) and the [architecture overview](https://docs.tiko.run/architecture/). On your first pull request a bot asks you to sign the [CLA](CLA.md) with one comment, once. Everyone follows the [Code of Conduct](CODE_OF_CONDUCT.md).
+Bug reports, ideas and pull requests are welcome, and a new tracker provider is a good first contribution. Start with [CONTRIBUTING.md](CONTRIBUTING.md). On your first pull request a bot asks you to sign the [CLA](CLA.md) with one comment, once. Everyone follows the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 <a href="https://github.com/tiko-run/tiko/graphs/contributors"><img src="https://contrib.rocks/image?repo=tiko-run/tiko" alt="Contributors"></a>
 

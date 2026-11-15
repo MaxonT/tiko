@@ -551,3 +551,113 @@ site-search button[data-open-modal] {
 html.tiko-scrolling {
   --tiko-thumb: color-mix(in oklch, var(--tiko-muted-foreground) 45%, transparent);
 }
+
+/* API reference (starlight-openapi): its square grey boxes become the guide's rounded cards.
+   `main .sl-markdown-content` outranks the plugin's scoped styles. */
+main .sl-markdown-content {
+  .sl-openapi-section-panel,
+  .sl-openapi-overview-navigation-link {
+    background-color: var(--tiko-card);
+    border-color: var(--sl-color-hairline);
+    border-radius: 10px;
+  }
+  .sl-openapi-overview-navigation-link:hover {
+    border-color: var(--sl-color-gray-4);
+  }
+  .sl-openapi-operation-description {
+    border: 1px solid var(--sl-color-hairline);
+    border-radius: 10px;
+    overflow: clip;
+  }
+  .sl-openapi-operation-description-header {
+    border-color: var(--sl-color-hairline);
+    align-items: center;
+  }
+  .sl-openapi-operation-description-button,
+  .sl-openapi-snippet-picker select,
+  .sl-openapi-snippet-picker-value,
+  .sl-openapi-content-picker-select select,
+  .sl-openapi-content-picker-select-value,
+  .sl-openapi-operation-description-urls,
+  .sl-openapi-operation-url input {
+    border-color: var(--sl-color-hairline);
+    border-radius: var(--tiko-radius);
+  }
+  .sl-openapi-content-picker-select-value,
+  .sl-openapi-content-picker-select select {
+    background-color: var(--tiko-muted);
+  }
+  .sl-openapi-operation-method-badge,
+  .sl-openapi-tag {
+    border-radius: 4px;
+  }
+  .sl-openapi-example div.expressive-code .frame pre {
+    background-color: var(--tiko-muted);
+    border-color: var(--sl-color-hairline);
+  }
+  .sl-openapi-operation-description-urls {
+    box-shadow: var(--tiko-shadow);
+  }
+}
+
+/* Responses fold under their status (Head.astro): green for success, amber for a client error, red for a server one. */
+.tiko-response {
+  --tiko-status: var(--sl-color-gray-3);
+  --tiko-status-bg: var(--tiko-muted);
+  margin-top: 0.75rem;
+  border: 1px solid var(--sl-color-hairline);
+  border-radius: 10px;
+  background: var(--tiko-card);
+}
+.tiko-response[data-status='2xx'] {
+  --tiko-status: var(--sl-color-green-high);
+  --tiko-status-bg: var(--sl-color-green-low);
+}
+.tiko-response[data-status='4xx'] {
+  --tiko-status: var(--sl-color-orange-high);
+  --tiko-status-bg: var(--sl-color-orange-low);
+}
+.tiko-response[data-status='5xx'] {
+  --tiko-status: var(--sl-color-red-high);
+  --tiko-status-bg: var(--sl-color-red-low);
+}
+.tiko-response > summary {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 1rem;
+  cursor: pointer;
+  list-style: none;
+}
+.tiko-response > summary::-webkit-details-marker {
+  display: none;
+}
+main .sl-markdown-content .tiko-response > summary .sl-heading-wrapper {
+  margin: 0;
+}
+main .sl-markdown-content .tiko-response > summary h3 {
+  margin: 0;
+  padding: 0.125rem 0.5rem;
+  border-radius: 4px;
+  background: var(--tiko-status-bg);
+  color: var(--tiko-status);
+  font-family: var(--sl-font-mono);
+  font-size: var(--sl-text-sm);
+  line-height: 1.4;
+}
+.tiko-response > summary .sl-anchor-link {
+  display: none;
+}
+main .sl-markdown-content .tiko-response > summary .sl-openapi-section-pre-panel,
+main .sl-markdown-content .tiko-response > summary p {
+  margin: 0;
+  color: var(--sl-color-gray-2);
+}
+main .sl-markdown-content .tiko-response > .sl-openapi-section-panel {
+  margin: 0 0.75rem 0.75rem;
+  border-radius: var(--tiko-radius);
+  background: var(--tiko-background);
+}
+main .sl-markdown-content .tiko-response > .sl-openapi-section-post-panel {
+  padding: 0 1rem 0.75rem;
+}

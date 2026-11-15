@@ -164,3 +164,35 @@ import { ClientRouter } from 'astro:transitions'
     { capture: true, passive: true },
   )
 </script>
+
+<script>
+  // API reference: each response folds under its status, coloured by class; only success stays open.
+  const fold = () => {
+    const heading = document.getElementById('responses')?.closest('.sl-heading-wrapper')
+    let node = heading?.nextElementSibling
+    while (node?.matches('section.sl-openapi-section')) {
+      const section = node
+      node = node.nextElementSibling
+      if (section.querySelector(':scope > .tiko-response')) continue
+      const title = section.querySelector(':scope > .sl-heading-wrapper')
+      const status = title?.querySelector('h3')?.id ?? ''
+      const box = document.createElement('details')
+      box.className = 'tiko-response'
+      box.dataset.status = /^[1-5]/.test(status) ? `${status[0]}xx` : 'default'
+      box.open = status.startsWith('2')
+      const summary = document.createElement('summary')
+      summary.append(...[title, section.querySelector(':scope > .sl-openapi-section-pre-panel')].filter((el) => el !== null))
+      box.append(summary, ...section.children)
+      section.append(box)
+    }
+    reveal()
+  }
+  // A link to one status, from the page's contents or elsewhere, opens it.
+  const reveal = () => {
+    const target = location.hash && document.getElementById(decodeURIComponent(location.hash.slice(1)))
+    const box = target ? target.closest('details.tiko-response') : null
+    if (box instanceof HTMLDetailsElement) box.open = true
+  }
+  document.addEventListener('astro:page-load', fold)
+  addEventListener('hashchange', reveal)
+</script>

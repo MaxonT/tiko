@@ -1,7 +1,9 @@
 // @ts-check
 import { defineConfig } from 'astro/config'
 import { readdirSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import starlight from '@astrojs/starlight'
+import starlightOpenAPI, { openAPISidebarGroups } from 'starlight-openapi'
 import starlightSidebarTopics from 'starlight-sidebar-topics'
 import { byNewest } from './src/lib/releases.mjs'
 
@@ -53,74 +55,113 @@ export default defineConfig({
         ThemeSelect: './src/components/ThemeSelect.astro',
       },
       plugins: [
-        // One sidebar per tab of the top bar.
-        starlightSidebarTopics([
+        // The API v1 reference, from the schema `make openapi` writes.
+        starlightOpenAPI([
           {
-            id: 'docs',
-            label: 'Docs',
-            link: '/',
-            icon: 'open-book',
-            items: [
-              { label: 'Get started', items: ['index', 'why', 'install', 'quick-start'] },
-              {
-                label: 'Boards',
-                items: [
-                  'home',
-                  'adding-tasks',
-                  'on-the-board',
-                  'what-you-can-add',
-                  'search',
-                  'keyboard-shortcuts',
-                  'moving-boards',
-                  {
-                    label: 'Working together',
-                    collapsed: true,
-                    items: [
-                      { slug: 'working-together', label: 'Overview' },
-                      'working-together/live-editing',
-                      'working-together/reactions-and-voting',
-                    ],
-                  },
-                ],
+            base: 'reference',
+            schema: './openapi.json',
+            sidebar: { label: 'API', collapsed: false, operations: { badges: true } },
+            snippets: {
+              operation: {
+                clients: {
+                  shell: ['curl'],
+                  python: ['requests'],
+                  javascript: ['fetch'],
+                  go: ['nethttp'],
+                },
               },
-              {
-                label: 'Modules',
-                items: [
-                  // A nested group folds open under its static section title.
-                  {
-                    label: 'Gantt',
-                    collapsed: true,
-                    items: [
-                      { slug: 'gantt', label: 'Overview' },
-                      'gantt/stages',
-                      'gantt/columns-and-filters',
-                      'gantt/working-time',
-                    ],
-                  },
-                  'focus-and-reminders',
-                ],
-              },
-              { label: 'Trackers', items: ['trackers', 'jira-data-center', 'jira-cloud', 'github-issues', 'caldav'] },
-              { label: 'API', items: ['ai-agents', 'api', 'api-keys'] },
-              {
-                label: 'Self-hosting',
-                items: ['configuration', 'updates', 'data-and-upgrades', 'monitoring', 'demo'],
-              },
-              { label: 'Security and privacy', items: ['security', 'privacy'] },
-              { label: 'Project', items: ['architecture'] },
-            ],
-          },
-          {
-            id: 'whats-new',
-            label: "What's new",
-            link: '/whats-new/',
-            icon: 'rocket',
-            items: [
-              { slug: 'whats-new', label: 'Overview' },
-              { label: 'All releases', items: releases },
-            ],
+            },
           },
         ]),
+        {
+          name: 'tiko-reference',
+          hooks: {
+            // After starlight-openapi's own middleware, which fills in the reference sidebar.
+            'config:setup'({ addRouteMiddleware }) {
+              const entrypoint = fileURLToPath(new URL('./src/referenceRoute.ts', import.meta.url))
+              addRouteMiddleware({ entrypoint, order: 'post' })
+            },
+          },
+        },
+        // One sidebar per tab of the top bar.
+        starlightSidebarTopics(
+          [
+            {
+              id: 'docs',
+              label: 'Docs',
+              link: '/',
+              icon: 'open-book',
+              items: [
+                { label: 'Get started', items: ['index', 'why', 'install', 'quick-start'] },
+                {
+                  label: 'Boards',
+                  items: [
+                    'home',
+                    'adding-tasks',
+                    'on-the-board',
+                    'what-you-can-add',
+                    'search',
+                    'keyboard-shortcuts',
+                    'moving-boards',
+                    {
+                      label: 'Working together',
+                      collapsed: true,
+                      items: [
+                        { slug: 'working-together', label: 'Overview' },
+                        'working-together/live-editing',
+                        'working-together/reactions-and-voting',
+                      ],
+                    },
+                  ],
+                },
+                {
+                  label: 'Modules',
+                  items: [
+                    // A nested group folds open under its static section title.
+                    {
+                      label: 'Gantt',
+                      collapsed: true,
+                      items: [
+                        { slug: 'gantt', label: 'Overview' },
+                        'gantt/stages',
+                        'gantt/columns-and-filters',
+                        'gantt/working-time',
+                      ],
+                    },
+                    'focus-and-reminders',
+                  ],
+                },
+                { label: 'Trackers', items: ['trackers', 'jira-data-center', 'jira-cloud', 'github-issues', 'caldav'] },
+                { label: 'API', items: ['ai-agents', 'api', 'api-keys'] },
+                {
+                  label: 'Self-hosting',
+                  items: ['configuration', 'updates', 'data-and-upgrades', 'monitoring', 'demo'],
+                },
+                { label: 'Security and privacy', items: ['security', 'privacy'] },
+                { label: 'Project', items: ['architecture'] },
+              ],
+            },
+            {
+              id: 'reference',
+              label: 'Reference',
+              link: '/reference/',
+              icon: 'seti:json',
+              items: openAPISidebarGroups,
+            },
+            {
+              id: 'whats-new',
+              label: "What's new",
+              link: '/whats-new/',
+              icon: 'rocket',
+              items: [
+                { slug: 'whats-new', label: 'Overview' },
+                { label: 'All releases', items: releases },
+              ],
+            },
+          ],
+          // The reference pages are generated after the topics are matched, so they are claimed by path.
+          { topics: { reference: ['/reference/**'] } },
+        ),
       ],
     }),
   ],

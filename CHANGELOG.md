@@ -15,6 +15,7 @@ All notable changes to this project are documented here. The format follows [Kee
 ### Changed
 
 - The guide is easier to read: Adding tasks and Working together are split into shorter pages, with tables and steps instead of long paragraphs, and the sidebar groups pages by what you do on a board. Old links still land on the right section.
+- The API has a full reference in the guide: every call with its fields, errors and samples in curl, Python, JavaScript and Go, each one ready to copy as Markdown for your agent. See [API reference](https://docs.tiko.run/reference/).
 - A new tiko starts with Planning on, so the Gantt shows stages, people and workload from the first board. Instances already running keep their setting.
 - Enter now adds a person in Share when the search finds exactly one, and adds the ticked tasks, or the only one found, in the CalDAV task picker.
 

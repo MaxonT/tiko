@@ -3,7 +3,7 @@ title: API
 description: Read and arrange your boards and search your tasks from a script, with an API key.
 ---
 
-The API under `/api/v1/` lets a script read what you see in tiko, your boards, what is on them and the tasks of your trackers, and, with a key that can write, add to boards and lay them out. Every call needs an [API key](../api-keys/) in the `Authorization` header. The full description, with every field, is at `/api/v1/openapi.json` on your tiko.
+The API under `/api/v1/` lets a script read what you see in tiko, your boards, what is on them and the tasks of your trackers, and, with a key that can write, add to boards and lay them out. Every call needs an [API key](../api-keys/) in the `Authorization` header. Every call with its fields and samples is in the [API reference](../reference/); your tiko serves the same schema at `/api/v1/openapi.json`.
 
 ## Boards
 

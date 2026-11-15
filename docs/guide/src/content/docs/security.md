@@ -40,13 +40,13 @@ The first account has both roles, so on a server you run alone nothing changes.
 
 ## Sharing boards
 
-- A board belongs to the person who made it. "Share" in the top bar lists who has access; the owner adds people as "Can edit" or "Can view", removes them, makes someone else the owner, or gives a role to "Everyone in this workspace". The three ways side by side are in [Working together](../working-together/#three-ways-to-share-a-board).
+- A board belongs to the person who made it. "Share" in the top bar lists who has access; the owner adds people as "Can edit" or "Can view", removes them, makes someone else the owner, or gives a role to "Everyone in this workspace". The three ways side by side are in [Working together](../working-together/#share-a-board).
 - Editors change the board and its name. Viewers see it with a "View only" badge: no toolbar, nothing moves or changes, and the server refuses their saves. Only the owner moves a board to the trash or changes who has access; the owner and a workspace admin restore it from the trash.
 - A board you cannot open is not in your list, and its link answers as if it did not exist.
-- Admins act as owner on every board, so a board is never stranded when its owner is disabled. Boards nobody shared with them are under "Other boards" on [Home](../home/#the-list) and in the board menu.
+- Admins act as owner on every board, so a board is never stranded when its owner is disabled. Boards nobody shared with them are under "Other boards" on [Home](../home/#grid-and-list) and in the board menu.
 - Each new person gets their own welcome board once.
 - Shared boards are live ([Working together](../working-together/)). The live connection uses the same sign-in as the pages, checks the role on the server for every change, accepts only pages served from tiko's own address, and closes at once when a person is disabled, signs out everywhere, is removed from the workspace or loses access to the board.
-- A board is private until its owner turns on a public link ([Public link](../working-together/#public-link)). A link shows that one board view-only, without its people and without task data from a tracker, and opens no other route. An admin can switch public links off in Settings → Sharing.
+- A board is private until its owner turns on a public link ([Public link](../working-together/#share-a-public-link)). A link shows that one board view-only, without its people and without task data from a tracker, and opens no other route. An admin can switch public links off in Settings → Sharing.
 - Each person connects their own tracker token in Settings → My tracker, and task data is fetched and cached per person: a shared board never shows you a task your own Jira or GitHub access does not allow.
 
 ## What tiko stores

@@ -63,15 +63,24 @@ export default defineConfig({
             items: [
               { label: 'Get started', items: ['index', 'why', 'install', 'quick-start'] },
               {
-                label: 'Features',
+                label: 'Boards',
                 items: [
                   'home',
                   'adding-tasks',
+                  'on-the-board',
                   'what-you-can-add',
-                  'working-together',
-                  'moving-boards',
                   'search',
                   'keyboard-shortcuts',
+                  'moving-boards',
+                  {
+                    label: 'Working together',
+                    collapsed: true,
+                    items: [
+                      { slug: 'working-together', label: 'Overview' },
+                      'working-together/live-editing',
+                      'working-together/reactions-and-voting',
+                    ],
+                  },
                 ],
               },
               {
@@ -95,8 +104,9 @@ export default defineConfig({
               { label: 'API', items: ['ai-agents', 'api', 'api-keys'] },
               {
                 label: 'Self-hosting',
-                items: ['configuration', 'data-and-upgrades', 'updates', 'security', 'privacy', 'monitoring', 'demo'],
+                items: ['configuration', 'updates', 'data-and-upgrades', 'monitoring', 'demo'],
               },
+              { label: 'Security and privacy', items: ['security', 'privacy'] },
               { label: 'Project', items: ['architecture'] },
             ],
           },

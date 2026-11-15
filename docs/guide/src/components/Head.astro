@@ -32,7 +32,8 @@ import { ClientRouter } from 'astro:transitions'
 </script>
 
 <script>
-  // Sections that moved off a page to their own page: old links with the anchor still land on them.
+  // Sections that moved or were renamed: old links with the anchor still land on them.
+  // A target with its own `#` replaces the anchor; a bare page keeps it.
   const MOVED: Record<string, Record<string, string>> = {
     '/gantt/': {
       stages: '/gantt/stages/',
@@ -43,11 +44,26 @@ import { ClientRouter } from 'astro:transitions'
       'time-off': '/gantt/working-time/',
       workload: '/gantt/working-time/',
     },
+    '/adding-tasks/': {
+      'around-the-cards': '/on-the-board/#add-elements',
+    },
+    '/working-together/': {
+      'three-ways-to-share-a-board': '/working-together/#share-a-board',
+      viewers: '/working-together/#roles',
+      'public-link': '/working-together/#share-a-public-link',
+      'who-is-here': '/working-together/live-editing/#see-who-is-here',
+      'what-merges': '/working-together/live-editing/',
+      undo: '/working-together/live-editing/',
+      'your-view-is-yours': '/working-together/live-editing/',
+      'when-the-connection-drops': '/working-together/live-editing/',
+      reactions: '/working-together/reactions-and-voting/#react-to-a-note',
+      voting: '/working-together/reactions-and-voting/#run-a-vote',
+    },
   }
   const follow = () => {
     const anchor = location.hash.slice(1)
-    const page = MOVED[location.pathname]?.[anchor]
-    if (page) location.replace(`${page}#${anchor}`)
+    const target = MOVED[location.pathname]?.[anchor]
+    if (target) location.replace(target.includes('#') ? target : `${target}#${anchor}`)
   }
   document.addEventListener('astro:page-load', follow)
   // A hash typed on the page itself changes it without a page load.

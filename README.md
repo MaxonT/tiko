@@ -67,7 +67,7 @@ Add cards by key, link or query, or paste links straight from your tracker tabs.
 
 ### Arrange them the way you think
 
-Frames, sticky notes, text and arrows around the cards, with smart guides that snap things into place. [The board →](https://docs.tiko.run/adding-tasks/#around-the-cards)
+Frames, sticky notes, text and arrows around the cards, with smart guides that snap things into place. [The board →](https://docs.tiko.run/on-the-board/)
 
 [![A smart guide lines up a card, a frame groups two cards, and an arrow joins a sticky note to a card](https://media.tiko.run/readme/readme-arrange.webp)](https://media.tiko.run/readme/readme-arrange.mp4)
 

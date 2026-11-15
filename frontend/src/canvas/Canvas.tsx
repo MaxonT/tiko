@@ -81,6 +81,7 @@ import { conversionOf } from '@/canvas/code/convert'
 import { detectLanguage } from '@/canvas/code/detect'
 import { CODE_MAX_CHARS } from '@/canvas/code/languages'
 import { hasMixedSources } from '@/canvas/node-tasks'
+import { useArrivedTasks } from '@/canvas/useArrivedTasks'
 import { indexTasks, taskRef, TasksContext } from '@/canvas/tasks-context'
 import { BoardSourcesContext } from '@/sources/board-sources'
 import { Toolbar, type Tool } from '@/canvas/Toolbar'
@@ -343,6 +344,7 @@ export function BoardCanvas({
     () => indexTasks(newest([board.tasks, added, refresh.data?.tasks ?? {}]), board.default_source),
     [board.tasks, board.default_source, added, refresh.data],
   )
+  useArrivedTasks(nodes, tasks, refresh.refetch)
   const mixed = hasMixedSources(nodes, board.default_source)
   const boardSources = useMemo(
     () => ({ mixed, defaultSource: board.default_source }),

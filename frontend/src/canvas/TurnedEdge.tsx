@@ -64,40 +64,74 @@ export function turnedEnd(box: Box, side: Position, deg: number, inset = 0): XYP
 
 type Internal = ReturnType<typeof useInternalNode>
 
-function end(node: Internal, handle: string | null | undefined, at: XYPosition, side: Position) {
-  const deg = (node?.data as Turned | undefined)?.rotation ?? 0
-  if (!node || !deg || !handle || !SIDE_OF[handle]) return { at, deg }
-  const data = node.data as { shape?: ShapeKind }
-  const box = {
-    ...node.internals.positionAbsolute,
-    width: node.measured.width ?? 0,
-    height: node.measured.height ?? 0,
+/**
+ * The sides of two boxes that face each other: an arrow made through the API names no sides,
+ * and React Flow would tie both of its ends to the first one, the top.
+ */
+export function facingSides(a: Box, b: Box): [Position, Position] {
+  const dx = b.x + b.width / 2 - (a.x + a.width / 2)
+  const dy = b.y + b.height / 2 - (a.y + a.height / 2)
+  const gapX = Math.abs(dx) - (a.width + b.width) / 2
+  const gapY = Math.abs(dy) - (a.height + b.height) / 2
+  if (gapX > gapY) return dx > 0 ? [Position.Right, Position.Left] : [Position.Left, Position.Right]
+  return dy > 0 ? [Position.Bottom, Position.Top] : [Position.Top, Position.Bottom]
+}
+
+/** The side of an element turned by `deg` that faces `world` on the board. */
+export function localSide(world: Position, deg: number): Position {
+  if (!deg) return world
+  const want = OUT[world]
+  const sides = [Position.Top, Position.Right, Position.Bottom, Position.Left]
+  const facing = (side: Position) => {
+    const v = turnVector(OUT[side], deg)
+    return v.x * want.x + v.y * want.y
   }
+  return sides.reduce((best, side) => (facing(side) > facing(best) ? side : best))
+}
+
+const boxOf = (node: NonNullable<Internal>): Box => ({
+  ...node.internals.positionAbsolute,
+  width: node.measured.width ?? 0,
+  height: node.measured.height ?? 0,
+})
+
+function end(
+  node: Internal,
+  handle: string | null | undefined,
+  at: XYPosition,
+  side: Position,
+  facing?: Position,
+) {
+  const deg = (node?.data as Turned | undefined)?.rotation ?? 0
+  if (!node || !(facing || (deg && handle && SIDE_OF[handle]))) return { at, deg, side }
+  const data = node.data as { shape?: ShapeKind }
   const inset = node.type === 'shape' && data.shape ? sideInset(data.shape) : 0
-  return { at: turnedEnd(box, side, deg, inset), deg }
+  const used = facing ? localSide(facing, deg) : side
+  return { at: turnedEnd(boxOf(node), used, deg, inset), deg, side: used }
 }
 
 function TurnedEdgeView(props: EdgeProps) {
+  const from = useInternalNode(props.source)
+  const to = useInternalNode(props.target)
+  const facing =
+    !props.sourceHandleId && !props.targetHandleId && from && to
+      ? facingSides(boxOf(from), boxOf(to))
+      : undefined
   const source = end(
-    useInternalNode(props.source),
+    from,
     props.sourceHandleId,
     { x: props.sourceX, y: props.sourceY },
     props.sourcePosition,
+    facing?.[0],
   )
   const target = end(
-    useInternalNode(props.target),
+    to,
     props.targetHandleId,
     { x: props.targetX, y: props.targetY },
     props.targetPosition,
+    facing?.[1],
   )
-  const path = turnedBezier(
-    source.at,
-    props.sourcePosition,
-    source.deg,
-    target.at,
-    props.targetPosition,
-    target.deg,
-  )
+  const path = turnedBezier(source.at, source.side, source.deg, target.at, target.side, target.deg)
   return (
     <BaseEdge
       id={props.id}

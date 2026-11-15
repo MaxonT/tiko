@@ -29,11 +29,11 @@ test('lists the cards whose task is not there', () => {
   expect(missingTasks([card('A-1'), card('A-2')], known('A-1'))).toEqual(['demo:A-2'])
 })
 
-test('a card that arrives without its task refreshes once for the whole burst', () => {
+test('cards that arrive without their tasks refresh once for the whole burst', () => {
   const { refresh, rerender } = setup([card('A-1')], known('A-1'))
   rerender({ nodes: [card('A-1'), card('A-2')], tasks: known('A-1') })
   rerender({ nodes: [card('A-1'), card('A-2'), card('A-3')], tasks: known('A-1') })
-  vi.runAllTimers()
+  vi.advanceTimersByTime(300)
   expect(refresh).toHaveBeenCalledTimes(1)
 })
 
@@ -44,13 +44,24 @@ test('what was missing at open waits for the first poll', () => {
   expect(refresh).not.toHaveBeenCalled()
 })
 
-test('a task the refresh did not bring is not asked for again', () => {
+test('a card the board had not saved yet is asked for again after the save', () => {
+  const { refresh, rerender } = setup([], {})
+  rerender({ nodes: [card('A-2')], tasks: {} })
+  vi.advanceTimersByTime(300)
+  vi.advanceTimersByTime(2_200)
+  expect(refresh).toHaveBeenCalledTimes(2)
+  rerender({ nodes: [card('A-2')], tasks: known('A-2') })
+  vi.runAllTimers()
+  expect(refresh).toHaveBeenCalledTimes(2)
+})
+
+test('a task that never comes is asked for three times, not more', () => {
   const { refresh, rerender } = setup([], {})
   rerender({ nodes: [card('A-2')], tasks: {} })
   vi.runAllTimers()
-  rerender({ nodes: [card('A-2')], tasks: { ...known('A-9') } })
+  rerender({ nodes: [card('A-2')], tasks: known('A-9') })
   vi.runAllTimers()
-  expect(refresh).toHaveBeenCalledTimes(1)
+  expect(refresh).toHaveBeenCalledTimes(3)
 })
 
 test('a card that comes with its task asks for nothing', () => {

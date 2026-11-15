@@ -77,6 +77,18 @@ export function facingSides(a: Box, b: Box): [Position, Position] {
   return dy > 0 ? [Position.Bottom, Position.Top] : [Position.Top, Position.Bottom]
 }
 
+/** The side of an element turned by `deg` that faces `world` on the board. */
+export function localSide(world: Position, deg: number): Position {
+  if (!deg) return world
+  const want = OUT[world]
+  const sides = [Position.Top, Position.Right, Position.Bottom, Position.Left]
+  const facing = (side: Position) => {
+    const v = turnVector(OUT[side], deg)
+    return v.x * want.x + v.y * want.y
+  }
+  return sides.reduce((best, side) => (facing(side) > facing(best) ? side : best))
+}
+
 const boxOf = (node: NonNullable<Internal>): Box => ({
   ...node.internals.positionAbsolute,
   width: node.measured.width ?? 0,
@@ -94,7 +106,7 @@ function end(
   if (!node || !(facing || (deg && handle && SIDE_OF[handle]))) return { at, deg, side }
   const data = node.data as { shape?: ShapeKind }
   const inset = node.type === 'shape' && data.shape ? sideInset(data.shape) : 0
-  const used = facing ?? side
+  const used = facing ? localSide(facing, deg) : side
   return { at: turnedEnd(boxOf(node), used, deg, inset), deg, side: used }
 }
 

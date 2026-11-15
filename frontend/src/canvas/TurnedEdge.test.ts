@@ -1,6 +1,6 @@
 import { getBezierPath, Position } from '@xyflow/react'
 import { expect, test } from 'vitest'
-import { facingSides, turnedBezier, turnedEnd } from '@/canvas/TurnedEdge'
+import { facingSides, localSide, turnedBezier, turnedEnd } from '@/canvas/TurnedEdge'
 
 const numbers = (path: string) => path.match(/-?\d+(\.\d+)?/g)!.map(Number)
 
@@ -50,4 +50,16 @@ test('an arrow without sides joins the sides that face each other', () => {
     Position.Right,
     Position.Left,
   ])
+})
+
+test('a turned element joins with the side that now faces the other one', () => {
+  // Turned upside down, its left side faces right.
+  expect(localSide(Position.Right, 180)).toBe(Position.Left)
+  // A quarter turn clockwise points the right side down.
+  expect(localSide(Position.Bottom, 90)).toBe(Position.Right)
+  expect(localSide(Position.Top, 0)).toBe(Position.Top)
+  const box = { x: 0, y: 0, width: 100, height: 100 }
+  const end = turnedEnd(box, localSide(Position.Right, 180), 180)
+  expect(end.x).toBeCloseTo(100)
+  expect(end.y).toBeCloseTo(50)
 })

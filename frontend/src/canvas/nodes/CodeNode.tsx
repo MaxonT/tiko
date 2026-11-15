@@ -1,6 +1,12 @@
-import { useReactFlow, type NodeProps } from '@xyflow/react'
+import {
+  NodeResizeControl,
+  ResizeControlVariant,
+  useReactFlow,
+  useStore,
+  type NodeProps,
+} from '@xyflow/react'
 import { Check, ChevronDown, ChevronRight, Copy } from 'lucide-react'
-import { memo, useEffect, useMemo, useState, type KeyboardEvent } from 'react'
+import { memo, useEffect, useMemo, useState, type CSSProperties, type KeyboardEvent } from 'react'
 import { toast } from 'sonner'
 import { takeFresh } from '@/canvas/editing'
 import { indent } from '@/canvas/code/indent'
@@ -12,7 +18,6 @@ import {
 } from '@/canvas/code/languages'
 import type { Token } from '@/canvas/code/highlight'
 import { Handles } from '@/canvas/nodes/Handles'
-import { Resizer } from '@/canvas/nodes/Resizer'
 import { useReadOnly } from '@/canvas/readonly'
 import type { CodeNode as CodeNodeType } from '@/canvas/types'
 import { Button } from '@/components/ui/button'
@@ -78,6 +83,22 @@ function Lines({ text, tokens }: { text: string; tokens: Token[][] | null }) {
   ))
 }
 
+// The height follows the code, so only the sides take a drag, and only sideways.
+function WidthGrips() {
+  const zoom = useStore((state) => state.transform[2])
+  const style = { '--zoom': zoom } as CSSProperties
+  return (['left', 'right'] as const).map((position) => (
+    <NodeResizeControl
+      key={position}
+      variant={ResizeControlVariant.Line}
+      position={position}
+      resizeDirection="horizontal"
+      minWidth={200}
+      style={style}
+    />
+  ))
+}
+
 function lineCount(text: string) {
   const count = text.split('\n').length
   return `${count} ${count === 1 ? 'line' : 'lines'}`
@@ -137,12 +158,7 @@ function CodeNodeView({ id, data, selected }: NodeProps<CodeNodeType>) {
   const firstLine = data.text.split('\n', 1)[0]
   return (
     <div className="relative w-full">
-      <Resizer
-        isVisible={selected && !readOnly}
-        minWidth={200}
-        // The height follows the code: only the side grips change the width.
-        shouldResize={(_, { direction }) => direction[1] === 0}
-      />
+      {selected && !readOnly && <WidthGrips />}
       <div
         className={cn(
           'bg-card text-card-foreground overflow-hidden rounded-md border shadow-sm',

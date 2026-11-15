@@ -189,7 +189,14 @@ export function GanttLabel({
               ? `${leafDone ? 'Done' : 'Open'} in ${task ? sourceName(task.source) : 'the tracker'}`
               : undefined
           }
-          className="mr-0.5 size-3.5 disabled:cursor-default disabled:opacity-100 data-checked:border-status-done-foreground data-checked:bg-status-done-foreground"
+          className={cn(
+            'data-checked:border-status-done-foreground data-checked:bg-status-done-foreground mr-0.5 size-3.5',
+            // A tracker task's box only follows the tracker: dimmed until done, never clickable.
+            // A viewer's box of a row tiko owns keeps full strength.
+            row.key
+              ? 'disabled:cursor-not-allowed disabled:not-data-checked:opacity-40'
+              : 'disabled:cursor-default disabled:opacity-100',
+          )}
         />
       )}
       {row.key ? (
@@ -218,7 +225,7 @@ export function GanttLabel({
               {shortKey(task?.source ?? row.source, row.key, task?.type_name)}
             </span>
           )}
-          <span className="truncate" title={task?.summary}>
+          <span className={cn('truncate', done && 'line-through')} title={task?.summary}>
             {task?.state === 'not_found'
               ? 'not found'
               : task?.state === 'no_token'

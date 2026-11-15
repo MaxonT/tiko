@@ -1198,3 +1198,23 @@ test('with Planning on a done row without stages is hatched too', () => {
   )
   expect(document.querySelector('[data-gantt-stages] [data-done]')).toBeTruthy()
 })
+
+test('an open tracker task has a dimmed box that cannot be ticked', () => {
+  renderGantt({}, content, OFF, { 'DEMO-1': { ...task, status_category: 'new' } })
+  const box = screen.getByRole('checkbox', { name: 'Mark done: DEMO-1' })
+  expect(box.hasAttribute('disabled')).toBe(true)
+  expect(box.className).toContain('disabled:not-data-checked:opacity-40')
+  fireEvent.click(box)
+  expect('done' in rows()[0]).toBe(false)
+  expect(screen.getByText('Rotate the staging certificates').className).not.toContain(
+    'line-through',
+  )
+})
+
+test('a done tracker task is ticked and struck through like any done row', () => {
+  renderGantt()
+  expect(
+    screen.getByRole('checkbox', { name: 'Mark not done: DEMO-1' }).getAttribute('data-state'),
+  ).toBe('checked')
+  expect(screen.getByText('Rotate the staging certificates').className).toContain('line-through')
+})

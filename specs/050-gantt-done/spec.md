@@ -32,7 +32,8 @@ Principles check:
 4. **Stages, with Planning on.** A stage gets its own `done`, ticked in the stage's popover. A done stage is hatched on its own.
    - A row tiko owns with stages is done when every stage is: it keeps `done` equal to "every stage done" on every change, so Planning on and off show the same mark. Its own checkbox ticks or unticks all its stages at once. A new stage that is not done unticks the row.
    - A task row's stages are ticked by hand too, as stages are tiko's plan, but they never tick the row: a task row is done only when its tracker says so (Decision 2). A task done in the tracker hatches all its stages.
-   - Amended in the build, 2026-11-15: the first draft let a task row count as done when all its stages were, which could show a task done while the tracker has it open. The hover checkbox on the stage bar was dropped: at month scale the bars are too narrow for it, and the popover is one click away.
+   - Rejected: a task row done when all its stages are. It could show a task done while the tracker has it open.
+   - Rejected: a checkbox on the stage bar. At month scale the bars are too narrow for it, and the popover is one click away.
    - A done stage gives no time off warning: the work is over.
 
 ### How done looks

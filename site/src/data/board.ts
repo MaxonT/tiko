@@ -6,7 +6,7 @@ export type Item =
   | { t: 'card'; at: number[]; k: string; s: Status; to?: Status; d?: number; type?: 'story' | 'task' | 'bug'; title?: string; tr?: 'jira' | 'github' }
   | { t: 'note'; at: number[]; text: string; tone: Tone }
   | { t: 'timer'; at: number[]; left: string; fired?: boolean }
-  | { t: 'gantt'; at: number[]; title: string; bars: [number, number, 'todo' | 'progress' | 'done'][] }
+  | { t: 'gantt'; at: number[]; title: string; bars: [number, number, 'todo' | 'progress' | 'done', string?][] }
   | { t: 'focus'; at: number[]; time: string }
   | { t: 'arrow'; d: string; draw?: boolean }
   | { t: 'cursor'; at: number[]; to?: number[]; name: string; tone: Tone }

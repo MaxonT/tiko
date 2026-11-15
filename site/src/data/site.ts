@@ -10,6 +10,21 @@ export const INSTALL_PS1 = 'irm https://tiko.run/install.ps1 | iex'
 export const PRIVACY = '/privacy/'
 export const CONTACT = 'hi@tiko.run'
 
+// The header's Features menu and the footer's Features column. An entry points at a landing
+// section until its own page exists; then swap the href.
+export const FEATURE_PAGES = [
+  { href: '/gantt/', title: 'Gantt and Planning', text: 'Stages, people, time off', icon: 'chart-gantt' },
+  { href: '/#arrange', title: 'Infinite whiteboard', text: 'Frames, notes and arrows', icon: 'infinity' },
+  { href: '/#reminders', title: 'Reminders on cards', text: 'On time or on a status', icon: 'bell-ring' },
+  { href: '/#search', title: 'Search with ⌘K', text: 'Find and filter any card', icon: 'search' },
+  { href: '/#together', title: 'Work together', text: 'Live cursors and sharing', icon: 'users-round' },
+  { href: '/#self-host', title: 'Self-hosted', text: 'One command, your server', icon: 'server' },
+]
+export const USE_CASE_PAGES = [
+  { href: '/use-cases/cross-team-board/', title: 'Cross-team board', text: 'Several teams and projects on one board', icon: 'layout-dashboard' },
+  { href: '/#scenarios', title: 'Ten board layouts', text: 'Sprints, releases, incidents, your week', icon: 'layout-template' },
+]
+
 export const WAITLIST_URL = import.meta.env.PUBLIC_WAITLIST_URL || 'https://t.tiko.run/v1/waitlist'
 // Cloudflare's always-pass test key in `astro dev`; the real one only works on tiko.run.
 export const TURNSTILE_SITEKEY = import.meta.env.DEV ? '1x00000000000000000000AA' : '0x4AAAAAAFZdeZlrplRW-RBM'

@@ -1,16 +1,19 @@
 ---
-import { CONTACT, DEMO, DOCS, REPO, ROADMAP } from '../data/site'
+import { CONTACT, DEMO, DOCS, FEATURE_PAGES, REPO, ROADMAP, USE_CASE_PAGES } from '../data/site'
 import Brand from './Brand.astro'
 import ThemeSwitch from './ThemeSwitch.astro'
 
 const columns = [
   {
+    title: 'Features',
+    // Only pages of their own; the landing's sections are one link, All features.
+    links: [...FEATURE_PAGES, ...USE_CASE_PAGES].filter(({ href }) => !href.startsWith('/#')).map(({ title, href }) => [title, href]).concat([['All features', '/#features']]),
+  },
+  {
     title: 'Product',
     links: [
       ['Demo', DEMO],
-      ['Features', '/#features'],
       ['Scenarios', '/#scenarios'],
-      ['Cross-team board', '/use-cases/cross-team-board/'],
       ['Roadmap', ROADMAP],
       ["What's new", `${DOCS}/whats-new/latest/`],
     ],
@@ -86,7 +89,7 @@ const columns = [
   }
   .top {
     display: grid;
-    grid-template-columns: minmax(0, 1.6fr) repeat(4, minmax(0, 1fr));
+    grid-template-columns: minmax(0, 1.6fr) repeat(5, minmax(0, 1fr));
     gap: 2.5rem 2rem;
     padding-block: 3.5rem 3rem;
   }

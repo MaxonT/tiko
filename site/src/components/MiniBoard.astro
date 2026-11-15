@@ -73,8 +73,8 @@ const place = ([x, y, width, height]: number[]) =>
       return (
         <div class="n gantt" style={place(item.at)}>
           <b>{item.title}</b>
-          {item.bars.map(([left, width, status]) => (
-            <span class="row"><i class={status} style={`left:${left}%;width:${width}%`} /></span>
+          {item.bars.map(([left, width, status, label]) => (
+            <span class="row"><i class={status} style={`left:${left}%;width:${width}%`}>{label && <em>{label}</em>}</i></span>
           ))}
           <i class="today" />
           <i class="stone" />
@@ -470,6 +470,24 @@ const place = ([x, y, width, height]: number[]) =>
   .row .done {
     background: var(--done);
     box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--done-fg) 30%, transparent);
+  }
+  .row em {
+    display: block;
+    overflow: hidden;
+    padding-inline: calc(4 * var(--u));
+    font-size: calc(8 * var(--u));
+    font-style: normal;
+    font-weight: 500;
+    line-height: calc(14 * var(--u));
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    color: var(--todo-fg);
+  }
+  .row .progress em {
+    color: var(--progress-fg);
+  }
+  .row .done em {
+    color: var(--done-fg);
   }
   .today {
     position: absolute;

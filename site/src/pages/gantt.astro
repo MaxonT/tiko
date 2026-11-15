@@ -1,0 +1,427 @@
+---
+// Feature page: the Gantt with Planning, built from tracker tasks. Every key, name and note in
+// the drawings is made up.
+import type { Item } from '../data/board'
+import { brand, DEMO, DOCS, MEDIA } from '../data/site'
+import Cta from '../components/Cta.astro'
+import Clip from '../components/Clip.astro'
+import Faq from '../components/Faq.astro'
+import FeatureFrame from '../components/FeatureFrame.astro'
+import Footer from '../components/Footer.astro'
+import Header from '../components/Header.astro'
+import Icon from '../components/Icon.astro'
+import Install from '../components/Install.astro'
+import MiniBoard from '../components/MiniBoard.astro'
+import SelfHost from '../components/SelfHost.astro'
+import Trackers from '../components/Trackers.astro'
+import Base from '../layouts/Base.astro'
+
+const title = 'Gantt chart from your tracker tasks · tiko'
+const description =
+  'Plan tracker tasks on a Gantt that keeps their live status and dates. Stages, people, time off and workload on the same timeline. Open source, self-hosted.'
+
+const hero: Item[] = [
+  { t: 'frame', at: [20, 34, 196, 186], title: 'Backlog', tone: 'blue' },
+  { t: 'card', at: [28, 52, 180], k: 'WEB-14', title: 'Cart', s: 'progress', to: 'done', tr: 'jira', d: 1.4 },
+  { t: 'card', at: [28, 80, 180], k: 'API-88', title: 'Limits', s: 'todo', to: 'progress', tr: 'jira', d: 2.6 },
+  { t: 'card', at: [28, 108, 180], k: 'api#212', title: 'Pay API', s: 'review', tr: 'github' },
+  { t: 'card', at: [28, 136, 180], k: 'MOB-31', title: 'Cards', s: 'todo', tr: 'jira', type: 'story' },
+  { t: 'card', at: [28, 164, 180], k: 'MOB-40', title: 'Login', s: 'review', to: 'done', tr: 'jira', type: 'bug', d: 3.8 },
+  { t: 'arrow', d: 'M216 120 C 224 120, 228 120, 236 120', draw: true },
+  {
+    t: 'gantt',
+    at: [236, 34, 384, 210],
+    title: 'Release 2.4',
+    bars: [
+      [2, 24, 'done', 'Discovery · Maya'],
+      [20, 30, 'done', 'WEB-14 Design · Leo'],
+      [38, 34, 'progress', 'WEB-14 Build · Leo, Sara'],
+      [44, 30, 'progress', 'API-88 Rate limits'],
+      [62, 22, 'todo', 'MOB-31 Review'],
+      [70, 24, 'todo', 'Launch'],
+    ],
+  },
+  { t: 'note', at: [20, 232, 196, 30], text: 'Maya is away Dec 7 to 11', tone: 'pink' },
+  { t: 'cursor', at: [150, 200], to: [470, 132], name: 'Anna', tone: 'violet' },
+]
+
+const plan: Item[] = [
+  { t: 'card', at: [20, 24], k: 'WEB-14', s: 'progress', tr: 'jira' },
+  { t: 'arrow', d: 'M80 48 C 80 70, 80 76, 80 92', draw: true },
+  { t: 'gantt', at: [20, 92, 420, 140], title: 'Release plan', bars: [[4, 30, 'done', 'Design'], [30, 36, 'progress', 'WEB-14 Checkout'], [60, 30, 'todo', 'Review']] },
+]
+
+const dates: Item[] = [
+  { t: 'gantt', at: [20, 24, 420, 140], title: 'Q4 roadmap', bars: [[10, 34, 'progress', 'API-88 from the tracker'], [36, 30, 'todo', 'MOB-31 your dates'], [52, 30, 'todo', 'Launch']] },
+  { t: 'note', at: [20, 180, 200, 44], text: 'The tracker moved API-88 a week later', tone: 'yellow' },
+]
+
+const stages: Item[] = [
+  { t: 'gantt', at: [20, 24, 420, 196], title: 'Q4 roadmap', bars: [[2, 22, 'done', 'Discovery · Maya'], [20, 28, 'progress', 'Design · Ines'], [44, 32, 'progress', 'Build · Leo, Omar'], [72, 24, 'todo', 'Review · Sara'], [74, 22, 'todo', 'Launch']] },
+]
+
+const away: Item[] = [
+  { t: 'gantt', at: [20, 24, 420, 140], title: 'Q4 roadmap', bars: [[10, 34, 'progress', 'Build · Maya'], [40, 30, 'progress', 'Build · Maya'], [66, 26, 'todo', 'Review · Leo']] },
+  { t: 'note', at: [20, 180, 220, 44], text: 'Maya: two stages in one week', tone: 'pink' },
+]
+
+const views: Item[] = [
+  { t: 'search', at: [20, 20, 300], chips: ['Team: Web', 'Quarter: Q4'], hits: [] },
+  { t: 'gantt', at: [20, 70, 420, 140], title: 'Web team, Q4', bars: [[4, 30, 'done', 'Guided first board'], [28, 36, 'progress', 'Template gallery'], [58, 30, 'todo', 'Invite teammates']] },
+]
+
+const expand: Item[] = [
+  { t: 'gantt', at: [10, 14, 440, 222], title: 'Q4 roadmap', bars: [[2, 30, 'done'], [18, 40, 'progress'], [36, 34, 'progress'], [56, 30, 'todo'], [64, 24, 'todo'], [70, 26, 'todo'], [76, 20, 'todo']] },
+]
+
+const pains = [
+  'A date slips in the tracker, and the roadmap slide still shows the old one.',
+  'Leadership asks for one timeline across every project, and someone builds it by hand.',
+  'The board shows who owns a task, not that one person is booked on three at once.',
+]
+
+const faq = [
+  {
+    q: 'How do I make a Gantt chart from my tracker tasks?',
+    a: 'Add a Gantt to a tiko board and drop task cards onto it, or add tasks by key, link or query. Each task becomes a bar with its live status and the start and due dates from your tracker.',
+  },
+  {
+    q: 'Can one Gantt show tasks from several projects?',
+    a: 'Yes. A Gantt takes tasks from any number of Jira projects and GitHub repositories, plus plain rows for work that has no task. Nest rows under a parent to get one plan across teams.',
+  },
+  {
+    q: 'What happens when a date changes in the tracker?',
+    a: 'The bar moves for everyone on the board. If you moved the bar yourself, it keeps your dates, and a dashed frame shows where the tracker has the task, so you can follow it with one click. tiko never changes dates in your tracker.',
+  },
+  {
+    q: 'Can I see who is overloaded?',
+    a: "With Planning, each stage names the people planned for it. A person's next twelve weeks across every board show how many stages they have, and a week turns red when two stages fall on the same working day. Workload counts stages, not hours.",
+  },
+  {
+    q: 'Does it do critical path or auto-scheduling?',
+    a: 'No. A dependency line turns amber on a conflict, and Alt + drag shifts the later stages of a row, but tiko does not move dates for you or compute a critical path.',
+  },
+  {
+    q: 'Is tiko free?',
+    a: 'Yes. tiko is free software under AGPL-3.0: run it on your own server for as many people as you like. A hosted tiko Cloud with a free plan is coming.',
+  },
+]
+
+const related = [
+  { href: '/use-cases/cross-team-board/', title: 'One board for many teams', text: 'Tasks from several projects and trackers on one canvas, with live statuses.' },
+  { href: `${DOCS}/gantt/stages/`, title: 'Stages and people', text: 'Cut a row into phases and name who is planned for each.' },
+  { href: `${DOCS}/gantt/working-time/`, title: 'Working days and time off', text: 'Hide weekends, mark days off and see each person\'s workload.' },
+]
+---
+
+<Base {title} {description} {faq} crumbs={[['Gantt chart']]}>
+  <Header />
+  <main id="main" class="dots">
+    <section class="hero">
+      <div class="wrap copy">
+        <p class="eyebrow">Gantt and Planning</p>
+        <h1>A Gantt chart built from your tracker tasks</h1>
+        <p class="sub" set:html={brand('Drop task cards onto a timeline, and each one becomes a bar that keeps its live status and the dates from your tracker. Cut rows into stages, name who is planned, and see who is away or booked twice. No second plan to keep in sync by hand.')} />
+        <div class="actions">
+          <a class="btn btn-primary" href={DEMO}>Try the demo <Icon name="arrow-right" /></a>
+          <Install />
+        </div>
+        <ul class="facts">
+          {['Open source, AGPL-3.0', 'Self-hosted', 'Your tracker stays the source of truth'].map((fact) => <li><Icon name="check" size={14} />{fact}</li>)}
+        </ul>
+      </div>
+      <div class="wrap scene">
+        <Clip label="Task cards from a backlog planned as bars with stages and people on a Gantt">
+          <MiniBoard items={hero} w={640} h={272} live />
+        </Clip>
+      </div>
+    </section>
+
+    <section class="section problem">
+      <div class="wrap cols">
+        <div>
+          <h2 class="h2 reveal">The plan and the tracker drift apart</h2>
+          <p class="lead reveal">The timeline lives in a spreadsheet or a slide, the tasks live in the tracker, and someone copies dates between them every week. By the time anyone looks, the plan is a week old.</p>
+        </div>
+        <ul class="pains reveal">
+          {pains.map((pain) => <li><Icon name="circle-alert" size={18} /><span>{pain}</span></li>)}
+        </ul>
+      </div>
+    </section>
+
+    <FeatureFrame
+      id="plan"
+      label="Plan"
+      heading="Drop a card, get a bar"
+      lead="Add a Gantt to any board and drop task cards onto its timeline, or add tasks by key, link or query. Each bar keeps the live status of its task, so the plan shows what is done without anyone updating it."
+      points={['Nest rows under a parent; its bar spans its children', 'Milestones, and plain rows for work outside your tracker', 'A dependency line turns amber when a task starts before the one it waits on ends']}
+      more={{ href: `${DOCS}/gantt/`, text: 'Gantt module' }}
+      tone="blue"
+    >
+      <Clip src={`${MEDIA}/site-gantt.mp4`} poster={`${MEDIA}/site-gantt.jpg`} width={1280} height={718} label="A card dropped onto a Gantt becomes a bar, and a dependency line joins two bars"><MiniBoard items={plan} w={460} h={250} live /></Clip>
+    </FeatureFrame>
+
+    <FeatureFrame
+      id="dates"
+      label="Dates"
+      heading="Dates come from your tracker"
+      lead="A task on the Gantt takes its start and due dates from your tracker and moves when they change there. Drag a bar, and it keeps your dates; a dashed frame then shows where the tracker has the task, so a slip shows up before the launch day."
+      points={['One click follows the tracker again', 'A missing end is drawn faded, a week from the date you have', "Fit a row's stages inside the tracker's dates"]}
+      more={{ href: `${DOCS}/gantt/#dates-from-your-tracker`, text: 'Dates from your tracker' }}
+      tone="yellow"
+      flip
+    >
+      <Clip src={`${MEDIA}/site-gantt-dates.mp4`} poster={`${MEDIA}/site-gantt-dates.jpg`} width={1280} height={718} label="Tasks added to a Gantt take their dates from the tracker; a moved bar shows the tracker's dates in a dashed frame"><MiniBoard items={dates} w={460} h={250} live /></Clip>
+    </FeatureFrame>
+
+    <FeatureFrame
+      id="planning"
+      label="Planning"
+      heading="Cut a task into stages and name who is planned"
+      lead="With Planning, a row splits into stages such as discovery, design, build and review, and each stage names the people planned for it. The tracker's assignee says who owns the task now; a stage says who works on that phase, and when."
+      points={['Hold Alt as you drag to push the later stages of a row along', 'People come from one list, and most never need an account', 'Stage types and colors of your own']}
+      more={{ href: `${DOCS}/gantt/stages/`, text: 'Stages and people' }}
+      tone="green"
+    >
+      <Clip src={`${MEDIA}/site-gantt-stages.mp4`} poster={`${MEDIA}/site-gantt-stages.jpg`} width={1280} height={718} label="Stages added to Gantt rows, each with a type and the people planned for it"><MiniBoard items={stages} w={460} h={250} live /></Clip>
+    </FeatureFrame>
+
+    <FeatureFrame
+      id="workload"
+      label="Workload"
+      heading="See who is away and who is booked twice"
+      lead="Mark someone's time off once, and every Gantt where they have a stage shows it; a stage on their days off gets a red outline. A person's next twelve weeks across every board show how many stages they have, and a week turns red when two land on the same working day."
+      points={['Working days only, with your holidays shaded like weekends', 'Twelve weeks of workload per person, across boards', 'tiko keeps the dates of time off, never the reason']}
+      more={{ href: `${DOCS}/gantt/working-time/`, text: 'Working days and time off' }}
+      tone="pink"
+      flip
+    >
+      <Clip src={`${MEDIA}/site-gantt-timeoff.mp4`} poster={`${MEDIA}/site-gantt-timeoff.jpg`} width={1280} height={718} label="Time off marked on a Gantt, and the stages of the person who is away outlined in red"><MiniBoard items={away} w={460} h={250} live /></Clip>
+    </FeatureFrame>
+
+    <FeatureFrame
+      id="views"
+      label="Views"
+      heading="Slice the plan by team, quarter or person"
+      lead="Show fields such as Priority, Team or Quarter as columns and type values straight in; a child row inherits its parent's. Filter rows by any field or person, and save the filter as a view that every Gantt lists."
+      points={['Up to six columns per Gantt', 'Team also finds rows where someone from that team has a stage', 'Values stay on the board and never go to your tracker']}
+      more={{ href: `${DOCS}/gantt/columns-and-filters/`, text: 'Columns, filters and views' }}
+      tone="violet"
+    >
+      <Clip src={`${MEDIA}/site-gantt-views.mp4`} poster={`${MEDIA}/site-gantt-views.jpg`} width={1280} height={718} label="A Gantt filtered by team with a saved view, and priority and team columns"><MiniBoard items={views} w={460} h={250} live /></Clip>
+    </FeatureFrame>
+
+    <FeatureFrame
+      id="expand"
+      label="Expand"
+      heading="Open a long plan full screen"
+      lead="Expand the Gantt over the board: days keep a readable width, the task column and dates stay in view, and it opens on today. Collapse all folds a big plan down to its top rows."
+      points={['Every change lands on the board\'s Gantt', 'Add a week, month or quarter at either end with +', 'Undo works as usual']}
+      more={{ href: `${DOCS}/gantt/#expand`, text: 'Expand a Gantt' }}
+      tone="orange"
+      flip
+    >
+      <Clip src={`${MEDIA}/site-gantt-expand.mp4`} poster={`${MEDIA}/site-gantt-expand.jpg`} width={1280} height={718} label="A Gantt opened full screen over the dimmed board"><MiniBoard items={expand} w={460} h={250} live /></Clip>
+    </FeatureFrame>
+
+    <section class="section stays">
+      <div class="wrap">
+        <h2 class="h2 reveal">What stays where</h2>
+        <div class="split reveal">
+          <div>
+            <h3>In your tracker</h3>
+            <p set:html={brand('The task itself: its title, status, assignee and the dates your team keeps there. tiko reads them and never writes them back.')} />
+          </div>
+          <div>
+            <h3>On the board</h3>
+            <p>The plan around the tasks: bars, your own dates, stages, people, time off, milestones and dependency lines.</p>
+          </div>
+        </div>
+        <p class="honest reveal" set:html={brand('What tiko does not do: it does not schedule for you, compute a critical path or keep baselines, and workload counts stages, not hours. You draw dependency lines yourself; task links in your tracker are not read.')} />
+      </div>
+    </section>
+
+    <Trackers />
+    <SelfHost />
+    <Faq items={faq} title="Questions about the Gantt" />
+
+    <section class="section related">
+      <div class="wrap">
+        <h2 class="h2 reveal">Keep going</h2>
+        <div class="cards reveal">
+          {related.map(({ href, title, text }) => (
+            <a class="rel" {href}>
+              <h3>{title}</h3>
+              <p>{text}</p>
+              <span class="more">Read more <Icon name="arrow-right" /></span>
+            </a>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <Cta />
+  </main>
+  <Footer />
+</Base>
+
+<style>
+  .hero {
+    padding-block: clamp(3rem, 7vw, 5.5rem) clamp(3rem, 7vw, 5rem);
+  }
+  .copy {
+    display: grid;
+    justify-items: center;
+    text-align: center;
+  }
+  .eyebrow {
+    margin-bottom: 1rem;
+    padding: 0.125rem 0.625rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--card);
+    color: var(--muted-foreground);
+    font-size: 0.8125rem;
+    font-weight: 500;
+  }
+  h1 {
+    max-width: 20ch;
+    font-size: clamp(2.25rem, 5.6vw, 3.75rem);
+    font-weight: 650;
+    line-height: 1.05;
+    letter-spacing: -0.035em;
+    text-wrap: balance;
+  }
+  .sub {
+    max-width: 60ch;
+    margin-top: 1.25rem;
+    font-size: 1.125rem;
+    color: var(--muted-foreground);
+    text-wrap: pretty;
+  }
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.75rem;
+    margin-top: 2rem;
+  }
+  .actions :global(.install) {
+    min-width: min(26rem, 100%);
+  }
+  .facts {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.5rem 1.25rem;
+    margin-top: 1.5rem;
+    font-size: 0.875rem;
+    color: var(--muted-foreground);
+  }
+  .facts li {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+  }
+  .facts :global(svg) {
+    color: var(--sync-ok);
+  }
+  .scene {
+    max-width: calc(66rem + var(--gutter) * 2);
+    margin-top: clamp(2.5rem, 6vw, 4rem);
+    container-type: inline-size;
+  }
+  .scene :global(.mini) {
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+  }
+  .cols {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 2rem clamp(2rem, 6vw, 5rem);
+    align-items: center;
+  }
+  .pains {
+    display: grid;
+    gap: 0.75rem;
+  }
+  .pains li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 1rem 1.125rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--card);
+  }
+  .pains :global(svg) {
+    flex: none;
+    margin-top: 0.15em;
+    color: var(--muted-foreground);
+  }
+  .problem {
+    padding-top: 0;
+  }
+  .split {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+    margin-top: 2rem;
+  }
+  .split > div {
+    padding: 1.5rem;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--card);
+  }
+  .split h3,
+  .rel h3 {
+    font-size: 1.0625rem;
+    font-weight: 600;
+  }
+  .split p,
+  .rel p {
+    margin-top: 0.5rem;
+    color: var(--muted-foreground);
+  }
+  .honest {
+    max-width: 70ch;
+    margin-top: 1.5rem;
+    font-size: 0.9375rem;
+    color: var(--muted-foreground);
+  }
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+    margin-top: 2rem;
+  }
+  .rel {
+    display: grid;
+    align-content: start;
+    gap: 0;
+    padding: 1.5rem;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--card);
+    transition: border-color 0.15s;
+  }
+  .rel:hover {
+    border-color: color-mix(in oklch, var(--primary) 45%, var(--border));
+  }
+  .rel .more {
+    margin-top: 1rem;
+  }
+  @media (max-width: 860px) {
+    .cols,
+    .split,
+    .cards {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+</style>
+
+<script>
+  import '../scripts/page'
+  import '../scripts/install'
+</script>

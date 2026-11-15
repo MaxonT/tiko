@@ -6,7 +6,8 @@ import ThemeSwitch from './ThemeSwitch.astro'
 const columns = [
   {
     title: 'Features',
-    links: [...FEATURE_PAGES, ...USE_CASE_PAGES].map(({ title, href }) => [title, href]).concat([['All features', '/#features']]),
+    // Only pages of their own; the landing's sections are one link, All features.
+    links: [...FEATURE_PAGES, ...USE_CASE_PAGES].filter(({ href }) => !href.startsWith('/#')).map(({ title, href }) => [title, href]).concat([['All features', '/#features']]),
   },
   {
     title: 'Product',

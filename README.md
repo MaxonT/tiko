@@ -50,7 +50,7 @@ tiko puts the same tasks on an infinite canvas and keeps them current. What make
 
 - **Cards are live.** Each one shows the task's real status, refreshed while the board is open.
 - **Your tracker stays in charge.** tiko shows tasks as they are in your tracker. Each person connects their own token and sees only what their tracker access allows.
-- **It is yours.** Self-hosted, your data in your own Postgres, no ads, and nothing about your people or tasks leaves the server.
+- **It is yours.** Self-hosted, your data in your own Postgres, no ads; your boards, tasks and tracker data stay on your server.
 
 Works with Jira Cloud, Jira Data Center and Server, and GitHub issues today. Linear, Plane and others are planned: [all trackers](https://docs.tiko.run/trackers/).
 
@@ -103,7 +103,7 @@ Invite people with a link and give each board viewers and editors. Everyone on a
 
 The installer sets up Docker if it is missing, starts the latest release and prints the address, the username and the password. Read it first if you like: [install.sh](install/install.sh), [install.ps1](install/install.ps1). Options and step-by-step instructions: [install guide](https://docs.tiko.run/install/).
 
-tiko sends anonymous counts once a day (release, tracker types, rounded numbers of boards and people), and the installer reports whether it worked. Nothing names you, your boards or your tracker. To send nothing, add `--no-stats` (`curl -fsSL https://tiko.run/install.sh | sh -s -- --no-stats`) or set `TIKO_USAGE_STATS=false`. Every field: [Usage stats](https://docs.tiko.run/privacy/).
+Once a day tiko sends a few counts with a random install ID (release, tracker types, rounded numbers of boards and people), and the installer reports whether it worked. Nothing names you, your boards or your tracker. To send nothing, add `--no-stats` (`curl -fsSL https://tiko.run/install.sh | sh -s -- --no-stats`); on Windows run `$env:TIKO_USAGE_STATS='false'` before the install command; on a running server set `TIKO_USAGE_STATS=false`. Every field: [Usage stats](https://docs.tiko.run/privacy/).
 
 ### Docker
 

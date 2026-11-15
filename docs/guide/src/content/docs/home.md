@@ -19,19 +19,30 @@ The two buttons next to the sort menu switch between the grid and a compact list
 
 ## Stars and folders
 
-The star next to a board's `⋯` button pins it: starred boards come first in every view and sort, and "Starred" at the left lists them alone. Click the star again to take it off.
+The star next to a board's `⋯` button pins it: starred boards come first in every view and sort, and **Starred** at the left lists them alone. Click the star again to take it off.
 
-Folders group boards your own way. Make one with the plus next to "Folders" at the left, type its name and press `Enter`. Move a board into a folder from its menu, "Move to folder", or drag the board onto the folder; drag it onto "All boards" to take it out again. A board sits in one folder at most, and it stays under All and in search wherever it is. A folder's `⋯` renames or deletes it; deleting a folder keeps its boards on Home. You can keep up to 100 folders.
+Folders group boards your own way:
+
+- **Make one** with the plus next to **Folders** at the left, type its name and press `Enter`. You can keep up to 100 folders.
+- **Move a board in** from its menu, **Move to folder**, or drag the board onto the folder. Drag it onto **All boards** to take it out again.
+- **One folder per board** at most. A board stays under All and in search wherever it is.
+- **Rename or delete** a folder from its `⋯`. Deleting a folder keeps its boards on Home.
 
 Stars and folders are yours alone: nobody else sees them, and they change nothing about who can open a board. When a board stops being shared with you, it leaves your stars and folders too, and comes back without them if it is shared again. On a narrow screen the places sit in one row above the list.
 
 ## Trash
 
-"Move to trash…" in the board menu, or dragging your board onto "Trash" at the left, moves the board to your trash for 30 days. Until then it is closed for everyone: people it is shared with lose it, its public link stops working and open tabs of it close. The toast that follows has an Undo.
+**Move to trash…** in the board menu, or dragging your board onto **Trash** at the left, moves the board to your trash for 30 days. The toast that follows has an Undo.
 
-"Trash" at the left lists your deleted boards with the days left before each goes for good. **Restore** brings a board back as it was, with everyone it was shared with, their roles, its public link and their stars and folders. The bin button deletes it for good after a confirmation; that cannot be undone. After 30 days a board goes by itself, within the hour.
+While a board is in the trash, it is closed for everyone: people it is shared with lose it, its public link stops working and open tabs of it close. It still counts toward the boards you may own.
 
-A workspace admin sees the trash of everyone in the workspace and can restore any board in it; only the owner deletes a board for good. A board in the trash still counts toward the boards you may own until it is gone for good.
+**Trash** at the left lists your deleted boards with the days left before each goes for good:
+
+- **Restore** brings a board back as it was, with everyone it was shared with, their roles, its public link and their stars and folders.
+- **The bin button** deletes it for good after a confirmation. That cannot be undone.
+- **After 30 days** a board goes by itself, within the hour.
+
+A workspace admin sees the trash of everyone in the workspace and can restore any board in it; only the owner deletes a board for good.
 
 ## Find a board
 
@@ -39,7 +50,7 @@ Press `/` or `⌘K` (`Ctrl+K`) on Home and type part of a name. The list keeps t
 
 ## New board
 
-"New board" makes a board named "Untitled board" and opens it with its name ready to type. Press `Enter` to keep the name you typed, or `Esc` to keep "Untitled board".
+**New board** makes a board named "Untitled board" and opens it with its name ready to type. Press `Enter` to keep the name you typed, or `Esc` to keep "Untitled board".
 
 ## The board menu
 

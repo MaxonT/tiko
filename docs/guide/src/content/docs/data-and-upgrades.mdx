@@ -1,0 +1,164 @@
+---
+title: Data, backups and upgrades
+description: Where tiko keeps its data, how to back it up and restore it, and how to upgrade.
+---
+
+import { Steps } from '@astrojs/starlight/components'
+
+tiko keeps boards, people and settings in Postgres 18. With the compose files it runs in the `db` container.
+
+## Where tiko keeps data
+
+| What | Where | Survives |
+|---|---|---|
+| Boards, people, settings, pictures | The Docker volume `pgdata` of the `db` container | Rebuilds, upgrades and `docker compose down` |
+| The generated admin password, the updater's token, backups | The `data/` folder next to the compose file, a plain folder on your computer | Everything, including `docker compose down -v` and the Docker Desktop resets below |
+
+:::danger[What deletes every board]
+`docker compose down -v` deletes the `pgdata` volume, and every board with it. So does Docker Desktop when you lower its disk limit or use **Clean / Purge data** or **Reset to factory defaults**. [Back up by hand](#back-up-by-hand) before any of these.
+:::
+
+The `db` service publishes no port; only the `api` container reaches it. Its password is `POSTGRES_PASSWORD` in `.env`, written by the installer. Postgres reads it once, when the volume is made, so changing it later locks tiko out of its data.
+
+## Back up and restore
+
+### Backups on their own
+
+The `backup` service saves a dump of the database to `data/backups/` every 2 hours. Times are in UTC.
+
+| Kept | Name |
+|---|---|
+| The newest 12, the last day | `auto-<time>.dump` |
+| One a day for 14 days | `daily-<time>.dump` |
+| The 3 newest, before every one-click update ([Updates](../updates/)) | `pre-update-<version>.dump` |
+
+Installs from before 2026.10.25 get the `backup` service when you run the installer again.
+
+On Railway and Render there is no `backup` service: turn on backups of the platform's database (Render's free Postgres plan has none; on Railway enable them on the Postgres volume), or dump it yourself.
+
+### Back up by hand
+
+Run this in the tiko folder while tiko runs, before you change Docker Desktop's settings or move to another computer:
+
+```bash
+docker compose exec backup tiko-dump
+```
+
+The dump lands in `data/backups/` as `manual-<time>.dump` and is never deleted on its own. From a source checkout, `make backup` writes a dump to `data/backups/` too and keeps the newest 20; `make up` runs it before every rebuild.
+
+### Restore
+
+Put the name of your dump from `data/backups/` in place of `daily-20261022-120000.dump`:
+
+<Steps>
+
+1. Stop the API and the web app:
+
+   ```bash
+   docker compose stop api web
+   ```
+
+2. Copy the dump into the `db` container:
+
+   ```bash
+   docker compose cp ./data/backups/daily-20261022-120000.dump db:/tmp/tiko.dump
+   ```
+
+3. Empty the database and load the dump:
+
+   ```bash
+   docker compose exec db psql -U postgres -d tiko -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public AUTHORIZATION tiko_owner;"
+   docker compose exec db pg_restore -U postgres -d tiko --exit-on-error /tmp/tiko.dump
+   docker compose exec db rm /tmp/tiko.dump
+   ```
+
+4. Start tiko again:
+
+   ```bash
+   docker compose up -d
+   ```
+
+</Steps>
+
+## Pictures
+
+Pictures on boards live in the same Postgres database as the boards, so the backups above and your own dumps take them along, and nothing else needs a volume.
+
+- **One copy:** a picture pasted on ten boards is kept once per workspace. Saving a picture to the workspace's stickers keeps no second copy of it.
+- **Smaller copies:** next to the original, tiko keeps up to three smaller ones, 512, 1024 and 2048 pixels wide, which the board loads instead of the original.
+- **Photos** are kept without their location and camera data.
+- **Clean-up:** a picture that no board shows any more, the trash included, and that is not one of the workspace's stickers is deleted a week later and frees its room in the quota. Until then, undo or pasting a copied element brings it back.
+- **Quota:** `TIKO_FILES_QUOTA_MB` caps how much a workspace keeps, copies included. Past it, a new picture is refused with a message and nothing already on a board is touched. Without it there is no limit, except 20 MB per workspace on a [demo](../demo/).
+
+Built-in stickers are not kept in the database and take no room in a workspace's quota. tiko draws each the first time it is shown and keeps the drawing in `data/stickers/`, at most about 400 MB for the whole set. You can empty that folder at any time; stickers are drawn again when asked for.
+
+## Coming from an SQLite release
+
+Releases up to 2026.10.23 kept everything in one SQLite file, `data/app.db`. The first start on Postgres copies that file into the database: every account, board, setting, Planning list and public link, with the same passwords and links.
+
+- **Checked:** the copy compares the row count of every table before it commits. If anything differs, nothing is kept and the file stays as it was.
+- **Kept:** after a good copy the file is renamed to `data/app.db.copied-<date>`.
+- **How:** run the installer to make this move: it adds the `db` service and its password. **Update now** cannot add a container, so About shows the installer command for such a release.
+- **Going back:** rename `data/app.db.copied-<date>` to `data/app.db` before you start the old SQLite release. Without the file the old version starts as a new, empty instance. Changes made on Postgres in the meantime stay in Postgres.
+
+### On Railway and Render
+
+The platform runs the containers, so the release that moves to Postgres needs a database added by hand before you redeploy. Without `DATABASE_URL` the new `api` stops at start and says so in its log. The SQLite file on the `api` volume is copied at the first start, as above.
+
+- **Render:** open the Blueprint in the Render dashboard and sync it. The sync adds the `tiko-db` database and gives `tiko-api` its `DATABASE_URL`; then redeploy `tiko-api` and `tiko-web`.
+- **Railway:** in the project, add a Postgres database (**Create → Database → PostgreSQL**). In the `api` service's Variables, add `DATABASE_URL` with the value `${{Postgres.DATABASE_URL}}`, then redeploy `api` and `web`.
+
+## Your own Postgres server
+
+Set `DATABASE_URL` in `.env` to use a server of your own, such as a managed one, instead of the `db` service.
+
+Before you start:
+
+- Postgres 16 or later;
+- a database of tiko's own;
+- a role that owns the database and may create roles.
+
+At its first start tiko creates two roles without login, `tiko_app` and `tiko_jobs`, and switches to them for its work, so row-level security keeps workspaces apart. It refuses to start when either of them is a superuser or has `BYPASSRLS`.
+
+<Steps>
+
+1. As a superuser on that server, create the role and the database:
+
+   ```sql
+   CREATE ROLE tiko_owner LOGIN CREATEROLE PASSWORD 'choose-a-password';
+   CREATE DATABASE tiko OWNER tiko_owner;
+   \c tiko
+   ALTER SCHEMA public OWNER TO tiko_owner;
+   ```
+
+2. Point tiko at it in `.env`. The password goes into a URL, so use letters and digits:
+
+   ```bash
+   DATABASE_URL=postgresql://tiko_owner:choose-a-password@db.example.com:5432/tiko
+   ```
+
+</Steps>
+
+:::caution[Back it up yourself]
+One-click updates and the `backup` service dump only the `db` service. With your own server, back it up yourself and update with the installer.
+:::
+
+## Upgrade by hand
+
+How tiko tells you about a new release and how an admin updates it from About is in [Updates](../updates/). To upgrade without the updater:
+
+From images:
+
+```bash
+docker compose -f compose.release.yml pull
+docker compose -f compose.release.yml up -d
+```
+
+Pin a version with `TAG`, for example `TAG=2026.10.6`. Release notes are on [GitHub Releases](https://github.com/tiko-run/tiko/releases).
+
+From source:
+
+```bash
+git pull
+docker compose up --build -d
+```

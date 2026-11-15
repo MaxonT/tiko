@@ -234,7 +234,12 @@ The command prints a line like `/?reset=...`. Add it to your tiko address, for e
 
 ## Everyday commands
 
-Run these in the tiko folder. A new terminal opens somewhere else, and PowerShell started as administrator opens in `C:\Windows\system32`, so go to the folder first: `cd ~/tiko` on Linux and macOS (`cd /opt/tiko` when installed as root), `cd $HOME\tiko` in PowerShell. Installed into another folder and forgot which? `docker compose ls` shows the path of a running tiko under "CONFIG FILES".
+Run these in the tiko folder. A new terminal opens somewhere else, and PowerShell started as administrator opens in `C:\Windows\system32`, so go to the folder first:
+
+- Linux and macOS: `cd ~/tiko` (`cd /opt/tiko` when installed as root);
+- PowerShell: `cd $HOME\tiko`.
+
+Installed into another folder and forgot which? `docker compose ls` shows the path of a running tiko under "CONFIG FILES".
 
 | Task | Command |
 |---|---|
@@ -250,14 +255,16 @@ Your boards live in the Docker volume of the `db` service, and `docker compose d
 
 ## When something goes wrong
 
-- **"permission denied" on `/var/run/docker.sock` (Linux).** Your user is not in the `docker` group yet: run `sudo usermod -aG docker $USER`, sign out and back in, or prefix commands with `sudo`.
-- **"port is already allocated" or the installer says the port is taken.** Another program uses port 3000. Use `--port 8080` with the installer, or set `TIKO_PORT=8080` in `.env`, then open http://localhost:8080.
-- **"Cannot connect to the Docker daemon".** Docker is not running: open Docker Desktop, run `colima start` on macOS, or `sudo systemctl start docker` on Linux.
-- **"no configuration file provided: not found".** The terminal is not in the tiko folder, so `docker compose` does not know which install you mean. Go there first: `cd ~/tiko`, `cd /opt/tiko` when installed as root, or `cd $HOME\tiko` in PowerShell.
-- **PowerShell does not recognize `grep`.** Windows has no `grep`. Use `Select-String` in its place: `docker compose logs api | Select-String 'tiko password'`.
-- **The password does not show up in the log.** After the one-line installer it is in `.env`, not in the log; see [Lost the password](#lost-the-password).
-- **WSL errors on Windows.** Run `wsl --update` in PowerShell as administrator and restart. Docker's [troubleshooting page](https://docs.docker.com/desktop/troubleshoot-and-support/troubleshoot/) covers the rest.
-- **The installer says tiko already runs from another folder.** One machine runs one tiko: stop the other with `docker compose down` in its folder, or upgrade it with `--dir` pointing there.
-- **Behind a corporate proxy.** The installer follows `HTTPS_PROXY`; Docker needs its own [proxy settings](https://docs.docker.com/engine/daemon/proxy/).
+| Symptom | Cause | Fix |
+|---|---|---|
+| "permission denied" on `/var/run/docker.sock` (Linux) | Your user is not in the `docker` group yet | Run `sudo usermod -aG docker $USER`, sign out and back in, or prefix commands with `sudo` |
+| "port is already allocated", or the installer says the port is taken | Another program uses port 3000 | Use `--port 8080` with the installer, or set `TIKO_PORT=8080` in `.env`, then open http://localhost:8080 |
+| "Cannot connect to the Docker daemon" | Docker is not running | Open Docker Desktop, run `colima start` on macOS, or `sudo systemctl start docker` on Linux |
+| "no configuration file provided: not found" | The terminal is not in the tiko folder, so `docker compose` does not know which install you mean | Go there first: `cd ~/tiko`, `cd /opt/tiko` when installed as root, or `cd $HOME\tiko` in PowerShell |
+| PowerShell does not recognize `grep` | Windows has no `grep` | Use `Select-String` in its place: `docker compose logs api \| Select-String 'tiko password'` |
+| The password does not show up in the log | After the one-line installer it is in `.env`, not in the log | See [Lost the password](#lost-the-password) |
+| WSL errors on Windows | WSL is missing or out of date | Run `wsl --update` in PowerShell as administrator and restart. Docker's [troubleshooting page](https://docs.docker.com/desktop/troubleshoot-and-support/troubleshoot/) covers the rest. |
+| The installer says tiko already runs from another folder | One machine runs one tiko | Stop the other with `docker compose down` in its folder, or upgrade it with `--dir` pointing there |
+| Behind a corporate proxy | The installer follows `HTTPS_PROXY`; Docker needs its own settings | Set Docker's [proxy settings](https://docs.docker.com/engine/daemon/proxy/) |
 
 Still stuck? Open an [issue](https://github.com/tiko-run/tiko/issues) with the installer's output.

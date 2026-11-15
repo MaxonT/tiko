@@ -5,7 +5,7 @@ description: Find anything on a board, filter cards and run commands from one pa
 
 Press `⌘K` (`Ctrl+K`) to open the palette. It finds any text on the board, cards by key, title, status or assignee included, and moves the board to the match. `⌘Enter` selects all results.
 
-## Filters
+## Filter the results
 
 Type a filter and pick a value from the suggestions; it turns into a chip.
 
@@ -17,9 +17,11 @@ Type a filter and pick a value from the suggestions; it turns into a chip.
 | Priority | `priority:high` |
 | Frames and modules only | `#sprint` at the start |
 
-Several chips of the same field match any of them; different fields must all match. Backspace in an empty input turns the last chip back into text.
+- **Same field:** several chips of one field match any of them.
+- **Different fields** must all match.
+- **Backspace** in an empty input turns the last chip back into text.
 
-## Commands and boards
+## Run commands
 
 The same palette runs app commands: add a card, sticky note, frame, reminder or module, switch the theme, open settings, create or rename a board. Each command shows its shortcut. Other boards whose name matches appear as "Go to board".
 

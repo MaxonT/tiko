@@ -5,16 +5,38 @@ description: Let Claude, Codex, Copilot or Cursor read and arrange your boards o
 
 tiko speaks MCP, the protocol AI agents use to reach other tools. Connect your agent and ask it about your boards in plain words: "what is in progress on the release board?", "which tasks on my plan are overdue?". It reads the board as you laid it out, with the live status of every card.
 
+:::caution[What the agent reads leaves tiko]
 tiko itself runs no AI model and sends nothing to any AI provider. What the agent reads leaves tiko through the agent, to whatever model it uses, so connect only an agent you trust with those boards.
+:::
 
 ## What you need
 
 - An [API key](../api-keys/). A key for chosen boards keeps the agent to those boards.
 - Your tiko's address with `/api/mcp` at the end, such as `https://tiko.example.com/api/mcp`.
 
-The agent can list your boards, read one (an outline of its frames, one frame, or every element), read a Gantt plan with its live tasks, stages and people ("what is late on the release plan?"), see how busy someone is ("is Mira overloaded in December?"), and search your tasks in Jira or CalDAV. A big plan comes as its top rows first, and the agent reads on by branch or by dates. With a key that can also write, it can make and rename boards, add cards, notes and frames, draw arrows, lay cards out in rows or a column per status, and tidy what is there: colours, bold, text size, opacity, rotation. "Put the open tasks of the release on a new board, by status", "make the headings bold and colour the blocked frame pink". It can set reminders too, at a time or for when a task on the board moves: "remind me at 3 pm to call about DEMO-4", "tell me when DEMO-2 leaves In progress". A reminder rings in tiko while the board is open in a tab; the agent cannot reach you anywhere else.
+## What the agent can do
 
-What people made stays theirs: the agent may move and restyle your elements, but it changes the words of, and removes, only what it added itself. Your notes keep their text whatever it is told. Start with a key that only reads, and give one that writes when you want the agent to arrange things.
+With any key, the agent can:
+
+- **List your boards** and **read one:** an outline of its frames, one frame, or every element.
+- **Read a Gantt plan** with its live tasks, stages and people: "what is late on the release plan?". A big plan comes as its top rows first, and the agent reads on by branch or by dates.
+- **See how busy someone is:** "is Mira overloaded in December?".
+- **Search your tasks** in Jira or CalDAV.
+
+With a key that can also write, it can:
+
+- **Make and rename boards**, add cards, notes and frames, and draw arrows.
+- **Lay cards out** in rows or a column per status: "put the open tasks of the release on a new board, by status".
+- **Tidy what is there:** colours, bold, text size, opacity, rotation: "make the headings bold and colour the blocked frame pink".
+- **Set reminders,** at a time or for when a task on the board moves: "remind me at 3 pm to call about DEMO-4", "tell me when DEMO-2 leaves In progress". A reminder rings in tiko while the board is open in a tab; the agent cannot reach you anywhere else.
+
+What people made stays theirs: the agent may move and restyle your elements, but it changes the words of, and removes, only what it added itself. Your notes keep their text whatever it is told.
+
+:::tip[Start with a key that only reads]
+Give one that writes when you want the agent to arrange things.
+:::
+
+The same calls are open to scripts: see [API](../api/) and the [API reference](../reference/).
 
 ## Claude Code
 
@@ -83,7 +105,9 @@ Both connect from their own cloud, so your tiko must be reachable from the inter
 
 ## When it does not connect
 
-- `401`: the key is missing, wrong, expired or revoked. Make a new one in Settings → API keys.
-- `403 api_disabled`: your admin has switched API keys off.
-- The agent sees fewer boards than you: the key is for chosen boards, or a board is shared with you in a way the key does not reach. A key gives an admin no more than any member.
-- The agent gets "rate_limited": you get 120 reads and 20 task searches a minute, counted for you across all your keys. It may try again shortly.
+| The agent gets | Why | Fix |
+|---|---|---|
+| `401` | The key is missing, wrong, expired or revoked | Make a new one in **Settings → API keys** |
+| `403 api_disabled` | Your admin has switched API keys off | Ask your admin |
+| Fewer boards than you see | The key is for chosen boards, or a board is shared with you in a way the key does not reach. A key gives an admin no more than any member. | Make a key for all your boards |
+| `rate_limited` | You get 120 reads and 20 task searches a minute, counted for you across all your keys | It may try again shortly |

@@ -3,15 +3,26 @@ title: Architecture
 description: How tiko is built, the two containers, the code layout and how statuses stay fresh.
 ---
 
+tiko is a web UI and an API in front of one Postgres database, with your tracker behind a port the domain does not know the details of.
+
 ## Overview
 
 ```text
 Browser ──> Web UI (React, nginx :3000) ──/api, WebSocket──> API (FastAPI :8000) ──> Postgres (db :5432)
                                                                    │
-                                                                   └──REST──> Task tracker (Jira Data Center today)
+                                                                   └──HTTP──> Task trackers (Jira, GitHub, CalDAV)
 ```
 
-tiko runs as three containers. nginx serves the built UI and proxies `/api` to the API, so the browser sees one origin. The API keeps everything in Postgres, in the `db` container, which only the API reaches. With one-click updates on, a fourth container, `updater` (one stdlib Python file in `updater/`), holds the Docker socket and swaps `api` and `web` for a new release when the API asks.
+tiko runs as four containers:
+
+| Container | Does |
+|---|---|
+| `web` | nginx serves the built UI and proxies `/api` to the API, so the browser sees one origin |
+| `api` | The API; keeps everything in Postgres |
+| `db` | Postgres, which only the API reaches |
+| `backup` | Dumps the database to `data/backups/` every 2 hours; see [Back up and restore](../data-and-upgrades/#back-up-and-restore) |
+
+With one-click updates on, a fifth container, `updater` (one stdlib Python file in `updater/`), holds the Docker socket and swaps `api` and `web` for a new release when the API asks.
 
 The backend has three layers with one dependency rule, `api → domain ← adapters`: the domain knows nothing about FastAPI or any tracker SDK. Wiring happens in `backend/app/main.py`. The reasons behind each choice are in the [decision log](https://github.com/tiko-run/tiko/blob/main/docs/decisions.md).
 
@@ -34,7 +45,18 @@ backend/app/
   config.py   ENV, the single entry point
 ```
 
-Everything external sits behind a port in `domain/ports.py`. `TaskProvider` is the tracker interface: `resolve`, `poll`, `search`, `check`, plus the query vocabulary and values. The other ports are repositories (`BoardRepo`, `MemberRepo`, `UserRepo`, `SessionRepo`, `InviteRepo`, `CredentialRepo`, `SnapshotRepo`, `SettingsRepo`), `SecretBox` for encryption, `LiveBoards` for the open sockets of live boards, `ReleaseFeed` for the update check, and `Updater` and `UpdateBackups` for one-click updates. The tracker is a runtime setting (`demo` or `jira`), so connecting Jira needs no restart.
+Everything external sits behind a port in `domain/ports.py`:
+
+| Port | For |
+|---|---|
+| `TaskProvider` | The tracker: `resolve`, `poll`, `search`, `check`, plus the query vocabulary and values |
+| `BoardRepo`, `MemberRepo`, `UserRepo`, `SessionRepo`, `InviteRepo`, `CredentialRepo`, `SnapshotRepo`, `SettingsRepo` | Storage |
+| `SecretBox` | Encryption |
+| `LiveBoards` | The open sockets of live boards |
+| `ReleaseFeed` | The update check |
+| `Updater`, `UpdateBackups` | One-click updates |
+
+The tracker is a runtime setting (`demo` or `jira`), so connecting Jira needs no restart.
 
 The main tables:
 
@@ -72,7 +94,14 @@ frontend/src/
 
 ## Live boards
 
-An open board is a shared document (a CRDT: Yjs in the browser, pycrdt on the server) synced over a WebSocket at `/api/boards/{id}/live`. The canvas edits that document, and the server merges everyone's changes, checks the person's role on every change and saves the result. `PUT /api/boards/{id}` still works: it is applied to the shared document, so people who have the board open see the change. A guest of a public link listens to the same document over `/api/public/{token}/live/{room}`: that socket only reads, carries no presence and has places of its own, 200 per board, apart from the 30 of the people on it. What merges and what wins is described in [Working together](../working-together/).
+An open board is a shared document (a CRDT: Yjs in the browser, pycrdt on the server) synced over a WebSocket at `/api/boards/{id}/live`. The canvas edits that document, and the server merges everyone's changes, checks the person's role on every change and saves the result. `PUT /api/boards/{id}` still works: it is applied to the shared document, so people who have the board open see the change. A guest of a public link listens to the same document over `/api/public/{token}/live/{room}`: that socket only reads, carries no presence and has places of its own, 200 per board, apart from the 30 of the people on it. What merges and what wins is described in [Live editing](../working-together/live-editing/).
+
+## The public API and MCP
+
+Scripts and AI agents reach tiko through their own entry points, signed in with an [API key](../api-keys/) rather than the session cookie:
+
+- **`/api/v1`** is a FastAPI application of its own, mounted on the main one, so its contract and errors stay apart from the routes the web app uses. Every call is in the [API reference](../reference/).
+- **`/api/mcp`** is an MCP server over the same domain. See [Connect your AI agent](../ai-agents/).
 
 ## Status refresh
 
@@ -80,7 +109,11 @@ An open board is a shared document (a CRDT: Yjs in the browser, pycrdt on the se
 2. The API asks the tracker for all cards on the board in one request. For Jira that is `POST /rest/api/2/search` with `key in (...)`.
 3. The API returns fresh task snapshots, and the cards update.
 
-That is one batched request per open board per tick. The response lists every tracker with its own state (`sources`), so one failing tracker never hides the others. Backoff lives on the server, per tracker: rate limits and 5xx responses double the wait (it honours `Retry-After`, up to 300 s). Network errors retry at the normal interval, so a VPN coming back shows up on the next tick. The client polls at the interval, or at `retry_after` when a tracker asked to wait.
+That is one batched request per open board per tick. The response lists every tracker with its own state (`sources`), so one failing tracker never hides the others.
+
+- **Backoff** lives on the server, per tracker: rate limits and 5xx responses double the wait (it honours `Retry-After`, up to 300 s).
+- **Network errors** retry at the normal interval, so a VPN coming back shows up on the next tick.
+- **The client** polls at the interval, or at `retry_after` when a tracker asked to wait.
 
 ## Room to grow
 

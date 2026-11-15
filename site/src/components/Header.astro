@@ -1,15 +1,47 @@
 ---
-import { DEMO, DOCS, REPO, ROADMAP } from '../data/site'
+import { DEMO, DOCS, FEATURE_PAGES, REPO, ROADMAP, USE_CASE_PAGES } from '../data/site'
 import Brand from './Brand.astro'
+import Icon from './Icon.astro'
 import Mark from './Mark.astro'
 import ThemeSwitch from './ThemeSwitch.astro'
+
+const groups = [
+  { title: 'Features', pages: FEATURE_PAGES },
+  { title: 'Use cases', pages: USE_CASE_PAGES },
+]
 ---
 
 <header class="header">
   <div class="wrap row">
     <a class="home" href="/" aria-label="tiko, home"><Brand height={26} /></a>
     <nav aria-label="Main">
-      <a href="/#features">Features</a>
+      <div class="menu" data-menu>
+        <button type="button" class="trigger" aria-expanded="false" aria-controls="features-menu">
+          Features <Icon name="chevron-down" size={14} />
+        </button>
+        <div class="panel" id="features-menu">
+          <div class="groups">
+            {
+              groups.map(({ title, pages }) => (
+                <div>
+                  <p class="group">{title}</p>
+                  <ul>
+                    {pages.map(({ href, title, text, icon }) => (
+                      <li>
+                        <a class="item" {href}>
+                          <span class="glyph"><Icon name={icon} size={18} /></span>
+                          <span><b>{title}</b><small>{text}</small></span>
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))
+            }
+          </div>
+          <a class="all" href="/#features">All features <Icon name="arrow-right" size={14} /></a>
+        </div>
+      </div>
       <a href="/#scenarios">Scenarios</a>
       <a href="/#self-host">Self-host</a>
       <a href={`${DOCS}/`}>Docs</a>
@@ -48,14 +80,122 @@ import ThemeSwitch from './ThemeSwitch.astro'
     font-size: 0.875rem;
     color: var(--muted-foreground);
   }
-  nav a {
+  nav > a,
+  .trigger {
     padding: 0.375rem 0.625rem;
     border-radius: 6px;
   }
-  nav a:hover,
+  nav > a:hover,
+  .trigger:hover,
+  .menu.open .trigger,
   .github:hover {
     color: var(--foreground);
     background: var(--muted);
+  }
+  .menu {
+    position: relative;
+  }
+  .trigger {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    border: 0;
+    background: none;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+  }
+  .trigger :global(svg) {
+    transition: transform 0.15s;
+  }
+  .menu:hover .trigger :global(svg),
+  .menu:focus-within .trigger :global(svg),
+  .menu.open .trigger :global(svg) {
+    transform: rotate(180deg);
+  }
+  /* An invisible bridge keeps the menu open while the pointer crosses the gap to it. */
+  .panel {
+    position: absolute;
+    top: 100%;
+    left: -0.5rem;
+    width: 34rem;
+    padding-top: 0.5rem;
+    visibility: hidden;
+    opacity: 0;
+    transform: translateY(-4px);
+    transition: opacity 0.15s, transform 0.15s, visibility 0.15s;
+  }
+  .menu:hover .panel,
+  .menu:focus-within .panel,
+  .menu.open .panel {
+    visibility: visible;
+    opacity: 1;
+    transform: none;
+  }
+  .groups {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+    padding: 0.75rem;
+    border: 1px solid var(--border);
+    border-bottom: 0;
+    border-radius: 12px 12px 0 0;
+    background: var(--card);
+    box-shadow: var(--shadow);
+  }
+  .group {
+    padding: 0.25rem 0.5rem 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--muted-foreground);
+  }
+  .item {
+    display: flex;
+    gap: 0.75rem;
+    padding: 0.5rem;
+    border-radius: 8px;
+    color: var(--foreground);
+  }
+  .item:hover,
+  .item:focus-visible {
+    background: var(--muted);
+  }
+  .glyph {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--background);
+    color: var(--primary);
+  }
+  .item b {
+    display: block;
+    font-weight: 600;
+  }
+  .item small {
+    display: block;
+    margin-top: 0.125rem;
+    font-size: 0.8125rem;
+    line-height: 1.35;
+    color: var(--muted-foreground);
+  }
+  .all {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.75rem 1.25rem;
+    border: 1px solid var(--border);
+    border-radius: 0 0 12px 12px;
+    background: var(--muted);
+    box-shadow: var(--shadow);
+    font-weight: 500;
+    color: var(--foreground);
+  }
+  .all:hover {
+    color: var(--primary);
   }
   .side {
     display: flex;
@@ -90,3 +230,26 @@ import ThemeSwitch from './ThemeSwitch.astro'
     }
   }
 </style>
+
+<script>
+  // The menu opens on hover and focus without scripts; this adds a tap toggle for touch screens,
+  // keeps aria-expanded in step and closes it on Escape.
+  for (const menu of document.querySelectorAll<HTMLElement>('[data-menu]')) {
+    const trigger = menu.querySelector('button')!
+    const sync = () => trigger.setAttribute('aria-expanded', String(menu.matches('.open, :hover, :focus-within')))
+    trigger.addEventListener('click', () => {
+      menu.classList.toggle('open')
+      sync()
+    })
+    for (const type of ['mouseenter', 'mouseleave', 'focusin', 'focusout']) menu.addEventListener(type, () => requestAnimationFrame(sync))
+    document.addEventListener('click', (event) => {
+      if (!menu.contains(event.target as Node)) menu.classList.remove('open')
+    })
+    menu.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape') return
+      menu.classList.remove('open')
+      ;(document.activeElement as HTMLElement | null)?.blur()
+      sync()
+    })
+  }
+</script>

@@ -10,6 +10,14 @@ export const INSTALL_PS1 = 'irm https://tiko.run/install.ps1 | iex'
 export const PRIVACY = '/privacy/'
 export const CONTACT = 'hi@tiko.run'
 
+// Feature and use-case pages, listed in the header's Features menu and in the footer.
+export const FEATURE_PAGES = [
+  { href: '/gantt/', title: 'Gantt and Planning', text: 'Plan tracker tasks with stages, people and time off', icon: 'chart-gantt' },
+]
+export const USE_CASE_PAGES = [
+  { href: '/use-cases/cross-team-board/', title: 'Cross-team board', text: 'The work of several teams and projects on one board', icon: 'layout-dashboard' },
+]
+
 export const WAITLIST_URL = import.meta.env.PUBLIC_WAITLIST_URL || 'https://t.tiko.run/v1/waitlist'
 // Cloudflare's always-pass test key in `astro dev`; the real one only works on tiko.run.
 export const TURNSTILE_SITEKEY = import.meta.env.DEV ? '1x00000000000000000000AA' : '0x4AAAAAAFZdeZlrplRW-RBM'

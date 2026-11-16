@@ -8,6 +8,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 - One-click updates are now off unless you turn them on: the one-line installers ask with no as the default answer, and an install without a terminal leaves them off. The updater has root-level access to Docker, so it is your call, not a default. With `--yes` (`-Yes` on Windows) they are still turned on; add `--no-updater` (`-NoUpdater`) to keep them off. Installs that already answered keep their choice.
 
+### Fixed
+
+- Exporting a board to a `.tiko` file works again when the board has a timer or a picture that is still uploading; it used to fail with a server error and the download never started.
+
 ## [2026.11.1] - 2026-11-15
 
 ### Added

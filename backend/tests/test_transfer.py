@@ -398,3 +398,14 @@ def test_a_board_with_a_timer_exports_and_comes_back(client):
     assert imported.status_code == 201
     board = client.get(f"/api/boards/{imported.json()['board']['id']}").json()
     assert datetime.fromisoformat(board["doc"]["nodes"][0]["data"]["dueAt"]) == due
+
+
+def test_a_stage_without_a_type_is_not_reported_as_missing(client):
+    client.patch("/api/planning", json={"enabled": True})
+    row = {"id": "r1", "title": "Launch", "start": "2026-11-02", "end": "2026-11-06"}
+    bare = {"id": "s1", "type": "", "start": "2026-11-02", "end": "2026-11-06", "people": []}
+    content = {"start": "2026-11-02", "end": "2026-12-28", "rows": [{**row, "stages": [bare]}]}
+    doc = {"nodes": [node("g", "module", {"kind": "gantt", "content": content})]}
+    response = import_file(client, pack({"manifest.json": manifest(), "board.json": doc}))
+    assert response.status_code == 201, response.text
+    assert response.json()["notes"] == []

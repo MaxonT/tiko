@@ -510,7 +510,9 @@ def stage_refs(doc: BoardDoc) -> tuple[set[str], set[str], set[str]]:
                     fields.add(key)
             for row in node.data.content.get("rows", []):
                 for stage in row.get("stages") or []:
-                    types.add(stage["type"])
+                    # An empty type is "No stage", not a type Planning should know.
+                    if stage["type"]:
+                        types.add(stage["type"])
                     people.update(stage.get("people", []))
     return types, people, fields
 

@@ -427,7 +427,9 @@ def _adopt_planning(
     doc: dict[str, Any], lists: PlanningLists, planning: Planning, notes: list[Note]
 ) -> None:
     types, people, fields = planning_refs(BoardDoc.model_validate(doc))
-    if not (types or people or fields):
+    # Stages with no type still need Planning to be drawn apart from their row.
+    staged = any(row.get("stages") for content in _gantts(doc) for row in content.get("rows", []))
+    if not (types or people or fields or staged):
         return
     if not planning.enabled():
         notes.append(

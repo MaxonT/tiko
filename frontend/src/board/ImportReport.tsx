@@ -49,12 +49,13 @@ function itemsOf(report: ImportResult, tasks: Record<string, Task>): Item[] {
           },
     )
   }
+  // Planning notes share one button, under the last of them.
+  const lastPlanning = report.notes.findLastIndex((note) => note.kind !== 'picture')
   report.notes.forEach((note, i) => {
     items.push({
       key: `note-${i}`,
       text: note.text,
-      action:
-        note.kind === 'picture' ? undefined : { label: 'Stages and people', section: 'planning' },
+      action: i === lastPlanning ? { label: 'Stages and people', section: 'planning' } : undefined,
     })
   })
   return items

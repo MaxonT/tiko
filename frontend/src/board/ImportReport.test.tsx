@@ -53,3 +53,12 @@ test('a tracker connected meanwhile drops out of the list', () => {
   expect(screen.getByText('Board imported')).toBeTruthy()
   expect(screen.queryByRole('list')).toBeNull()
 })
+
+test('planning notes share one button', () => {
+  const notes: ImportResult['notes'] = [
+    { kind: 'planning_missing', text: 'Some Gantt stages arrived without their types.' },
+    { kind: 'planning_added', text: 'Added to Planning: Testing.' },
+  ]
+  render(<ImportReport report={{ ...report, notes }} tasks={{}} onClose={() => {}} />)
+  expect(screen.getAllByRole('button', { name: 'Stages and people' })).toHaveLength(1)
+})

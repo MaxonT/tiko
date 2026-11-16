@@ -148,7 +148,7 @@ def export_board(
     """The board as a `.tiko` zip: its document, the last known tasks, the planning its Gantts
     use and the original bytes of its pictures."""
     doc = _without_reactions(
-        _named_sources(record.doc.model_dump(exclude_none=True), default_source)
+        _named_sources(record.doc.model_dump(mode="json", exclude_none=True), default_source)
     )
     files: dict[str, Served] = {}
     for file_id in sorted(image_files(record.doc)):

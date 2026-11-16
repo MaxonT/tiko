@@ -384,3 +384,12 @@ def test_a_card_exported_again_keeps_the_title_it_carried(client):
     client.post(f"/api/boards/{first}/refresh")
     tasks = json.loads(entries(export(client, first))["tasks.json"])
     assert [(t["key"], t["summary"]) for t in tasks] == [("OPS-7", "Rotate the certificates")]
+
+
+def test_a_board_with_a_timer_exports_and_comes_back(client):
+    alarm = node("t", "timer", {"note": "ping", "dueAt": "2026-11-20T09:00:00Z"})
+    board_id = make_board(client, {"nodes": [alarm]})
+    data = export(client, board_id)
+    saved = json.loads(entries(data)["board.json"])["nodes"][0]["data"]
+    assert saved["dueAt"].startswith("2026-11-20T09:00:00")
+    assert import_file(client, data).status_code == 201

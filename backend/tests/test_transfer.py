@@ -3,6 +3,7 @@
 import io
 import json
 import zipfile
+from datetime import datetime
 
 import pytest
 from fastapi.testclient import TestClient
@@ -391,5 +392,9 @@ def test_a_board_with_a_timer_exports_and_comes_back(client):
     board_id = make_board(client, {"nodes": [alarm]})
     data = export(client, board_id)
     saved = json.loads(entries(data)["board.json"])["nodes"][0]["data"]
-    assert saved["dueAt"].startswith("2026-11-20T09:00:00")
-    assert import_file(client, data).status_code == 201
+    due = datetime.fromisoformat("2026-11-20T09:00:00+00:00")
+    assert datetime.fromisoformat(saved["dueAt"]) == due
+    imported = import_file(client, data)
+    assert imported.status_code == 201
+    board = client.get(f"/api/boards/{imported.json()['board']['id']}").json()
+    assert datetime.fromisoformat(board["doc"]["nodes"][0]["data"]["dueAt"]) == due

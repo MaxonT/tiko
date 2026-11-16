@@ -1,0 +1,15 @@
+---
+title: '2026.11.2'
+description: Boards with timers move to another tiko again, and one-click updates now wait for your yes.
+date: '2026-11-16'
+prev: false
+next: false
+---
+
+## 💎 Improvements
+
+- **Updates:** One-click updates stay off until you turn them on. The installer asks, with no as the default, because the updater gets root-level access to Docker. Installs that already answered keep their choice. See [Updates](/updates/#update-with-one-click).
+
+## 🐞 Fixes
+
+- **Board:** Fixed exporting a board that has a timer or a picture still uploading. The export failed with a server error, so the file never downloaded.

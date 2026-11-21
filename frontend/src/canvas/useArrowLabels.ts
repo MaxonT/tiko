@@ -50,11 +50,14 @@ export function useArrowLabels({ edges, setEdges, hits, readOnly, far }: Options
 
   useShortcut(
     'labelArrow',
-    () => {
+    (event) => {
       const picked = flow.getEdges().filter((e) => e.selected)
-      if (picked.length === 1 && barNodes(flow.getNodes()).length === 0) setEditing(picked[0].id)
+      if (picked.length !== 1 || barNodes(flow.getNodes()).length > 0) return
+      event.preventDefault()
+      setEditing(picked[0].id)
     },
-    { enabled: !readOnly && !far },
+    // Enter stays with a focused button unless an arrow takes it.
+    { enabled: !readOnly && !far, preventDefault: false },
   )
 
   return {

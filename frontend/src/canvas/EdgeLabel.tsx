@@ -160,6 +160,8 @@ function LabelField({
         onKeyDown={(event) => {
           // The canvas must not take the keys: Enter would select, Delete would remove.
           event.stopPropagation()
+          // Enter that confirms an IME character belongs to the input method.
+          if (event.nativeEvent.isComposing) return
           if ((event.key === 'Enter' && !event.shiftKey) || event.key === 'Escape') {
             event.preventDefault()
             event.currentTarget.blur()

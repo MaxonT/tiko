@@ -130,6 +130,23 @@ test('Enter on the one selected arrow starts its label', () => {
   expect(screen.getByRole('textbox', { name: 'Arrow label' })).toBeTruthy()
 })
 
+test('Enter with no arrow selected is left to a focused button', () => {
+  renderBoard([{ id: 'e', source: 'a', target: 'b' }])
+  const button = document.createElement('button')
+  document.body.append(button)
+  button.focus()
+  const enter = new KeyboardEvent('keydown', {
+    key: 'Enter',
+    code: 'Enter',
+    bubbles: true,
+    cancelable: true,
+  })
+  button.dispatchEvent(enter)
+  expect(enter.defaultPrevented).toBe(false)
+  expect(screen.queryByRole('textbox', { name: 'Arrow label' })).toBeNull()
+  button.remove()
+})
+
 test('Add label in the arrow bar starts the label of an arrow without one', () => {
   renderBoard([{ id: 'e', source: 'a', target: 'b', selected: true }])
   fireEvent.click(screen.getByRole('button', { name: 'Add label' }))

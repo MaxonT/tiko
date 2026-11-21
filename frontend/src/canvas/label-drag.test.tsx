@@ -1,5 +1,5 @@
 import { act, render, screen } from '@testing-library/react'
-import { ReactFlow, ReactFlowProvider, useEdges } from '@xyflow/react'
+import { ReactFlow, ReactFlowProvider, useEdges, useReactFlow } from '@xyflow/react'
 import { useEffect } from 'react'
 import { beforeAll, expect, test } from 'vitest'
 import { flatten, shareRange } from '@/canvas/edge-label'
@@ -33,11 +33,13 @@ function Handle({ enabled }: { enabled: boolean }) {
 
 function renderDrag(label: EdgeLabel, enabled = true) {
   const edges: AppEdge[] = [{ id: 'e', source: 'a', target: 'b', data: { label } }]
-  const seen = { edges }
+  const seen = { edges, setLabel: (_: EdgeLabel | undefined) => {} }
   function Spy() {
     const now = useEdges<AppEdge>()
+    const { updateEdgeData } = useReactFlow<never, AppEdge>()
     useEffect(() => {
       seen.edges = now
+      seen.setLabel = (next) => updateEdgeData('e', { label: next })
     })
     return null
   }
@@ -48,7 +50,12 @@ function renderDrag(label: EdgeLabel, enabled = true) {
       <Spy />
     </ReactFlowProvider>,
   )
-  return { handle: screen.getByTestId('label'), label: () => seen.edges[0].data?.label }
+  return {
+    handle: screen.getByTestId('label'),
+    label: () => seen.edges[0].data?.label,
+    // Another person's edit arriving mid-drag.
+    setLabel: (next: EdgeLabel | undefined) => act(() => seen.setLabel(next)),
+  }
 }
 
 // jsdom has no PointerEvent: plain events carry the fields the drag reads.
@@ -99,4 +106,24 @@ test('a viewer cannot drag', () => {
   moveTo(handle, 60)
   release(handle)
   expect(label()).toEqual({ text: 'then' })
+})
+
+test('a label retyped or removed by someone else during the drag keeps their change', () => {
+  const first = renderDrag({ text: 'then' })
+  press(first.handle, 150)
+  moveTo(first.handle, 90)
+  first.setLabel({ text: 'after review', size: 'large' })
+  release(first.handle)
+  expect(first.label()?.text).toBe('after review')
+  expect(first.label()?.size).toBe('large')
+  expect(first.label()?.at).toBeCloseTo(0.3, 2)
+})
+
+test('a label removed during the drag is not brought back', () => {
+  const { handle, label, setLabel } = renderDrag({ text: 'then' })
+  press(handle, 150)
+  moveTo(handle, 90)
+  setLabel(undefined)
+  release(handle)
+  expect(label()).toBeUndefined()
 })

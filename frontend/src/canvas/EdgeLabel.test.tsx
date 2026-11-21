@@ -90,6 +90,15 @@ test('typing a new label and Enter stores it; Shift+Enter is a new line', () => 
   expect(screen.getByTestId('editing').textContent).toBe('')
 })
 
+test('Enter that confirms an input method character keeps the editor open', () => {
+  renderLabel(undefined, { editing: 'e' })
+  const field = screen.getByRole('textbox', { name: 'Arrow label' })
+  fireEvent.change(field, { target: { value: 'にほん' } })
+  fireEvent.keyDown(field, { key: 'Enter', isComposing: true })
+  expect(screen.getByRole('textbox')).toBe(field)
+  expect(screen.getByTestId('editing').textContent).toBe('e')
+})
+
 test('Escape keeps the text', () => {
   const label = renderLabel({ text: 'old', at: 0.2 }, { editing: 'e' })
   const field = screen.getByRole('textbox')

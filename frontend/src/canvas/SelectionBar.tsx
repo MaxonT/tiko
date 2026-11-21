@@ -163,7 +163,14 @@ function useBarLayout(ids: string[]) {
   const [overlays, setOverlays] = useState<Overlay[]>([])
   const overlaysChanged = useTopOverlays()
 
-  const mounted = box !== null && !selecting
+  // A selection scrolled out of sight takes its bar along.
+  const laidOut = !!box && box.width > 0 && box.height > 0
+  const offscreen =
+    !!box &&
+    laidOut &&
+    (box.right < 0 || box.bottom < 0 || box.left > box.width || box.top > box.height)
+  // The bar element exists only while this is true: measuring follows it back on screen.
+  const mounted = box !== null && !selecting && !offscreen
   // Its own size places it: the bar grows and shrinks with what the selection shares.
   useLayoutEffect(() => {
     const el = bar.current
@@ -189,10 +196,6 @@ function useBarLayout(ids: string[]) {
   }, [mounted, overlaysChanged, canvasSize])
 
   if (!mounted) return { shown: false as const }
-  // A selection scrolled out of sight takes its bar along.
-  const laidOut = box.width > 0 && box.height > 0
-  if (laidOut && (box.right < 0 || box.bottom < 0 || box.left > box.width || box.top > box.height))
-    return { shown: false as const }
   return { shown: true as const, bar, box, laidOut, ...placeBar(box, size, overlays) }
 }
 

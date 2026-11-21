@@ -25,7 +25,7 @@ export function useLabelDrag(
   range: Range,
   enabled: boolean,
 ) {
-  const { getZoom, screenToFlowPosition, updateEdgeData } = useReactFlow<never, AppEdge>()
+  const { getEdge, getZoom, screenToFlowPosition, updateEdgeData } = useReactFlow<never, AppEdge>()
   const [dragged, setDragged] = useState<number | null>(null)
   const draggable = enabled && !!label && !!poly && range !== null
 
@@ -49,7 +49,10 @@ export function useLabelDrag(
       element.removeEventListener('pointerup', up)
       element.removeEventListener('pointercancel', cancel)
       setDragged(null)
-      if (commit && moved) updateEdgeData(edgeId, { label: tidyLabel({ ...label, at: share }) })
+      if (!commit || !moved) return
+      // The label as it is now: someone may have retyped or removed it during the drag.
+      const current = getEdge(edgeId)?.data?.label
+      if (current) updateEdgeData(edgeId, { label: tidyLabel({ ...current, at: share }) })
     }
     const up = end(true)
     const cancel = end(false)

@@ -26,7 +26,7 @@ An optional `data.label` on an edge: `{text, at?, color?, size?}`, absent when t
   - `data`, not a top-level `label`: xyflow's `Edge.label` is a `ReactNode` it may render itself, and later arrow styles (color, dashes) belong in the same `data`.
   - The frontend writes `at` rounded to 3 places and only when it is not 0.5; removes `color` for no fill and `size` for medium; removes `label` and then `data` when empty. An unlabeled arrow stores exactly what it stores today.
 - Frontend: `AppEdge = Edge<{ label?: EdgeLabel }>` in `canvas/types.ts`; `StoredEdge.data?`; `toDoc`, `storedEdge`, the remote merge in `binding.ts:153` and `canon` carry `data`.
-- `live.py` validates edges with the new model, so a bad label from a client is repaired like a bad node (edge restored to its last valid value).
+- `live.py` validates edges with the new model; an edge that fails it is dropped by the existing repair rule (`edge_dropped`), as any broken arrow is. The frontend never stores an empty label, so only a broken client can hit it.
 
 ### Geometry (`frontend/src/canvas/edge-label.ts`, pure)
 
@@ -39,8 +39,9 @@ An optional `data.label` on an edge: `{text, at?, color?, size?}`, absent when t
 
 ### Rendering (`TurnedEdge.tsx`)
 
-- With `data.label`: flatten the path, place the label at `clampShare(pointAt(at ?? 0.5))`, render the text in `EdgeLabelRenderer` as a `div` with `nodrag nopan`, `pointer-events: all` for editors, `max-width: 240px`, `white-space: pre-wrap`, `overflow-wrap: anywhere`, padding 2×4, the size from the shape's `TEXT_PX`, `--foreground` text; with a fill, the sticky token background, `--sticky-foreground` text, radius 4px.
-- The cut: a `<mask id="edge-label-{id}">` in the edge's `<g>`: a white rect over the path's bounds plus a black rounded rect at the label box grown by 3px; `BaseEdge` gets `mask`. The box comes from the label's measured size (a `ResizeObserver` on the div into edge-local state), so wrapping and size changes reflow the cut.
+- With `data.label`: flatten the path, place the label at `clampShare(pointAt(at ?? 0.5))`, render the text in a `foreignObject` inside the edge's own `<g>` as a `div` with `nodrag nopan`, `pointer-events: all` for editors, `max-width: 240px`, `white-space: pre-wrap`, `overflow-wrap: anywhere`, padding 2×4, the size from the shape's `TEXT_PX`, `--foreground` text; with a fill, the sticky token background, `--sticky-foreground` text, radius 4px.
+- The cut (changed in T004): `cutDashes` clips each polyline segment to the label box grown by 3px and turns the stretches under it into a `stroke-dasharray`, with `pathLength` set to the polyline's length so the dashes line up with the drawn curve. A loop that runs under the label twice is cut twice. The box comes from the label's measured size (a `ResizeObserver` on the label into the edge's state), so wrapping and size changes reflow the cut.
+  - Rejected after trying it: an SVG `<mask>`. xyflow draws each edge in an `<svg>` of the default 300×150 with `overflow: visible`, and the mask is clipped to that box, so most of a line vanished.
 - Selected arrow: the label gets a 1px `--primary` ring; `aria-label` on the edge is "Arrow: <text>".
 - Far view: the same place, a bar `12px` tall, `min(textWidth, 240)` wide, radius 3, `currentColor` at 25% or the label's fill; no editor, no drag.
 
@@ -48,7 +49,7 @@ An optional `data.label` on an edge: `{text, at?, color?, size?}`, absent when t
 
 - `onEdgeDoubleClick` in `Canvas.tsx` (not read-only, not far): add `{label: {text: ''}}` if missing and set `editingLabel = edge.id`. The label div swaps to a `textarea` built like `EditableText`'s multiline branch: `Enter` without Shift blurs, `Escape` blurs; blur commits trimmed text, empty removes the label. A double-click on the label div edits it.
 - `Enter` on one selected edge and the bar's "Add label" call the same function.
-- Typing writes through `setEdges` like a text node's typing, so it reaches others live and Undo groups it as it groups text.
+- The text is written once, when editing finishes, through `updateEdgeData`, as `EditableText` writes a text node; one undo step.
 
 ### Drag
 
@@ -76,6 +77,6 @@ An optional `data.label` on an edge: `{text, at?, color?, size?}`, absent when t
 ## Risks
 
 - One plain value per edge: someone editing a label while another reconnects the same arrow, last writer wins on the whole arrow. Rare; the same as two people changing one node's place.
-- `EdgeLabelRenderer` stacking against nodes: labels must draw below elements (Decision 10). If the portal sits above nodes, render the label inside the edge's SVG as a `foreignObject` instead; checked in the first task.
-- A mask per labeled edge: cheap at tens of labels; checked on the 300-node benchmark board with 100 labeled arrows.
+- Stacking, checked in T004: `EdgeLabelRenderer` is one `div` between the edges and the nodes with no z-index, while xyflow lifts an edge between two elements inside a frame to the frame's z-index. A label there would sit under the frame while its arrow sits on top. So the label is a `foreignObject` inside the edge's own `<g>` and stacks with its arrow, dangling arrows (lifted to 1999) included.
+- A label is one `foreignObject` and a dash pattern per arrow; nothing is drawn for arrows without one.
 - An arrow that curls very tightly can put part of a level label over another stretch of the same arrow; the cut keeps the text readable, and the person can slide it.

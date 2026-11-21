@@ -4,6 +4,7 @@ import {
   Diamond,
   Frame,
   LayoutTemplate,
+  MoveRight,
   Rows3,
   Search,
   Shapes,
@@ -45,6 +46,7 @@ const ICONS: Record<Exclude<Entry['kind'], 'card' | 'module'>, LucideIcon> = {
   timer: AlarmClock,
   row: Rows3,
   milestone: Diamond,
+  arrow: MoveRight,
 }
 
 function EntryIcon({ entry }: { entry: Entry }) {

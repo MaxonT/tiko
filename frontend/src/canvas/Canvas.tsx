@@ -128,7 +128,9 @@ import { Minimap, readMinimapShown, saveMinimapShown } from '@/canvas/Minimap'
 import { FarContext, ReadOnlyContext } from '@/canvas/readonly'
 import { CLIPBOARD_MARKER, classifyPaste, isEditable, readPasteAs } from '@/canvas/paste'
 import { MAX_REFS, resolveAll } from '@/canvas/refs'
-import { SelectionBar } from '@/canvas/SelectionBar'
+import { ArrowBar, SelectionBar } from '@/canvas/SelectionBar'
+import { LabelEditing } from '@/canvas/label-editing'
+import { withLabelStyle } from '@/canvas/edge-label'
 import { OPEN_VOTES_EVENT, useVoting, voteElements, VotingContext } from '@/voting/useVoting'
 import { VotePanel } from '@/voting/VotePanel'
 import { StartVote } from '@/voting/StartVote'
@@ -187,6 +189,22 @@ import { topOverlay } from '@/lib/overlays'
 
 // Arrows tied to a turned element leave it along its turned side.
 const edgeTypes = { default: TurnedEdge }
+
+/** Arrows as drawn: a label tried from the bar, named for screen readers, ringed by search. */
+function labelled(edges: AppEdge[], preview: Style | null, hits: ReadonlySet<string> | null) {
+  if (!edges.some((e) => e.data?.label)) return edges
+  return edges.map((e) => {
+    const label = e.data?.label
+    if (!label) return e
+    const tried = preview && e.selected ? withLabelStyle(e, preview) : e
+    const hit = hits?.has(e.id)
+    return {
+      ...tried,
+      ariaLabel: `Arrow: ${label.text}`,
+      ...(hit && { className: [e.className, 'search-hit'].filter(Boolean).join(' ') }),
+    }
+  })
+}
 
 const nodeTypes = {
   task_card: withPresence(farView(TaskCardNode, FarCard)),
@@ -406,13 +424,18 @@ export function BoardCanvas({
   const moving = useRemoteMotion(nodes, drags, live.glide, originOf, useBoardTravel())
   // A style tried on the selection from the bar: drawn here only, never saved or sent.
   const [preview, setPreview] = useState<Style | null>(null)
+  const [labelEditing, setLabelEditing] = useState<string | null>(null)
+  const labelEditingValue = useMemo(
+    () => ({ editing: labelEditing, setEditing: setLabelEditing }),
+    [labelEditing],
+  )
   const shown = useMemo(() => {
     const painted =
       preview === null ? moving : moving.map((n) => (n.selected ? withStyle(n, preview) : n))
     const standing = copying ? withStandIns(painted, dragFrom) : painted
     const raised = raiseAnchors(
       standing.map(withHandles),
-      copying ? edgesToStandIns(edges, standing) : edges,
+      labelled(copying ? edgesToStandIns(edges, standing) : edges, preview, hits),
     )
     if (!flashId && !hits && !locked) return raised
     const inVote = new Set(votingRound?.elements)
@@ -932,6 +955,15 @@ export function BoardCanvas({
     if (snippet) insert(snippet, { x: DUPLICATE_OFFSET, y: DUPLICATE_OFFSET })
   }
   useShortcut('duplicate', duplicate, { enabled: !readOnly })
+  useShortcut(
+    'labelArrow',
+    () => {
+      const picked = flow.getEdges().filter((e) => e.selected)
+      if (picked.length === 1 && barNodes(flow.getNodes() as AppNode[]).length === 0)
+        setLabelEditing(picked[0].id)
+    },
+    { enabled: !readOnly && !far },
+  )
   useShortcut('selectAll', () => {
     setNodes((current) => current.map((n) => ({ ...n, selected: true })))
     setEdges((current) => current.map((e) => ({ ...e, selected: true })))
@@ -1174,11 +1206,11 @@ export function BoardCanvas({
   const selectNodes = (ids: string[]) => {
     const picked = new Set(ids)
     setNodes((current) => current.map((n) => ({ ...n, selected: picked.has(n.id) })))
-    setEdges((current) => current.map((e) => ({ ...e, selected: false })))
+    setEdges((current) => current.map((e) => ({ ...e, selected: picked.has(e.id) })))
   }
 
   const jumpTo = (id: string) => {
-    selectOnly(id, 'node')
+    selectOnly(id, flow.getEdge(id) ? 'edge' : 'node')
     flyTo(flow, id)
   }
 
@@ -1206,6 +1238,8 @@ export function BoardCanvas({
         n.selected && !votingRound?.elements.includes(n.id) ? withStyle(n, style) : n,
       ),
     )
+  const setLabelStyle = (style: Style) =>
+    setEdges((current) => current.map((e) => (e.selected ? withLabelStyle(e, style) : e)))
   const align = (how: Alignment | Distribution) =>
     setNodes((current) => {
       const moving = movers(current)
@@ -1240,6 +1274,8 @@ export function BoardCanvas({
     !expandedNode &&
     inBar.length > 0 &&
     !nodes.some((n) => n.dragging || n.resizing)
+  const barEdges = inBar.length === 0 ? edges.filter((e) => e.selected) : []
+  const arrowBarShown = !readOnly && !placing && !expandedNode && !far && barEdges.length > 0
   const timerHolder = selected.length === 1 && holdsTimers(selected[0]) ? selected[0] : undefined
   const soleSelected = inBar.length === 1 ? inBar[0] : undefined
   // An element in a running vote keeps its type until the end, like its text.
@@ -1365,120 +1401,139 @@ export function BoardCanvas({
         })
       }}
     >
-      <ReactFlow
-        nodes={shown.nodes}
-        edges={shown.edges}
-        onNodesChange={onNodesChangeShown}
-        onEdgesChange={onEdgesChangeShown}
-        onSelectionEnd={touch.onSelectionEnd}
-        onConnect={onConnect}
-        onConnectStart={(event) => {
-          setConnecting(true)
-          const { clientX, clientY } = 'touches' in event ? event.touches[0] : event
-          connectFrom.current = { x: clientX, y: clientY }
-        }}
-        onConnectEnd={onConnectEnd}
-        onNodeDragStart={(event, __, dragged) => {
-          // As in Miro: Alt when the drag starts makes it a copy, and it may be let go after.
-          const copy = event.altKey && !readOnly
-          const from = copy ? new Map(dragged.map((n) => [n.id, n.position])) : null
-          dragFromNow.current = from
-          setDragFrom(from)
-        }}
-        onNodeDragStop={(_, __, dragged) => {
-          const ids = dragged.map((n) => n.id)
-          const from = dragFromNow.current
-          dragFromNow.current = null
-          setDragFrom(null)
-          if (from) dropCopies(ids, from)
-          else dropNodes(ids)
-        }}
-        onBeforeDelete={onBeforeDelete}
-        onPaneClick={place}
-        onPaneContextMenu={(event) =>
-          !readOnly &&
-          setMenuTarget({ kind: 'pane', point: { x: event.clientX, y: event.clientY } })
-        }
-        onNodeContextMenu={onNodeContextMenu}
-        onEdgeContextMenu={(_, edge) => {
-          if (readOnly) return
-          if (!edge.selected) selectOnly(edge.id, 'edge')
-          setMenuTarget({ kind: 'selection' })
-        }}
-        onSelectionContextMenu={() => !readOnly && setMenuTarget({ kind: 'selection' })}
-        onNodeClick={onNodeClick}
-        onNodeDoubleClick={onNodeDoubleClick}
-        onMoveEnd={(_, viewport) => saveViewport(board.id, viewport)}
-        nodeTypes={nodeTypes}
-        edgeTypes={edgeTypes}
-        defaultEdgeOptions={defaultEdgeOptions}
-        connectionMode={ConnectionMode.Loose}
-        defaultViewport={lastView ?? undefined}
-        onlyRenderVisibleElements
-        // Selecting must not restack: a frame someone selects would cover, for them alone, what
-        // everyone else sees lying on top of it.
-        elevateNodesOnSelect={false}
-        colorMode={theme}
-        proOptions={{ hideAttribution: true }}
-        minZoom={0.1}
-        // An expanded module covers the board: Backspace there must not delete the selection.
-        deleteKeyCode={readOnly || expandedNode ? null : ['Backspace', 'Delete']}
-        multiSelectionKeyCode="Shift"
-        selectionOnDrag={tool === 'select'}
-        selectionMode={SelectionMode.Partial}
-        panOnDrag={tool === 'hand' ? true : [1]}
-        panOnScroll={wheel !== 'zoom'}
-        elementsSelectable={!placing}
-        nodesDraggable={!placing && !readOnly}
-        nodesConnectable={!readOnly}
-        edgesReconnectable={!readOnly}
-        style={placing ? { cursor: toolCursor(tool) } : undefined}
-        className={[
-          connecting && 'connecting',
-          hits && 'searching',
-          voting.host.active && 'voting',
-          tool === 'hand' && 'cursor-grab',
-        ]
-          .filter(Boolean)
-          .join(' ')}
-      >
-        <Background variant={BackgroundVariant.Dots} gap={16} color="var(--grid)" />
-        {/* One column, so the minimap stays above the zoom buttons however many there are. */}
-        <Panel position="bottom-right" className="canvas-corner">
-          {minimapShown && <Minimap />}
-          <Controls showInteractive={false} showFitView={false}>
-            <ControlButton
-              className="react-flow__controls-fitview"
-              onClick={() => fit(FIT_BOARD)}
-              title="Fit view"
-              aria-label="Fit view"
-            >
-              <Maximize style={{ fill: 'none' }} />
-            </ControlButton>
-            {canGoBack && (
+      <LabelEditing.Provider value={labelEditingValue}>
+        <ReactFlow
+          nodes={shown.nodes}
+          edges={shown.edges}
+          onNodesChange={onNodesChangeShown}
+          onEdgesChange={onEdgesChangeShown}
+          onSelectionEnd={touch.onSelectionEnd}
+          onConnect={onConnect}
+          onConnectStart={(event) => {
+            setConnecting(true)
+            const { clientX, clientY } = 'touches' in event ? event.touches[0] : event
+            connectFrom.current = { x: clientX, y: clientY }
+          }}
+          onConnectEnd={onConnectEnd}
+          onNodeDragStart={(event, __, dragged) => {
+            // As in Miro: Alt when the drag starts makes it a copy, and it may be let go after.
+            const copy = event.altKey && !readOnly
+            const from = copy ? new Map(dragged.map((n) => [n.id, n.position])) : null
+            dragFromNow.current = from
+            setDragFrom(from)
+          }}
+          onNodeDragStop={(_, __, dragged) => {
+            const ids = dragged.map((n) => n.id)
+            const from = dragFromNow.current
+            dragFromNow.current = null
+            setDragFrom(null)
+            if (from) dropCopies(ids, from)
+            else dropNodes(ids)
+          }}
+          onBeforeDelete={onBeforeDelete}
+          onPaneClick={place}
+          onPaneContextMenu={(event) =>
+            !readOnly &&
+            setMenuTarget({ kind: 'pane', point: { x: event.clientX, y: event.clientY } })
+          }
+          onNodeContextMenu={onNodeContextMenu}
+          onEdgeContextMenu={(_, edge) => {
+            if (readOnly) return
+            if (!edge.selected) selectOnly(edge.id, 'edge')
+            setMenuTarget({ kind: 'selection' })
+          }}
+          onSelectionContextMenu={() => !readOnly && setMenuTarget({ kind: 'selection' })}
+          onNodeClick={onNodeClick}
+          onNodeDoubleClick={onNodeDoubleClick}
+          onEdgeDoubleClick={(event, edge) => {
+            if (flow.getViewport().zoom <= FAR_ZOOM) onNodeDoubleClick(event)
+            else if (!readOnly) setLabelEditing(edge.id)
+          }}
+          onMoveEnd={(_, viewport) => saveViewport(board.id, viewport)}
+          nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
+          defaultEdgeOptions={defaultEdgeOptions}
+          connectionMode={ConnectionMode.Loose}
+          defaultViewport={lastView ?? undefined}
+          onlyRenderVisibleElements
+          // Selecting must not restack: a frame someone selects would cover, for them alone, what
+          // everyone else sees lying on top of it.
+          elevateNodesOnSelect={false}
+          colorMode={theme}
+          proOptions={{ hideAttribution: true }}
+          minZoom={0.1}
+          // An expanded module covers the board: Backspace there must not delete the selection.
+          deleteKeyCode={readOnly || expandedNode ? null : ['Backspace', 'Delete']}
+          multiSelectionKeyCode="Shift"
+          selectionOnDrag={tool === 'select'}
+          selectionMode={SelectionMode.Partial}
+          panOnDrag={tool === 'hand' ? true : [1]}
+          panOnScroll={wheel !== 'zoom'}
+          elementsSelectable={!placing}
+          nodesDraggable={!placing && !readOnly}
+          nodesConnectable={!readOnly}
+          edgesReconnectable={!readOnly}
+          style={placing ? { cursor: toolCursor(tool) } : undefined}
+          className={[
+            connecting && 'connecting',
+            hits && 'searching',
+            voting.host.active && 'voting',
+            tool === 'hand' && 'cursor-grab',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+        >
+          <Background variant={BackgroundVariant.Dots} gap={16} color="var(--grid)" />
+          {/* One column, so the minimap stays above the zoom buttons however many there are. */}
+          <Panel position="bottom-right" className="canvas-corner">
+            {minimapShown && <Minimap />}
+            <Controls showInteractive={false} showFitView={false}>
               <ControlButton
-                onClick={goBack}
-                title="Back to where you were (B)"
-                aria-label="Back to where you were"
+                className="react-flow__controls-fitview"
+                onClick={() => fit(FIT_BOARD)}
+                title="Fit view"
+                aria-label="Fit view"
               >
-                <ArrowLeft />
+                <Maximize style={{ fill: 'none' }} />
               </ControlButton>
-            )}
-            <ControlButton
-              className="max-sm:hidden"
-              onClick={toggleMinimap}
-              title={minimapShown ? 'Hide minimap' : 'Show minimap'}
-              aria-label={minimapShown ? 'Hide minimap' : 'Show minimap'}
-              aria-pressed={minimapShown}
-            >
-              {/* xyflow fills control icons; a closed outline must stay an outline. */}
-              <MapIcon style={{ fill: 'none' }} />
-            </ControlButton>
-          </Controls>
-        </Panel>
-        <Guides guides={guides.guides} />
-        <PresenceLayer />
-      </ReactFlow>
+              {canGoBack && (
+                <ControlButton
+                  onClick={goBack}
+                  title="Back to where you were (B)"
+                  aria-label="Back to where you were"
+                >
+                  <ArrowLeft />
+                </ControlButton>
+              )}
+              <ControlButton
+                className="max-sm:hidden"
+                onClick={toggleMinimap}
+                title={minimapShown ? 'Hide minimap' : 'Show minimap'}
+                aria-label={minimapShown ? 'Hide minimap' : 'Show minimap'}
+                aria-pressed={minimapShown}
+              >
+                {/* xyflow fills control icons; a closed outline must stay an outline. */}
+                <MapIcon style={{ fill: 'none' }} />
+              </ControlButton>
+            </Controls>
+          </Panel>
+          <Guides guides={guides.guides} />
+          <PresenceLayer />
+        </ReactFlow>
+      </LabelEditing.Provider>
+      {arrowBarShown && (
+        <ArrowBar
+          edges={barEdges}
+          onStyle={setLabelStyle}
+          onPreview={setPreview}
+          onAddLabel={
+            barEdges.length === 1 && !barEdges[0].data?.label
+              ? () => setLabelEditing(barEdges[0].id)
+              : undefined
+          }
+          onDelete={deleteSelection}
+        />
+      )}
       {barShown && (
         <SelectionBar
           nodes={inBar}
@@ -1644,6 +1699,7 @@ export function BoardCanvas({
                     <BoardSearch
                       boardId={board.id}
                       nodes={nodes}
+                      edges={edges}
                       tasks={tasks}
                       onJump={jumpTo}
                       onSelect={selectNodes}

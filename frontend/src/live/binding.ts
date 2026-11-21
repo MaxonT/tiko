@@ -150,8 +150,8 @@ export class LiveBinding {
         out.push(edge)
         continue
       }
-      const { source, target, sourceHandle, targetHandle } = remote[id]
-      out.push({ ...edge, source, target, sourceHandle, targetHandle })
+      const { source, target, sourceHandle, targetHandle, data } = remote[id]
+      out.push({ ...edge, source, target, sourceHandle, targetHandle, data })
     }
     for (const edge of local) if (!remote[edge.id] && !this.seenEdges.has(edge.id)) out.push(edge)
     return same(out, local) ? local : out

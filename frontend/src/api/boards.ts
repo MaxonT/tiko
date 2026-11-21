@@ -62,6 +62,20 @@ const docEdgeSchema = z.object({
   target: z.string(),
   sourceHandle: z.string().optional(),
   targetHandle: z.string().optional(),
+  data: z
+    .object({
+      label: z
+        .object({
+          text: z.string(),
+          at: z.number().optional(),
+          color: z
+            .enum(['surface', 'yellow', 'orange', 'pink', 'violet', 'blue', 'green'])
+            .optional(),
+          size: z.enum(['small', 'medium', 'large']).optional(),
+        })
+        .optional(),
+    })
+    .optional(),
 })
 
 export const docSchema = z.object({

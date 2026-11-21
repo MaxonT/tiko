@@ -1,8 +1,12 @@
 import { BaseEdge, Position, useInternalNode, type EdgeProps, type XYPosition } from '@xyflow/react'
-import { memo } from 'react'
+import { memo, useCallback, useContext, useMemo, useState } from 'react'
+import { ArrowLabel } from '@/canvas/EdgeLabel'
+import { clampShare, cutDashes, farBar, flatten, pointAt, type Size } from '@/canvas/edge-label'
+import { LabelEditing } from '@/canvas/label-editing'
+import { FarContext } from '@/canvas/readonly'
 import { turnVector } from '@/canvas/turn'
 import { sideInset, type ShapeKind } from '@/canvas/shapes'
-import type { Turned } from '@/canvas/types'
+import type { EdgeData, Turned } from '@/canvas/types'
 
 const OUT: Record<Position, XYPosition> = {
   [Position.Top]: { x: 0, y: -1 },
@@ -111,6 +115,16 @@ function end(
 }
 
 function TurnedEdgeView(props: EdgeProps) {
+  const label = (props.data as EdgeData | undefined)?.label
+  const { editing } = useContext(LabelEditing)
+  const far = useContext(FarContext)
+  const labelled = !!label || editing === props.id
+  const [size, setSize] = useState<Size>({ width: 0, height: 0 })
+  const onSize = useCallback(
+    (next: Size) =>
+      setSize((was) => (was.width === next.width && was.height === next.height ? was : next)),
+    [],
+  )
   const from = useInternalNode(props.source)
   const to = useInternalNode(props.target)
   const facing =
@@ -132,15 +146,24 @@ function TurnedEdgeView(props: EdgeProps) {
     facing?.[1],
   )
   const path = turnedBezier(source.at, source.side, source.deg, target.at, target.side, target.deg)
+  const poly = useMemo(() => (labelled ? flatten(path) : null), [labelled, path])
+  const box = far ? farBar(label) : size
+  const at = poly && pointAt(poly, clampShare(poly, label?.at ?? 0.5, box))
+  // Dashes leave the line out under the label; a mask would be clipped to the arrow's SVG box.
+  const dashes = poly && at && cutDashes(poly, at, box)
   return (
-    <BaseEdge
-      id={props.id}
-      path={path}
-      markerStart={props.markerStart}
-      markerEnd={props.markerEnd}
-      style={props.style}
-      interactionWidth={props.interactionWidth}
-    />
+    <>
+      <BaseEdge
+        id={props.id}
+        path={path}
+        markerStart={props.markerStart}
+        markerEnd={props.markerEnd}
+        style={dashes ? { ...props.style, strokeDasharray: dashes } : props.style}
+        pathLength={dashes && poly ? poly.total : undefined}
+        interactionWidth={props.interactionWidth}
+      />
+      {at && <ArrowLabel edge={props} label={label} at={at} onSize={onSize} />}
+    </>
   )
 }
 

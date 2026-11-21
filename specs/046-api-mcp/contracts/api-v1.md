@@ -125,7 +125,7 @@ Without parameters, an outline:
 | `code` | `title` (empty for none), `text`, `language` (one of the 28 ids of spec 049, `plain` for none), `collapsed`, `numbered`, `marked` (line numbers from 1) |
 | `shape` | `shape` (`rectangle`, `rounded`, `ellipse`, `rhombus`, `triangle`, `parallelogram`, `hexagon`, `cylinder`), `text`, `color` |
 | `frame` | `title`, `color` |
-| `arrow` | `from`, `to`: element ids, or `null` for an end that points at no element; no `x`, `y`, `w`, `h`, `frame` |
+| `arrow` | `from`, `to`: element ids, or `null` for an end that points at no element; `label`: the words on the arrow, empty for none (spec 051); no `x`, `y`, `w`, `h`, `frame` |
 | `timer` | `note`, `due_at`, `attached_to` (an element id or `null`); read-only |
 | `image`, `module` | `title` where there is one; read-only |
 

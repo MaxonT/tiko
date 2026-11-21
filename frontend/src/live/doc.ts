@@ -1,5 +1,5 @@
 import type { BoardDoc } from '@/api/boards'
-import type { AppEdge, AppNode } from '@/canvas/types'
+import type { AppEdge, AppNode, EdgeData } from '@/canvas/types'
 
 /** A node as the shared document keeps it: every key is one value, replaced as a whole. */
 export type StoredNode = {
@@ -14,6 +14,7 @@ export type StoredEdge = {
   target: string
   sourceHandle?: string
   targetHandle?: string
+  data?: EdgeData
 }
 export type DocNode = BoardDoc['nodes'][number]
 export type DocEdge = BoardDoc['edges'][number]
@@ -30,13 +31,7 @@ export function toDoc(nodes: AppNode[], edges: AppEdge[]): Pick<BoardDoc, 'nodes
       ...(parentId !== undefined && { parentId }),
       data,
     })),
-    edges: edges.map(({ id, source, target, sourceHandle, targetHandle }) => ({
-      id,
-      source,
-      target,
-      ...(sourceHandle && { sourceHandle }),
-      ...(targetHandle && { targetHandle }),
-    })),
+    edges: edges.map((edge) => ({ id: edge.id, ...storedEdge(edge) })),
   }
 }
 
@@ -57,17 +52,20 @@ export function storedNode(node: DocNode, order: number): StoredNode {
   }
 }
 
+/** The fields of an edge the board keeps; an arrow without a label stores no `data`. */
 export function storedEdge({
   source,
   target,
   sourceHandle,
   targetHandle,
-}: Pick<AppEdge, 'source' | 'target' | 'sourceHandle' | 'targetHandle'>): StoredEdge {
+  data,
+}: Pick<AppEdge, 'source' | 'target' | 'sourceHandle' | 'targetHandle' | 'data'>): StoredEdge {
   return {
     source,
     target,
     ...(sourceHandle && { sourceHandle }),
     ...(targetHandle && { targetHandle }),
+    ...(data?.label?.text.trim() && { data: { label: data.label } }),
   }
 }
 

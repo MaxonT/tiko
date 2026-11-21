@@ -180,6 +180,25 @@ test('arrows follow their nodes', () => {
   expect(ann.edges).toEqual([])
 })
 
+test('an arrow label reaches the other tab, changes, goes, and undo brings it back', () => {
+  const arrow = { id: 'e', source: 'a', target: 'b' }
+  ann.set(ann.nodes, [arrow])
+  sync(ann, bob)
+  bob.set(bob.nodes, [{ ...arrow, data: { label: { text: 'waits', at: 0.3 } } }])
+  sync(ann, bob)
+  expect(ann.edges[0].data).toEqual({ label: { text: 'waits', at: 0.3 } })
+  ann.set(ann.nodes, [{ ...ann.edges[0], data: { label: { text: 'waits for API', at: 0.3 } } }])
+  sync(ann, bob)
+  expect(bob.edges[0].data?.label?.text).toBe('waits for API')
+  bob.set(bob.nodes, [{ ...bob.edges[0], data: {} }])
+  sync(ann, bob)
+  expect(ann.edges[0].data?.label).toBeUndefined()
+  expect(bob.live.edges.get('e')).toEqual({ source: 'a', target: 'b' })
+  bob.history.undo()
+  sync(ann, bob)
+  expect(ann.edges[0].data?.label?.text).toBe('waits for API')
+})
+
 test('stacking: a node raised to the top is on top for everyone', () => {
   const [a, b] = ann.nodes
   ann.set([b, a])

@@ -3,7 +3,7 @@ title: Search and commands
 description: Find anything on a board, filter cards and run commands from one palette.
 ---
 
-Press `⌘K` (`Ctrl+K`) to open the palette. It finds any text on the board, cards by key, title, status or assignee included, and moves the board to the match. `⌘Enter` selects all results.
+Press `⌘K` (`Ctrl+K`) to open the palette. It finds any text on the board, arrow labels and cards by key, title, status or assignee included, and moves the board to the match. `⌘Enter` selects all results.
 
 ## Filter the results
 

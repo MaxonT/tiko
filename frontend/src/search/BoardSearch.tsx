@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react'
 import type { Task } from '@/api/tasks'
 import { useFit } from '@/canvas/fit-view'
 import { flyTo, reducedMotion, rememberView } from '@/canvas/fly'
-import type { AppNode } from '@/canvas/types'
+import type { AppEdge, AppNode } from '@/canvas/types'
 import { useShortcut } from '@/lib/shortcuts'
 import { useCommandList, type Command } from './commands'
 import { buildIndex, type Entry } from './index'
@@ -31,14 +31,15 @@ function belowPalette() {
 type Props = {
   boardId: string
   nodes: AppNode[]
+  edges: AppEdge[]
   tasks: Record<string, Task>
   /** Moves the board to a node, selects only it and flashes it. */
   onJump: (id: string) => void
-  /** Selects exactly these nodes. */
+  /** Selects exactly these nodes and arrows. */
   onSelect: (ids: string[]) => void
 }
 
-export function BoardSearch({ boardId, nodes, tasks, onJump, onSelect }: Props) {
+export function BoardSearch({ boardId, nodes, edges, tasks, onJump, onSelect }: Props) {
   const open = useSearchOpen()
   const commands = useCommandList()
   const flow = useReactFlow()
@@ -46,7 +47,10 @@ export function BoardSearch({ boardId, nodes, tasks, onJump, onSelect }: Props) 
   useShortcut('search', () => setSearchOpen(true))
   useShortcut('commands', () => setSearchOpen(true, COMMANDS_PREFIX))
   // Built only while the palette is open, so editing the board costs nothing extra.
-  const index = useMemo(() => (open ? buildIndex(nodes, tasks) : []), [open, nodes, tasks])
+  const index = useMemo(
+    () => (open ? buildIndex(nodes, tasks, edges) : []),
+    [open, nodes, tasks, edges],
+  )
   const recent = useMemo(() => (open ? readRecent(boardId) : []), [open, boardId])
   // Where the board was when the palette opened, while a preview has moved it away.
   const before = useRef<Viewport | null>(null)
@@ -104,7 +108,12 @@ export function BoardSearch({ boardId, nodes, tasks, onJump, onSelect }: Props) 
   const selectAll = (ids: string[]) => {
     leave()
     onSelect(ids)
-    fit({ nodes: ids, padding: 0.2, maxZoom: 1 })
+    // An arrow is fitted by its two ends.
+    const ends = ids.flatMap((id) => {
+      const edge = flow.getEdge(id)
+      return edge ? [edge.source, edge.target] : [id]
+    })
+    fit({ nodes: [...new Set(ends)], padding: 0.2, maxZoom: 1 })
   }
 
   return (

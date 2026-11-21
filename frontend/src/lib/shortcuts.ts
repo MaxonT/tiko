@@ -48,6 +48,7 @@ export const SHORTCUTS = {
   pasteCode: { keys: 'mod+shift+v', label: 'Paste as code', group: 'Edit' },
   duplicate: { keys: 'mod+d', label: 'Duplicate', group: 'Edit' },
   selectAll: { keys: 'mod+a', label: 'Select all', group: 'Edit' },
+  labelArrow: { keys: 'enter', label: 'Label the selected arrow', group: 'Edit' },
   // Handled by the canvas library; listed so the help dialog is complete.
   remove: { keys: 'delete, backspace', label: 'Delete selection', group: 'Edit' },
   addToSelection: {

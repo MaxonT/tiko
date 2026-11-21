@@ -6,6 +6,7 @@ import { withoutReactions } from '@/canvas/reactions'
 import { taskRef } from '@/canvas/tasks-context'
 import type { AppEdge, AppNode } from '@/canvas/types'
 import { newId } from '@/lib/id'
+import { storedEdge } from '@/live/doc'
 
 /** Copied elements: top-level nodes in absolute positions, frame contents relative to their frame. */
 export type Snippet = { nodes: AppNode[]; edges: AppEdge[]; tasks: Record<string, Task> }
@@ -66,13 +67,7 @@ export function copySelection(
     nodes: copied,
     edges: edges
       .filter((e) => picked.has(e.source) && picked.has(e.target))
-      .map(({ id, source, target, sourceHandle, targetHandle }) => ({
-        id,
-        source,
-        target,
-        ...(sourceHandle && { sourceHandle }),
-        ...(targetHandle && { targetHandle }),
-      })),
+      .map((edge) => ({ id: edge.id, ...storedEdge(edge) })),
     tasks: Object.fromEntries(cards.map((task) => [taskRef(task), task])),
   }
 }

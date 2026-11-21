@@ -35,6 +35,7 @@ export function useFlashing(id: string) {
 
 type Flow = {
   getInternalNode: (id: string) => InternalNode | undefined
+  getEdge: (id: string) => { source: string; target: string } | undefined
   getZoom: () => number
   setCenter: SetCenter
 }
@@ -55,16 +56,42 @@ export function zoomFor(width: number, height: number, current: number, min = MI
  * Moves the board to a node and flashes it; `flash: false` only looks.
  * `offsetY` puts the node that many screen pixels below the window center.
  */
+// A node's box; an arrow's is the box around its two ends, so its middle is the arrow's.
+function boxOf(flow: Flow, id: string) {
+  const edge = flow.getEdge(id)
+  const ids = edge ? [edge.source, edge.target] : [id]
+  const boxes = ids.flatMap((one) => {
+    const node = flow.getInternalNode(one)
+    if (!node) return []
+    const { x, y } = node.internals.positionAbsolute
+    return [
+      {
+        x,
+        y,
+        width: node.measured.width ?? node.width ?? 0,
+        height: node.measured.height ?? node.height ?? 0,
+      },
+    ]
+  })
+  if (boxes.length === 0) return null
+  const left = Math.min(...boxes.map((b) => b.x))
+  const top = Math.min(...boxes.map((b) => b.y))
+  const right = Math.max(...boxes.map((b) => b.x + b.width))
+  const bottom = Math.max(...boxes.map((b) => b.y + b.height))
+  // An arrow's ends fit the view; its own width is what is between them.
+  return edge
+    ? { x: (left + right) / 2, y: (top + bottom) / 2, width: 0, height: 0 }
+    : { x: left, y: top, width: right - left, height: bottom - top }
+}
+
 export function flyTo(
   flow: Flow,
   id: string,
   { flash = true, minZoom = MIN_ZOOM, offsetY = 0 } = {},
 ) {
-  const node = flow.getInternalNode(id)
-  if (!node) return
-  const { x, y } = node.internals.positionAbsolute
-  const width = node.measured.width ?? node.width ?? 0
-  const height = node.measured.height ?? node.height ?? 0
+  const box = boxOf(flow, id)
+  if (!box) return
+  const { x, y, width, height } = box
   const zoom = zoomFor(width, height, flow.getZoom(), minZoom)
   void flow.setCenter(x + width / 2, y + height / 2 - offsetY / zoom, {
     zoom,

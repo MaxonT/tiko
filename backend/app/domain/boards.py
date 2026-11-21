@@ -348,12 +348,35 @@ def image_files(doc: "BoardDoc") -> set[str]:
     return {n.data.file for n in doc.nodes if isinstance(n, ImageNode) and n.data.file}
 
 
+LABEL_MAX = 500
+ShapeFill = Literal["surface", "yellow", "orange", "pink", "violet", "blue", "green"]
+
+
+class EdgeLabel(_Strict):
+    text: Annotated[str, StringConstraints(min_length=1, max_length=LABEL_MAX)]
+    # A share of the arrow's length from its start; absent is the middle.
+    at: absent_or(Annotated[float, Field(ge=0, le=1)]) = None
+    color: absent_or(ShapeFill) = None
+    size: absent_or(TextSize) = None
+
+    @model_validator(mode="after")
+    def _words(self) -> "EdgeLabel":
+        if not self.text.strip():
+            raise ValueError("an arrow label needs text")
+        return self
+
+
+class EdgeData(_Strict):
+    label: absent_or(EdgeLabel) = None
+
+
 class Edge(_Strict):
     id: str = Field(min_length=1, max_length=100)
     source: str = Field(max_length=100)
     target: str = Field(max_length=100)
     sourceHandle: str | None = Field(default=None, max_length=100)  # noqa: N815
     targetHandle: str | None = Field(default=None, max_length=100)  # noqa: N815
+    data: absent_or(EdgeData) = None
 
 
 class Viewport(_Strict):

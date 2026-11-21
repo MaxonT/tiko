@@ -7,6 +7,7 @@ All notable changes to this project are documented here. The format follows [Kee
 ### Fixed
 
 - Importing a board whose Gantt has stages with no type no longer warns that stages arrived without their types, and the import report shows one Planning button instead of one per note.
+- Gantt stages work from the keyboard: Tab reaches each stage, and Enter or Space opens its type, people and Done settings.
 
 ## [2026.11.2] - 2026-11-16
 

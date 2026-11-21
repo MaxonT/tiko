@@ -6,7 +6,13 @@ from fastapi.testclient import TestClient
 
 from app.adapters.tasks.linear import LinearApi, LinearProvider, to_task
 from app.config import Settings
-from app.domain.errors import LinearRejected, TaskNotFound, TrackerRateLimited, TrackerUnreachable
+from app.domain.errors import (
+    LinearRejected,
+    TaskNotFound,
+    TrackerRateLimited,
+    TrackerUnavailable,
+    TrackerUnreachable,
+)
 from app.domain.sources import valid_key
 from app.domain.tasks import linear_key
 from app.main import create_app
@@ -243,6 +249,25 @@ def test_it_stops_before_a_tenth_of_the_limit_is_left():
     assert 800 <= limited.value.retry_after <= 840
     clock.now += 900
     assert reader.poll(["acme/ENG-1"])[0].state == "ok"
+
+
+def test_a_partial_answer_keeps_the_last_good_card():
+    fake = FakeLinear()
+    clock = Clock()
+    reader = provider(fake, clock)
+    reader.poll(["acme/ENG-1"])
+
+    def partial(request):
+        body = {
+            "data": {"issues": {"nodes": [issue("ENG-1", project=None)]}},
+            "errors": [{"message": "project failed", "extensions": {"code": "INTERNAL"}}],
+        }
+        return httpx.Response(200, json=body)
+
+    reader._api._client = httpx.Client(transport=httpx.MockTransport(partial))
+    clock.now += 30
+    with pytest.raises(TrackerUnavailable):
+        reader.poll(["acme/ENG-1"])
 
 
 def test_linear_saying_limited_waits():

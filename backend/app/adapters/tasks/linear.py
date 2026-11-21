@@ -205,7 +205,8 @@ class LinearApi:
             raise TrackerUnavailable(f"Linear returned {response.status_code}")
         self._keep(response, now)
         data = body.get("data")
-        if data is None and not _not_found(errors):
+        # Linear may answer part of a query with an error for the rest; a partial issue is not one.
+        if (errors and not _not_found(errors)) or (data is None and not errors):
             raise TrackerUnavailable("Linear returned an unexpected response.")
         return data, errors
 

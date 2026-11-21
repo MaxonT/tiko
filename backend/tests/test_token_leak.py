@@ -88,14 +88,18 @@ def test_linear_key_absent_from_responses_and_logs(caplog):
     )
     client = signed_in(app)
     link = "https://linear.app/acme/issue/ENG-1"
-    responses = [
-        client.put("/api/me/tracker", json={"token": KEY, "source": "linear"}),
-        client.get("/api/me/tracker"),
-        client.post("/api/tasks/resolve", json={"ref": link}),
-        client.post("/api/tasks/resolve", json={"ref": "https://linear.app/acme/issue/ENG-404"}),
-    ]
+    saved = client.put("/api/me/tracker", json={"token": KEY, "source": "linear"})
+    assert saved.json()["tokens"]["linear"] == "set"
+    found = client.post("/api/tasks/resolve", json={"ref": link})
+    assert found.json()["task"]["key"] == "acme/ENG-1"
+    missing = client.post("/api/tasks/resolve", json={"ref": f"{link[:-1]}404"})
+    assert missing.json()["error"]["code"] == "task_not_found"
     fake.keys.clear()
-    responses.append(client.post("/api/tasks/resolve", json={"ref": link}))
+    asked = len(fake.requests)
+    rejected = client.post("/api/tasks/resolve", json={"ref": link})
+    assert rejected.json()["error"]["code"] == "linear_rejected"
+    assert len(fake.requests) > asked
+    responses = [saved, client.get("/api/me/tracker"), found, missing, rejected]
     for response in responses:
         assert KEY not in response.text
         assert all(KEY not in value for value in response.headers.values())

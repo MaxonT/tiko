@@ -42,7 +42,7 @@ What the code does now (`GanttLabel.tsx`, `GanttModule.tsx`, `tree.ts`):
 2. **A gap opens where they will land.** As the pointer moves, the rows under the ghost slide apart to open a gap as tall as the lifted rows, across the whole width of the Gantt. Where the gap is, is where the rows land. The place is picked by the ghost's top edge, to the nearest gap between the rows that stay. Rows change places only when the pointer crosses half a row, so the plan does not flicker.
 3. **The gap shows the level.** In the task column the gap holds a placeholder (`--accent` fill, 1px dashed `--primary` at 40%) starts at the indent of the level the rows will take. Moving the pointer right or left by 16px changes the level by one, as today, and the placeholder slides to the new indent in 100ms. When the rows would become children, the row that will be their parent gets a 2px `--primary` bar at its left edge. The level is clamped as today (no shallower than the row below the gap, no deeper than one level under the row above, 5 levels in all) and the placeholder always shows the clamped level, so what it shows is what lands.
    - When no level fits (a deep branch into a deep gap), the placeholder turns `--destructive` dashed with "Too deep: 5 levels at most", and a drop there puts the rows back.
-   - Rejected: a thin line between rows instead of a gap. A line does not show how much room a branch takes, and the owner asked for rows that move aside.
+   - Rejected: a thin line between rows instead of a gap. A line does not show how much room a branch takes, and rows that move aside were asked for.
 4. **Dropped as a child of a collapsed row, the row opens**, so the rows stay in view. Hovering over a collapsed row during a drag does not open it.
 5. **The drop settles.** On release the ghost glides into the gap (150ms) and the plan is drawn in its new order with no jump: the gap already had the room of every lifted row.
 6. **Auto-scroll.** In the expanded view the list scrolls while the pointer is within 40px of the top or bottom edge of the scrolling area (under the sticky header), faster closer to the edge. On the board the module has no inner scroll, so the board pans in the same way when the pointer is within 40px of the window edge, as when an element is dragged on the board.
@@ -149,7 +149,7 @@ Media for What's new are shot at release, not in a slice.
 
 ## Answers at G2
 
-The owner took every recommendation on 2026-11-21:
+Every recommendation was taken at G2 on 2026-11-21:
 
 1. **Lasso** starts on blank space in the task column (right of the title, below the last row); Shift and Cmd-click cover rows with long titles (Decision 13).
 2. **Several levels** become siblings at the level the placeholder shows, each with its own subtree (Decision 15).

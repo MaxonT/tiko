@@ -4,9 +4,9 @@
 
 **Created**: 2026-11-21
 
-**Status**: Approved by the owner at G2 on 2026-11-21 with every recommended answer below.
+**Status**: Approved at G2 on 2026-11-21 with every recommended answer below.
 
-**Input**: Owner's request: double-click an arrow and a text label appears in its middle; it moves with the arrow; its color and size come from the selection bar, as for a text or a sticky note. The label can be dragged along the arrow toward either end, not only kept in the middle. Arrows with strong or unusual bends must still carry a readable label.
+**Input**: Request: double-click an arrow and a text label appears in its middle; it moves with the arrow; its color and size come from the selection bar, as for a text or a sticky note. The label can be dragged along the arrow toward either end, not only kept in the middle. Arrows with strong or unusual bends must still carry a readable label.
 
 ## Why
 
@@ -142,7 +142,7 @@ An agent that lays out a dependency map through MCP connects two cards with the 
 - Labels that mean something to tiko, such as a link type that changes a task or the tracker.
 - The place, fill and size of a label through the API.
 
-## Owner's answers (G2, 2026-11-21)
+## Answers (G2, 2026-11-21)
 
 1. **Color is a fill**, a chip in a sticky color, not a text color (Decision 9).
 2. **A new label appears in the middle**; the drag moves it (Decision 1).

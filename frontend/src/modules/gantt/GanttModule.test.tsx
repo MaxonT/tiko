@@ -1529,7 +1529,7 @@ function clickRow(id: string, i: number, keys: { metaKey?: boolean; shiftKey?: b
   pressRow(id, i, keys)
   release(50, rowY(i), keys)
 }
-// The row's own background, right of its title: blank space that starts a lasso.
+// The row's own background, right of its title: a drag there draws a lasso, a click picks the row.
 const blank = (id: string) => label(id).closest('.group\\/label') as HTMLElement
 
 test('rows are selected by click, Cmd-click and Shift-click, in every part of the row', () => {
@@ -1589,9 +1589,23 @@ test('a lasso from blank space selects the rows it touches and never reaches the
   moveTo(150, rowY(3) + 8)
   release(150, rowY(3) + 8)
   expect(picked()).toEqual(['b', 'c', 'd'])
-  // A click on blank space without a drag clears the selection.
+  // A click on a row's blank space picks that row, as a click on its title does.
   fireEvent.pointerDown(blank('a'), { clientX: 150, clientY: rowY(0), pointerId: 1, button: 0 })
   release(150, rowY(0))
+  expect(picked()).toEqual(['a'])
+  fireEvent.pointerDown(blank('c'), {
+    clientX: 150,
+    clientY: rowY(2),
+    pointerId: 1,
+    button: 0,
+    metaKey: true,
+  })
+  release(150, rowY(2), { metaKey: true })
+  expect(picked()).toEqual(['a', 'c'])
+  // A click on the band under the rows clears the selection.
+  const column = document.querySelector('[data-gantt-rows]')!.parentElement!
+  fireEvent.pointerDown(column, { clientX: 150, clientY: rowY(4) + 10, pointerId: 1, button: 0 })
+  release(150, rowY(4) + 10)
   expect(picked()).toEqual([])
   document.body.removeEventListener('pointerdown', board)
   screenBox.mockRestore()

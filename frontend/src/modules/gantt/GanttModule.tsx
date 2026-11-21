@@ -392,8 +392,12 @@ export function GanttModule({
     },
     onSelect: pickRows,
   })
-  const lassoFrom = (event: PointerEvent) =>
-    rowDrag.lasso(event, event.shiftKey || event.metaKey || event.ctrlKey ? selection : new Set())
+  const lassoFrom = (event: PointerEvent, id?: string) =>
+    rowDrag.lasso(
+      event,
+      event.shiftKey || event.metaKey || event.ctrlKey ? selection : new Set(),
+      id,
+    )
   // Esc clears the selection and Delete removes its rows, before the board or the expanded view
   // hears either: the module itself is never deleted from here.
   const keys = useRef<(event: KeyboardEvent) => void>(() => {})
@@ -568,7 +572,7 @@ export function GanttModule({
                           selection.has(row.id) ? [...selection] : [row.id],
                         )
                       }
-                      onLasso={lassoFrom}
+                      onLasso={(event) => lassoFrom(event, row.id)}
                       follow={
                         row.key && !hasChildren && !row.stages?.length
                           ? Boolean(row.follow)

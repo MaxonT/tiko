@@ -286,14 +286,15 @@ export function useRowDrag({
     unlisten.current = listen()
   }
 
-  const lasso = (event: ReactPointerEvent, base: Set<string>) => {
+  /** `id`: the row whose blank space was pressed; a click there picks that row. */
+  const lasso = (event: ReactPointerEvent, base: Set<string>, id?: string) => {
     if (event.button !== 0 || drag.current) return
     // The board must not start its own selection box or pan from here.
     event.stopPropagation()
     const point = { x: event.clientX, y: event.clientY }
     drag.current = {
       mode: 'lasso',
-      ids: [],
+      ids: id ? [id] : [],
       pointerId: event.pointerId,
       press: point,
       grab: { x: 0, y: 0 },
@@ -330,7 +331,8 @@ export function useRowDrag({
         const picked = d.dragging ? (store.lasso ?? new Set<string>()) : d.base
         finish()
         store.setLasso(null, null)
-        latest.current.onSelect?.(picked)
+        if (!d.dragging && d.ids[0]) latest.current.onClick?.(d.ids[0], event)
+        else latest.current.onSelect?.(picked)
         return
       }
       if (!d.dragging) {

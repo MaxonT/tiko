@@ -788,6 +788,8 @@ function ownsKey(event: KeyboardEvent, root: HTMLElement | null) {
   const open = document.querySelector('[data-module-expanded]')
   if (open && !open.contains(root)) return false
   const scope = root.closest('[data-module-expanded]') ?? root.closest('.react-flow__node') ?? root
+  // A key sent to something outside, even after focus left it (a pointer user's key blurs a button).
+  if (target instanceof Node && target !== document.body && !scope.contains(target)) return false
   const active = document.activeElement
   return !active || active === document.body || scope.contains(active)
 }

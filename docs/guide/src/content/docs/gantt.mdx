@@ -17,6 +17,16 @@ Add a Gantt from the modules tool (`M`) to plan tasks on a timeline right on the
 - **Draw dependency lines** between bars. A line turns amber when a task starts before the one it depends on ends.
 - **Extend the timeline:** select the Gantt and click **+** at either end to add a step of its scale: a week on Days, a month on Weeks, a quarter on Months, a year on Quarters.
 
+## Arrange rows
+
+- **Drag a row** by its title to move it. The other rows move aside, and a dashed gap shows where it will land. A parent takes its whole branch with it.
+- **Nest while you drag:** move the pointer right to put the row under the row above it, left to bring it back out. The gap steps in or out to show the level, and the new parent gets a blue mark at its edge. Dropped under a collapsed row, the row opens it. A plan goes five levels deep at most; a gap that turns red would go deeper, and dropping there changes nothing.
+- **Far places:** near the top or bottom edge the expanded view scrolls, and on the board the board pans.
+- **Changed your mind?** Press Esc while dragging, and the row goes back. One Undo takes a whole drop back.
+- **Select several rows:** click a row, Shift-click another to take every row between them, Cmd-click (Ctrl-click on Windows and Linux) to add or drop one. Or drag a box from the blank space right of the titles, or under the last row; hold Shift to add to what is selected. Esc clears the selection.
+- **Move them together:** drag any selected row. The rows land side by side at the level the gap shows, in the order they had; a selected parent brings its branch. Dropped on the board, they become cards and sticky notes in a column.
+- **Remove them:** press Delete or Backspace. Children of a removed row stay, one level up, and the Gantt itself stays on the board.
+
 ## Track progress
 
 - **Tick a row done** with the box next to its title. Its bar is hatched and struck through, and the row stays where it was planned, so the plan also shows what finished early or late.

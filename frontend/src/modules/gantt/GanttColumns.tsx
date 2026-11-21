@@ -16,12 +16,15 @@ import {
 } from '@/modules/gantt/fields'
 import { HEADER, type Row } from '@/modules/gantt/rows'
 import type { GanttContent } from '@/modules/gantt/schema'
+import { Shift } from '@/modules/gantt/drag-store'
 import { cn } from '@/lib/utils'
 import { toastError } from '@/lib/toast'
 
 type Props = {
   content: GanttContent
   visible: Row[]
+  /** Rows picked in the task column, tinted here too. */
+  selected?: ReadonlySet<string>
   fields: Field[]
   rowHeight: number
   /** Height of the Time off lane, kept empty here so cells stay level with their rows. */
@@ -36,6 +39,7 @@ type Props = {
 export function GanttColumns({
   content,
   visible,
+  selected,
   fields,
   rowHeight,
   lane,
@@ -65,25 +69,23 @@ export function GanttColumns({
       </div>
       {lane > 0 && <div className="bg-muted shrink-0 border-b" style={{ height: lane }} />}
       {visible.map((row) => (
-        <div
-          key={row.id}
-          className="flex shrink-0 border-b border-border/60"
-          style={{ height: rowHeight }}
-        >
-          {columns.map((id) => {
-            const { value, own } = cellValue(content.rows, row, id)
-            return (
-              <Cell
-                key={id}
-                label={`${nameOf(id)} of ${row.title || row.key || 'row'}`}
-                value={own ? value : ''}
-                inherited={own ? '' : value}
-                onSave={(text) => onRow(setValue(row, id, text))}
-              />
-            )
-          })}
-          <div style={{ width: ADD_COLUMN_WIDTH }} />
-        </div>
+        <Shift key={row.id} id={row.id} selected={selected?.has(row.id)}>
+          <div className="flex shrink-0 border-b border-border/60" style={{ height: rowHeight }}>
+            {columns.map((id) => {
+              const { value, own } = cellValue(content.rows, row, id)
+              return (
+                <Cell
+                  key={id}
+                  label={`${nameOf(id)} of ${row.title || row.key || 'row'}`}
+                  value={own ? value : ''}
+                  inherited={own ? '' : value}
+                  onSave={(text) => onRow(setValue(row, id, text))}
+                />
+              )
+            })}
+            <div style={{ width: ADD_COLUMN_WIDTH }} />
+          </div>
+        </Shift>
       ))}
     </div>
   )

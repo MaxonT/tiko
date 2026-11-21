@@ -129,6 +129,81 @@ export function moveSubtree(
   return rows ? { ...content, rows } : content
 }
 
+/** The rows to move: each picked row with its subtree, a row under a picked one riding along. */
+export function movingRows(rows: Row[], ids: Iterable<string>) {
+  const picked = new Set(ids)
+  const depth = depths(rows)
+  const moving = new Set<string>()
+  const tops: string[] = []
+  let inside = -1
+  rows.forEach((row) => {
+    const d = depth.get(row.id)!
+    if (inside >= 0 && d > inside) return void moving.add(row.id)
+    inside = -1
+    if (!picked.has(row.id)) return
+    tops.push(row.id)
+    moving.add(row.id)
+    inside = d
+  })
+  return { tops, moving }
+}
+
+/** How many levels the moving rows reach below their top rows. */
+export function movingDepth(rows: Row[], ids: Iterable<string>) {
+  const { tops, moving } = movingRows(rows, ids)
+  const top = new Set(tops)
+  const block = rows
+    .filter((r) => moving.has(r.id))
+    .map((r) => (top.has(r.id) ? { ...r, parent: undefined } : r))
+  return Math.max(0, ...depths(block).values())
+}
+
+/**
+ * Moves rows, each with its subtree, to sit right after `aboveId` (null: at the top) as siblings
+ * at `depth`, in the order they had. Their parent is `aboveId` itself or one of its ancestors, so
+ * a row never lands under a row hidden from view; a collapsed new parent opens. The same content
+ * when nothing would change or the depth does not fit.
+ */
+export function moveRows(
+  content: GanttContent,
+  ids: Iterable<string>,
+  aboveId: string | null,
+  depth: number,
+): GanttContent {
+  const { tops, moving } = movingRows(content.rows, ids)
+  if (tops.length === 0 || (aboveId && moving.has(aboveId))) return content
+  const rest = content.rows.filter((r) => !moving.has(r.id))
+  const block = content.rows.filter((r) => moving.has(r.id))
+  const above = aboveId === null ? -1 : rest.findIndex((r) => r.id === aboveId)
+  if (aboveId !== null && above < 0) return content
+  const ancestors = above < 0 ? [] : chain(rest, above).reverse()
+  const top = Math.min(Math.max(depth, 0), ancestors.length)
+  if (top + movingDepth(content.rows, tops) >= MAX_DEPTH) return content
+  // After the whole branch of the row above at this depth, so nothing of it is cut off.
+  const anchor = ancestors[Math.min(top, ancestors.length - 1)]
+  const at =
+    anchor === undefined
+      ? 0
+      : subtreeEnd(
+          rest,
+          rest.findIndex((r) => r.id === anchor),
+        )
+  const parent = top === 0 ? undefined : ancestors[top - 1]
+  const placed = block.map((r): Row => {
+    if (!tops.includes(r.id)) return r
+    const { parent: _old, ...free } = r
+    return parent === undefined ? free : { ...free, parent }
+  })
+  const rows = [...rest.slice(0, at), ...placed, ...rest.slice(at)].map((r) =>
+    r.id === parent && r.collapsed ? { ...r, collapsed: false } : r,
+  )
+  const was = content.rows
+  const same = rows.every(
+    (r, i) => r.id === was[i].id && r.parent === was[i].parent && r.collapsed === was[i].collapsed,
+  )
+  return same ? content : { ...content, rows }
+}
+
 /** Adds a row at a depth before another row (or at the end), as close to that depth as allowed. */
 export function insertRow(content: GanttContent, row: Row, beforeId: string | null, depth: number) {
   const rows = insertBlock(content.rows, [row], beforeId, depth)

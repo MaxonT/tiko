@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
   type FormEvent,
+  type KeyboardEvent,
   type PointerEvent,
 } from 'react'
 import { addStageType, freeHue, storeStageType, type Person, type StageType } from '@/api/planning'
@@ -47,6 +48,7 @@ import {
 import { stageColors } from '@/planning/colors'
 import { useZoom } from '@/modules/expanded'
 import { cn } from '@/lib/utils'
+import { restoreFocusForKeyboard } from '@/lib/input-modality'
 import { toastError } from '@/lib/toast'
 
 type Props = {
@@ -248,6 +250,7 @@ function StageBar({
   const [dragging, setDragging] = useState(false)
   const measure = useRef<HTMLSpanElement>(null)
   const bar = useRef<HTMLDivElement>(null)
+  const panel = useRef<HTMLDivElement>(null)
   const [crowded, setCrowded] = useState(false)
   const span = stageSpan(stage)
   const box = barBox(span, axis)
@@ -305,6 +308,16 @@ function StageBar({
     if (current && !current.moved) onOpen(!current.wasOpen)
   }
   const handlers = { onPointerMove: move, onPointerUp: stop, onPointerCancel: stop }
+  // Only the bar itself: the people button inside keeps its own keys.
+  const key = (event: KeyboardEvent) => {
+    if (event.target !== event.currentTarget || (event.key !== 'Enter' && event.key !== ' ')) return
+    // Space would scroll or pan the canvas, Enter would select the node.
+    event.preventDefault()
+    event.stopPropagation()
+    // A held key repeats; only the first press toggles.
+    if (event.repeat) return
+    onOpen(!open)
+  }
 
   return (
     // Its own box for `peer-hover`: siblings in one row would light every later stage's tip.
@@ -313,13 +326,17 @@ function StageBar({
         <PopoverAnchor asChild>
           <div
             ref={bar}
-            role="slider"
+            role="button"
+            tabIndex={0}
+            aria-haspopup="dialog"
+            aria-expanded={open}
             aria-label={`${name} stage of ${row.title || row.key || 'row'}`}
-            aria-valuetext={formatSpan(span, days)}
+            aria-description={formatSpan(span, days)}
             onPointerDown={start('move')}
+            onKeyDown={key}
             {...handlers}
             className={cn(
-              'peer absolute top-1.5 flex h-[22px] cursor-grab items-center overflow-hidden rounded-[4px] px-1.5 text-[12px] leading-[22px] font-semibold whitespace-nowrap select-none active:cursor-grabbing',
+              'peer focus-visible:outline-primary absolute top-1.5 flex h-[22px] cursor-grab items-center overflow-hidden rounded-[4px] px-1.5 text-[12px] leading-[22px] font-semibold whitespace-nowrap outline-offset-1 select-none focus-visible:outline-2 active:cursor-grabbing',
               !type && 'bg-card text-muted-foreground border font-medium',
               guess && GUESS_EDGE[guess],
               finished && 'done-hatch',
@@ -342,7 +359,10 @@ function StageBar({
               {name}
               {!below && !crowded && named.length > 0 && <Names named={named} lead=" · " />}
             </span>
-            {!below && crowded && <PeopleButton named={named} stage={name} className="ml-auto" />}
+            {/* Inside the bar's button: pointer only, the stage popover lists the same people. */}
+            {!below && crowded && (
+              <PeopleButton named={named} stage={name} className="ml-auto" inBar />
+            )}
             {!box.clippedStart && (
               <span
                 aria-hidden
@@ -391,12 +411,22 @@ function StageBar({
           right={box.left + box.width}
         />
         <PopoverContent
+          ref={panel}
           side="bottom"
           align="start"
           className="w-72 p-3"
           // A press on the bar toggles the popover itself; closing here first would reopen it.
           onPointerDownOutside={(event) => {
             if (bar.current?.contains(event.target as Node)) event.preventDefault()
+          }}
+          // With no trigger to return to, a keyboard user's focus would drop to the page.
+          onCloseAutoFocus={(event) => {
+            restoreFocusForKeyboard(event)
+            if (event.defaultPrevented) return
+            event.preventDefault()
+            const now = document.activeElement
+            if (now && now !== document.body && !panel.current?.contains(now)) return
+            bar.current?.focus({ preventScroll: true })
           }}
         >
           <StageForm
@@ -435,10 +465,12 @@ function PeopleButton({
   named,
   stage,
   className,
+  inBar,
 }: {
   named: Named[]
   stage: string
   className?: string
+  inBar?: boolean
 }) {
   // Not a press on the bar: no drag, no stage popover.
   const own = (event: PointerEvent) => event.stopPropagation()
@@ -448,6 +480,8 @@ function PeopleButton({
         <button
           type="button"
           aria-label={`${named.length} ${named.length === 1 ? 'person' : 'people'} on ${stage}`}
+          aria-hidden={inBar || undefined}
+          tabIndex={inBar ? -1 : undefined}
           onPointerDown={own}
           onPointerUp={own}
           className={cn(

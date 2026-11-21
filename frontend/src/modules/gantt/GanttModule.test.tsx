@@ -1,11 +1,12 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { ReactFlow, ReactFlowProvider, useNodesState, useReactFlow, type Node } from '@xyflow/react'
 import { useLayoutEffect } from 'react'
 import { beforeAll, expect, test, vi } from 'vitest'
 import type { Task } from '@/api/tasks'
 import { moduleControls } from '@/canvas/module-controls'
 import { ReadOnlyContext } from '@/canvas/readonly'
+import { trackInputModality } from '@/lib/input-modality'
 import { ModuleNode } from '@/canvas/nodes/ModuleNode'
 import { TasksContext } from '@/canvas/tasks-context'
 import type { AppNode, ModuleNode as ModuleNodeType } from '@/canvas/types'
@@ -356,7 +357,7 @@ test('with Planning off nothing about stages shows', () => {
 
 test('with Planning on a bare bar becomes a stage when it gets a type', () => {
   renderGantt({}, content, PLANNING)
-  press(screen.getByRole('slider', { name: 'No stage stage of Design review' }), 400)
+  press(screen.getByRole('button', { name: 'No stage stage of Design review' }), 400)
   fireEvent.click(screen.getByRole('button', { name: 'Build' }))
   expect(rows()[1].stages).toEqual([
     expect.objectContaining({ type: 't3', start: '2026-10-12', end: '2026-10-14' }),
@@ -393,7 +394,7 @@ test('a stage dragged into its neighbour stops at it', () => {
     ],
   }
   renderGantt({}, start, PLANNING)
-  press(screen.getByRole('slider', { name: 'Build stage of Payment API' }), 500, 0)
+  press(screen.getByRole('button', { name: 'Build stage of Payment API' }), 500, 0)
   expect(rows()[0].stages![1]).toMatchObject({ start: '2026-10-08', end: '2026-10-12' })
   expect(rows()[0].end).toBe('2026-10-12')
 })
@@ -418,7 +419,7 @@ const starts = () => rows()[0].stages!.map((s) => parseDay(s.start))
 
 test('a stage dragged right with Alt pushes the later ones; without Alt it stops at the next', () => {
   renderGantt({}, pushable, PLANNING)
-  const bar = screen.getAllByRole('slider', { name: 'Discovery stage of Payment API' })[0]
+  const bar = screen.getAllByRole('button', { name: 'Discovery stage of Payment API' })[0]
   const before = starts()
   fireEvent.pointerDown(bar, { clientX: 100, pointerId: 1, button: 0 })
   fireEvent.pointerMove(bar, { clientX: 150, pointerId: 1, altKey: true })
@@ -481,7 +482,7 @@ test('each stage has a tooltip of its own', () => {
     ],
   }
   renderGantt({}, start, PLANNING)
-  const bars = screen.getAllByRole('slider', { name: /stage of Payment API/ })
+  const bars = screen.getAllByRole('button', { name: /stage of Payment API/ })
   // `peer-hover` reaches only siblings, so each bar and its tip share a box of their own.
   expect(bars[0].parentElement).not.toBe(bars[1].parentElement)
   expect(bars[0].parentElement!.querySelectorAll('[role=tooltip]')).toHaveLength(1)
@@ -529,15 +530,36 @@ const staged = (people: string[], extra: Partial<GanttContent> = {}): GanttConte
 
 test('people show after the stage type, an archived one muted', () => {
   renderGantt({}, staged(['p1', 'p2']), PEOPLE)
-  const bar = screen.getByRole('slider', { name: 'Build stage of Payment API' })
+  const bar = screen.getByRole('button', { name: 'Build stage of Payment API' })
   expect(bar.textContent).toBe('Build · Ivan, Anna')
   expect(within(bar).getByText('Anna').className).toContain('opacity-60')
   expect(within(bar).getByText('Ivan').className).not.toContain('opacity-60')
 })
 
+test('a stage bar takes the focus and opens its popover with Enter or Space', async () => {
+  trackInputModality()
+  renderGantt({}, staged(['p1']), PEOPLE)
+  const bar = screen.getByRole('button', { name: 'Build stage of Payment API' })
+  expect(bar.tabIndex).toBe(0)
+  expect(bar.getAttribute('aria-expanded')).toBe('false')
+  // A key on something inside the bar is not the bar's own.
+  fireEvent.keyDown(within(bar).getByText('Ivan'), { key: 'Enter' })
+  expect(screen.queryByLabelText('Add a person')).toBeNull()
+  fireEvent.keyDown(document.body, { key: 'Tab' })
+  bar.focus()
+  fireEvent.keyDown(bar, { key: 'Enter' })
+  expect(screen.getByLabelText('Add a person')).toBeTruthy()
+  expect(bar.getAttribute('aria-expanded')).toBe('true')
+  fireEvent.keyDown(document.activeElement!, { key: 'Escape' })
+  expect(screen.queryByLabelText('Add a person')).toBeNull()
+  await waitFor(() => expect(document.activeElement).toBe(bar))
+  fireEvent.keyDown(bar, { key: ' ' })
+  expect(screen.getByLabelText('Add a person')).toBeTruthy()
+})
+
 test('names below the bars make the rows taller', () => {
   renderGantt({}, staged(['p1'], { people: 'below' }), PEOPLE)
-  const bar = screen.getByRole('slider', { name: 'Build stage of Payment API' })
+  const bar = screen.getByRole('button', { name: 'Build stage of Payment API' })
   expect(bar.textContent).toBe('Build')
   const row = bar.closest('[data-gantt-row]') as HTMLElement
   expect(row.style.height).toBe('50px')
@@ -554,7 +576,7 @@ test('names below are ignored with Planning off', () => {
 
 test('the popover adds someone from the list and removes them again', () => {
   renderGantt({}, staged([]), PEOPLE)
-  press(screen.getByRole('slider', { name: 'Build stage of Payment API' }), 500)
+  press(screen.getByRole('button', { name: 'Build stage of Payment API' }), 500)
   const field = screen.getByLabelText('Add a person')
   fireEvent.change(field, { target: { value: 'iv' } })
   // Anna is archived: she is not offered again.
@@ -579,7 +601,7 @@ test('an unknown name is added to the people on the fly', async () => {
   vi.stubGlobal('fetch', fetchMock)
   try {
     renderGantt({}, staged([]), PEOPLE)
-    press(screen.getByRole('slider', { name: 'Build stage of Payment API' }), 500)
+    press(screen.getByRole('button', { name: 'Build stage of Payment API' }), 500)
     fireEvent.change(screen.getByLabelText('Add a person'), { target: { value: 'Petra' } })
     fireEvent.click(screen.getByRole('option', { name: '+ Add “Petra” to people' }))
     await vi.waitFor(() => expect(rows()[0].stages![0].people).toEqual(['p9']))
@@ -597,9 +619,10 @@ test('names that do not fit turn into a count that lists them', () => {
   const width = vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(500)
   try {
     renderGantt({}, staged(['p1', 'p2']), PEOPLE)
-    const bar = screen.getByRole('slider', { name: 'Build stage of Payment API' })
+    const bar = screen.getByRole('button', { name: 'Build stage of Payment API' })
     expect(bar.textContent).toBe('Build2')
-    const count = within(bar).getByRole('button', { name: '2 people on Build' })
+    // Pointer only: the stage popover gives keyboard and screen readers the same list.
+    const count = within(bar).getByLabelText('2 people on Build')
     fireEvent.pointerDown(count, { pointerId: 1, button: 0 })
     fireEvent.pointerUp(count, { pointerId: 1 })
     fireEvent.click(count)
@@ -615,7 +638,7 @@ test('names that do not fit turn into a count that lists them', () => {
 
 test('a second click on a stage closes its popover', async () => {
   renderGantt({}, staged(['p1']), PEOPLE)
-  const bar = screen.getByRole('slider', { name: 'Build stage of Payment API' })
+  const bar = screen.getByRole('button', { name: 'Build stage of Payment API' })
   // The popover listens for clicks outside it from the next tick on.
   const tick = () => act(() => new Promise((done) => setTimeout(done, 0)))
   press(bar, 500)
@@ -656,7 +679,7 @@ test('an assignee of a task in this Gantt is added from the tracker when picked'
     const start = staged([])
     start.rows[0] = { ...start.rows[0], key: 'DEMO-1', source: 'demo' }
     renderGantt({}, start, PEOPLE, { 'demo:DEMO-1': { ...task, assignee_name: 'Oleg' } })
-    press(screen.getByRole('slider', { name: 'Build stage of Payment API' }), 500)
+    press(screen.getByRole('button', { name: 'Build stage of Payment API' }), 500)
     fireEvent.focus(screen.getByLabelText('Add a person'))
     // Nobody is added until picked.
     expect(fetchMock).not.toHaveBeenCalled()
@@ -698,7 +721,7 @@ test('time off shows on the lane and marks the stage it falls on', () => {
   expect(document.querySelector('[data-gantt-timeoff]')).toBeTruthy()
   expect(screen.getByText('Time off')).toBeTruthy()
   expect(screen.getByRole('button', { name: /^Ivan is away Wed Oct 14 – Tue Oct 20/ })).toBeTruthy()
-  const bar = screen.getByRole('slider', { name: 'Build stage of Payment API' })
+  const bar = screen.getByRole('button', { name: 'Build stage of Payment API' })
   expect(within(bar).getByLabelText('Someone is away')).toBeTruthy()
   expect(bar.style.boxShadow).toContain('var(--destructive)')
   const tip = within(bar.parentElement!).getByRole('tooltip', { hidden: true })
@@ -713,7 +736,7 @@ test('a stage clear of the time off has no mark', () => {
   start.rows[0].stages![0] = { ...start.rows[0].stages![0], end: '2026-10-13' }
   start.rows[0].end = '2026-10-13'
   renderGantt({}, start, AWAY)
-  const bar = screen.getByRole('slider', { name: 'Build stage of Payment API' })
+  const bar = screen.getByRole('button', { name: 'Build stage of Payment API' })
   expect(within(bar).queryByLabelText('Someone is away')).toBeNull()
   expect(bar.style.boxShadow).not.toContain('destructive')
 })
@@ -979,8 +1002,8 @@ test('with working days only weekends vanish and a day off is shaded and not cou
   expect(within(body as HTMLElement).queryByText('10')).toBeNull()
   expect(within(body as HTMLElement).getByText('12')).toBeTruthy()
   expect(document.querySelectorAll('[data-gantt-day-off]')).toHaveLength(1)
-  const stage = screen.getByRole('slider', { name: 'Build stage of Payment API' })
-  expect(stage.getAttribute('aria-valuetext')).toBe('Mon Oct 12 – Fri Oct 16 · 4 days')
+  const stage = screen.getByRole('button', { name: 'Build stage of Payment API' })
+  expect(stage.getAttribute('aria-description')).toBe('Mon Oct 12 – Fri Oct 16 · 4 days')
 })
 
 test('a click with working days only adds five working days', () => {
@@ -1113,8 +1136,8 @@ test('a guest who cannot write leaves the board as it is', () => {
 
 test('with Planning on a following bar marks its guessed side as with Planning off', () => {
   renderGantt({}, following, PLANNING, { 'DEMO-1': { ...task, due: '2026-10-30' } })
-  const bar = screen.getByRole('slider', { name: /stage of DEMO-1/ })
-  expect(bar.getAttribute('aria-valuetext')).toBe('Sat Oct 24 – Fri Oct 30 · 7 days')
+  const bar = screen.getByRole('button', { name: /stage of DEMO-1/ })
+  expect(bar.getAttribute('aria-description')).toBe('Sat Oct 24 – Fri Oct 30 · 7 days')
   expect(bar.getAttribute('data-guess')).toBe('start')
   expect(screen.getByText('Start is a guess: the tracker has only a due date')).toBeTruthy()
 })
@@ -1237,18 +1260,18 @@ const twoStages: GanttContent = {
 
 test('stages are ticked one by one; the row is done when all are', () => {
   renderGantt({}, twoStages, PLANNING)
-  press(screen.getByRole('slider', { name: 'Discovery stage of Payment API' }), 300)
+  press(screen.getByRole('button', { name: 'Discovery stage of Payment API' }), 300)
   fireEvent.click(screen.getByRole('checkbox', { name: 'Done' }))
   expect(rows()[0].stages![0].done).toBe(true)
   expect(rows()[0].done).toBeUndefined()
   expect(
-    screen.getByRole('slider', { name: 'Discovery stage of Payment API' }).className,
+    screen.getByRole('button', { name: 'Discovery stage of Payment API' }).className,
   ).toContain('done-hatch')
   expect(
-    screen.getByRole('slider', { name: 'Build stage of Payment API' }).className,
+    screen.getByRole('button', { name: 'Build stage of Payment API' }).className,
   ).not.toContain('done-hatch')
 
-  press(screen.getByRole('slider', { name: 'Build stage of Payment API' }), 500)
+  press(screen.getByRole('button', { name: 'Build stage of Payment API' }), 500)
   fireEvent.click(screen.getAllByRole('checkbox', { name: 'Done' }).at(-1)!)
   expect(rows()[0].done).toBe(true)
 

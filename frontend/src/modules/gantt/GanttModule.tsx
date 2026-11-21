@@ -413,6 +413,18 @@ export function GanttModule({
       }
     }
   })
+  // Rows that leave the view leave the selection for good: folding a parent and opening it again
+  // must not pick its children again without a new click.
+  const shownKey = visible.map((t) => t.row.id).join(' ')
+  useEffect(() => {
+    const shown = new Set(shownKey.split(' '))
+    if (anchor.current !== null && !shown.has(anchor.current)) anchor.current = null
+    setRowsPicked((current) =>
+      [...current].every((id) => shown.has(id))
+        ? current
+        : new Set([...current].filter((id) => shown.has(id))),
+    )
+  }, [shownKey])
   const anyPicked = selection.size > 0
   useEffect(() => {
     if (!anyPicked) return
@@ -459,7 +471,9 @@ export function GanttModule({
         <div className="flex min-h-0 flex-1">
           <div className={cn('bg-panel flex shrink-0', expanded && 'sticky left-0 z-30')}>
             <div
-              className="relative flex shrink-0 flex-col border-r"
+              // nokey: with Shift held the board would take a press here, on the rows or the band
+              // under them, for its own selection box.
+              className="nokey relative flex shrink-0 flex-col border-r"
               style={{ width: content.labelWidth }}
               // The blank band under the rows starts a lasso too.
               onPointerDown={(event) => {
@@ -469,6 +483,10 @@ export function GanttModule({
               // the Gantt from its own selection.
               // It still selects this Gantt, so a selection in another one ends.
               onClick={(event) => {
+                // A clicked button or link gives focus back, so the board hears its keys again:
+                // it ignores them while focus is inside nokey.
+                const control = (event.target as Element).closest('button, a')
+                if (control instanceof HTMLElement) control.blur()
                 if (!event.shiftKey && !event.metaKey && !event.ctrlKey) return
                 event.stopPropagation()
                 if (!selected && !expanded) flowStore.getState().addSelectedNodes([id])
@@ -514,14 +532,7 @@ export function GanttModule({
                 role="listbox"
                 aria-label="Rows"
                 aria-multiselectable
-                // nokey: with Shift held the board would take a press here for its selection box.
-                className="nokey relative"
-                // A clicked button or link gives focus back, so the board hears its keys again:
-                // it ignores them while focus is inside nokey.
-                onClick={(event) => {
-                  const control = (event.target as Element).closest('button, a')
-                  if (control instanceof HTMLElement) control.blur()
-                }}
+                className="relative"
               >
                 {visible.map(({ row, depth, hasChildren }) => (
                   <Shift key={row.id} id={row.id} label selected={selection.has(row.id)}>

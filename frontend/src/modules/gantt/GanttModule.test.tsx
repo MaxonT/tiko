@@ -1837,3 +1837,114 @@ test('a drop lands after the ghost glides, on the plan as it is then', async () 
     screenBox.mockRestore()
   }
 })
+
+test('a Shift-lasso from the band under the rows adds rows, not a board selection box', () => {
+  const screenBox = placeOnScreen()
+  renderGantt({}, plan([plain('a'), plain('b'), plain('c')]))
+  clickRow('a', 0)
+  const column = document.querySelector('[data-gantt-rows]')!.parentElement!
+  expect(column.className).toContain('nokey')
+  // The board's Shift box would take this primary press; nokey keeps it in the Gantt.
+  fireEvent.keyDown(document, { key: 'Shift' })
+  fireEvent.pointerDown(column, {
+    clientX: 150,
+    clientY: rowY(3) + 10,
+    pointerId: 1,
+    button: 0,
+    isPrimary: true,
+    shiftKey: true,
+  })
+  moveTo(150, rowY(1))
+  release(150, rowY(1), { shiftKey: true })
+  fireEvent.keyUp(document, { key: 'Shift' })
+  expect(picked()).toEqual(['a', 'b', 'c'])
+  screenBox.mockRestore()
+})
+
+test('rows folded away leave the selection and do not come back with the fold', () => {
+  const screenBox = placeOnScreen()
+  renderGantt({}, plan([plain('a'), plain('b', 'a'), plain('c')]))
+  clickRow('b', 1)
+  expect(picked()).toEqual(['b'])
+  fireEvent.click(screen.getByRole('button', { name: 'Collapse Row a' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Expand Row a' }))
+  expect(picked()).toEqual([])
+  fireEvent.keyDown(document.body, { key: 'Backspace' })
+  expect(rows().map((r) => r.id)).toEqual(['a', 'b', 'c'])
+  // The anchor went with it: a Shift-click starts afresh.
+  clickRow('c', 2, { shiftKey: true })
+  expect(picked()).toEqual(['c'])
+  screenBox.mockRestore()
+})
+
+test('a row someone else adds mid-drag gets its place in the moved-aside rows', () => {
+  const screenBox = placeOnScreen()
+  renderGantt({}, plan([plain('a'), plain('b'), plain('c'), plain('d')]))
+  pressRow('d', 3)
+  moveTo(50, rowY(0))
+  expect(shiftOf('c').transform).toBe('translateY(34px)')
+  act(() => remote('g', plan([plain('a'), plain('b'), plain('x'), plain('c'), plain('d')])))
+  // The gap is still at the top; a, b, x and c all sit one row down, x over nobody.
+  expect(shiftOf('x').transform).toBe('translateY(34px)')
+  expect(shiftOf('c').transform).toBe('translateY(34px)')
+  release(50, rowY(0))
+  expect(rows().map((r) => r.id)).toEqual(['d', 'a', 'b', 'x', 'c'])
+  screenBox.mockRestore()
+})
+
+test('a drop place folded away by someone else while the ghost glides keeps the rows put', async () => {
+  const screenBox = placeOnScreen()
+  let finish = () => {}
+  Element.prototype.animate = vi.fn(() => ({
+    finished: new Promise<void>((resolve) => (finish = resolve)),
+    cancel: () => {},
+  })) as unknown as Element['animate']
+  try {
+    // p holds a; x goes under a as its child.
+    renderGantt({}, plan([plain('p'), plain('a', 'p'), plain('x')]))
+    pressRow('x', 2)
+    moveTo(50 + 16, rowY(2))
+    release(50 + 16, rowY(2))
+    const folded = plan([plain('p', undefined, { collapsed: true }), plain('a', 'p'), plain('x')])
+    act(() => remote('g', folded))
+    await act(async () => finish())
+    expect(rows().map((r) => [r.id, r.parent])).toEqual([
+      ['p', undefined],
+      ['a', 'p'],
+      ['x', undefined],
+    ])
+    expect(screen.queryByTestId('gantt-drag-ghost')).toBeNull()
+  } finally {
+    delete (Element.prototype as { animate?: unknown }).animate
+    screenBox.mockRestore()
+  }
+})
+
+test('a lifted row someone else deletes keeps the pressed row under the pointer', () => {
+  const screenBox = placeOnScreen()
+  renderGantt({}, plan([plain('a'), plain('b'), plain('c'), plain('d')]))
+  clickRow('a', 0)
+  clickRow('b', 1, { metaKey: true })
+  pressRow('b', 1)
+  moveTo(50, rowY(1) + 6)
+  act(() => remote('g', plan([plain('b'), plain('c'), plain('d')])))
+  // b is now the only lifted row: the ghost's top is b's own top, so it lands past d.
+  moveTo(50, rowY(2) + 4)
+  release(50, rowY(2) + 4)
+  expect(rows().map((r) => r.id)).toEqual(['c', 'd', 'b'])
+  screenBox.mockRestore()
+})
+
+test('a drag ends when someone else removes the pressed row', () => {
+  const screenBox = placeOnScreen()
+  renderGantt({}, plan([plain('a'), plain('b'), plain('c')]))
+  clickRow('a', 0)
+  clickRow('b', 1, { metaKey: true })
+  pressRow('b', 1)
+  moveTo(50, rowY(2))
+  act(() => remote('g', plan([plain('a'), plain('c')])))
+  expect(screen.queryByTestId('gantt-drag-ghost')).toBeNull()
+  release(50, rowY(2))
+  expect(rows().map((r) => r.id)).toEqual(['a', 'c'])
+  screenBox.mockRestore()
+})

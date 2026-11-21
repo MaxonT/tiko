@@ -453,6 +453,11 @@ export function GanttModule({
     <DragStoreContext.Provider value={store}>
       <div
         ref={rootEl}
+        // A popover's keys bubble through React to the board's node, whose Esc deselects the Gantt
+        // and whose arrows move it; they belong to the popover.
+        onKeyDown={(event) => {
+          if (!event.currentTarget.contains(event.target as Node)) event.stopPropagation()
+        }}
         className={cn('flex flex-col text-[13px]', !expanded && 'h-full')}
         style={
           expanded

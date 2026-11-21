@@ -1724,6 +1724,25 @@ test('Delete and Esc are left alone while typing in a field or working in a popo
   screenBox.mockRestore()
 })
 
+// Regression: ISSUE-001 — Esc in the filter popover dropped the Gantt from the board's selection
+// and its rows with it; an arrow key there moved the Gantt.
+// Found by /qa on 2026-11-21
+// Report: .gstack/qa-reports/qa-report-localhost-3391-2026-11-21.md
+test('keys in a filter popover leave the Gantt selected and in place', () => {
+  const screenBox = placeOnScreen()
+  renderGantt({}, plan([plain('a'), plain('b')]), VIEWS)
+  clickRow('a', 0)
+  const start = latest[0].position
+  fireEvent.click(screen.getByRole('button', { name: 'Filter' }))
+  const field = screen.getByRole('button', { name: 'Quarter' })
+  fireEvent.keyDown(field, { key: 'ArrowDown' })
+  fireEvent.keyDown(field, { key: 'Escape' })
+  expect(latest[0].selected).toBe(true)
+  expect(latest[0].position).toEqual(start)
+  expect(picked()).toEqual(['a'])
+  screenBox.mockRestore()
+})
+
 test('an open expanded view keeps the keys from the Gantt behind it', () => {
   const screenBox = placeOnScreen()
   renderGantt({}, plan([plain('a'), plain('b')]))

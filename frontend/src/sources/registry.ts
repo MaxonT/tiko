@@ -1,8 +1,6 @@
 import githubMarkDark from '@/sources/marks/github-dark.svg'
 import githubMark from '@/sources/marks/github.svg'
 import jiraMark from '@/sources/marks/jira.svg'
-import linearMarkDark from '@/sources/marks/linear-dark.svg'
-import linearMark from '@/sources/marks/linear.svg'
 
 /** What a person connects in My tracker when the tracker is read with one token of their own. */
 type TokenForm = {
@@ -70,8 +68,6 @@ const SOURCES: Record<string, Source> = {
   },
   linear: {
     name: 'Linear',
-    mark: linearMark,
-    markDark: linearMarkDark,
     credential: 'key',
     // Without its workspace: `ENG-12`.
     shortKey: (key) => key.slice(key.indexOf('/') + 1),

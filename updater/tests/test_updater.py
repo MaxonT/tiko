@@ -12,6 +12,7 @@ from updater import DockerError, Job, container_body, pull, run_update, split_re
 
 REPO = "ghcr.io/tiko-run/tiko"
 DB = "db0123456789abcdef"
+LOCAL_DB_URL = "postgresql://tiko_owner:tiko-local@db:5432/tiko"
 COMPOSE = """services:
   api:
     image: ghcr.io/tiko-run/tiko-api:${TAG:-2026.10.6}
@@ -25,6 +26,9 @@ def short_id(service: str) -> str:
 
 
 def old_container(service: str, version: str = "2026.10.6") -> dict:
+    env = ["TIKO_WORKERS=1", "PATH=/usr/bin", "TIKO_PASSWORD=secret"]
+    if service == "api":
+        env.append(f"DATABASE_URL={LOCAL_DB_URL}")
     return {
         "Id": f"{service}0123456789abcdef",
         "Name": f"/tiko-{service}-1",
@@ -32,7 +36,7 @@ def old_container(service: str, version: str = "2026.10.6") -> dict:
         "Config": {
             "Image": f"{REPO}-{service}:{version}",
             "Hostname": short_id(service),
-            "Env": ["TIKO_WORKERS=1", "PATH=/usr/bin", "TIKO_PASSWORD=secret"],
+            "Env": env,
             "Cmd": ["serve"],
             "Labels": {
                 "com.docker.compose.project": "tiko",
@@ -92,7 +96,12 @@ class FakeDocker:
 
     def container(self, ref):
         if ref == DB:
-            return {"Id": DB}
+            aliases = ["tiko-db-1", "db"]
+            return {
+                "Id": DB,
+                "Name": "/tiko-db-1",
+                "NetworkSettings": {"Networks": {"tiko_default": {"Aliases": aliases}}},
+            }
         for c in self.olds.values():
             if c["Id"] == ref:
                 return c
@@ -206,7 +215,7 @@ def test_new_container_keeps_own_settings_and_takes_the_image_defaults(install, 
     assert body["Image"] == f"{REPO}-{service}:2026.11.1"
     assert "Hostname" not in body
     assert "Cmd" not in body
-    assert body["Env"] == ["TIKO_WORKERS=1", "TIKO_PASSWORD=secret"]
+    assert body["Env"] == [e for e in docker.olds[service]["Config"]["Env"] if e != "PATH=/usr/bin"]
     assert "org.opencontainers.image.version" not in body["Labels"]
     assert "com.docker.compose.image" not in body["Labels"]
     assert body["Labels"]["com.docker.compose.service"] == service
@@ -337,6 +346,34 @@ def test_no_update_without_a_db_service_to_back_up(install: Path):
     assert status["state"] == "failed"
     assert "back up your database" in status["error"]
     assert docker.calls == []
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "postgresql://tiko_owner:pw@db.example.com:5432/tiko",
+        "postgresql://tiko_owner:pw@10.0.0.5/tiko",
+        "",
+    ],
+)
+def test_no_update_when_the_api_uses_another_database(install: Path, url: str):
+    docker = FakeDocker(install)
+    env = docker.olds["api"]["Config"]["Env"]
+    env[:] = [e for e in env if not e.startswith("DATABASE_URL=")] + [f"DATABASE_URL={url}"]
+    status = update(docker, install).snapshot()
+    assert status["state"] == "failed"
+    assert "back up your database and update with the installer" in status["error"]
+    assert docker.calls == []
+    assert not (install / "data" / "backups").exists()
+
+
+@pytest.mark.parametrize("host", ["db", "tiko-db-1"])
+def test_the_db_service_by_any_of_its_names_is_backed_up(install: Path, host: str):
+    docker = FakeDocker(install)
+    env = docker.olds["api"]["Config"]["Env"]
+    env[-1] = f"DATABASE_URL=postgresql://tiko_owner:pw@{host}:5432/tiko"
+    assert update(docker, install).snapshot()["state"] == "done"
+    assert ("exec", "pg_dump") in docker.calls
 
 
 def test_a_container_in_a_restart_loop_must_run_again_in_full():

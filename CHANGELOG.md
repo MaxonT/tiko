@@ -6,6 +6,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Fixed
 
+- With `DATABASE_URL` pointing at a Postgres server of your own, Update now in About no longer runs with a backup of the unused local database and a rollback that would restore it instead of yours. It does not start and tells you to back up your server and update with the installer.
 - Importing a board whose Gantt has stages with no type no longer warns that stages arrived without their types, and the import report shows one Planning button instead of one per note.
 
 ## [2026.11.2] - 2026-11-16

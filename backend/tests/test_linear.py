@@ -4,9 +4,9 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from app.adapters.tasks.linear import LinearApi, LinearProvider, LinearRejected, to_task
+from app.adapters.tasks.linear import LinearApi, LinearProvider, to_task
 from app.config import Settings
-from app.domain.errors import TaskNotFound, TrackerRateLimited, TrackerUnreachable
+from app.domain.errors import LinearRejected, TaskNotFound, TrackerRateLimited, TrackerUnreachable
 from app.domain.sources import valid_key
 from app.domain.tasks import linear_key
 from app.main import create_app
@@ -140,16 +140,48 @@ def test_a_moved_issue_stays_on_its_card():
     assert (task.key, task.state, task.summary) == ("acme/ENG-2", "ok", "Moved")
 
 
-def test_a_deleted_issue_is_not_found_and_not_asked_again_at_once():
+def test_many_moved_issues_all_come_back_and_then_cost_one_request():
+    fake = FakeLinear()
+    clock = Clock()
+    for n in range(10, 18):
+        fake.issues[f"OPS-{n}"] = issue(f"OPS-{n}")
+        fake.moved[f"ENG-{n}"] = f"OPS-{n}"
+    reader = provider(fake, clock)
+    keys = [f"acme/ENG-{n}" for n in range(10, 18)]
+    reader.poll(keys)
+    clock.now += 30
+    assert all(t.state == "ok" for t in reader.poll(keys))
+    clock.now += 30
+    asked = len(fake.requests)
+    reader.poll(keys)
+    assert len(fake.requests) == asked + 1
+
+
+def test_a_change_reaches_the_card_once_the_memory_is_old():
     fake = FakeLinear()
     clock = Clock()
     reader = provider(fake, clock)
-    assert reader.poll(["acme/ENG-404"])[0].state == "not_found"
+    first = reader.poll(["acme/ENG-1"])[0]
+    fake.issues["ENG-1"]["state"] = {"name": "Done", "type": "completed"}
+    clock.now += 10
+    again = reader.poll(["acme/ENG-1"])[0]
+    assert (again.status_name, again.fetched_at) == ("In Progress", first.fetched_at)
+    clock.now += 30
+    assert reader.poll(["acme/ENG-1"])[0].status_name == "Done"
+
+
+def test_a_deleted_issue_turns_not_found_and_is_not_asked_again_at_once():
+    fake = FakeLinear()
+    clock = Clock()
+    reader = provider(fake, clock)
+    assert reader.poll(["acme/ENG-1"])[0].state == "ok"
+    del fake.issues["ENG-1"]
+    clock.now += 30
+    assert reader.poll(["acme/ENG-1"])[0].state == "not_found"
     clock.now += 30
     asked = len(fake.requests)
-    assert reader.poll(["acme/ENG-404"])[0].state == "not_found"
-    # The list is asked again, the missing one waits.
-    assert len(fake.requests) == asked + 1
+    assert reader.poll(["acme/ENG-1"])[0].state == "not_found"
+    assert len(fake.requests) == asked
 
 
 def test_another_workspace_is_not_found_without_a_request():
@@ -266,7 +298,6 @@ def test_a_link_is_a_live_card_for_its_owner_only(team):
     doc = {"nodes": [card("acme/ENG-1")], "edges": []}
     assert admin.put(f"/api/boards/{board}", json={"version": 1, "doc": doc}).is_success
     assert admin.put(f"/api/boards/{board}/everyone", json={"role": "viewer"}).is_success
-    fake.issues["ENG-1"]["state"] = {"name": "Done", "type": "completed"}
     mine = admin.post(f"/api/boards/{board}/refresh").json()
     assert mine["tasks"]["linear:acme/ENG-1"]["state"] == "ok"
     theirs = bob.post(f"/api/boards/{board}/refresh").json()["tasks"]["linear:acme/ENG-1"]

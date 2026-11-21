@@ -14,7 +14,7 @@ from app.domain.public import PublicLinks
 from app.domain.refresh import RefreshService
 from app.domain.sessions import Sessions
 from app.domain.settings import Provider, SettingsService
-from app.domain.sources import jira_not_connected
+from app.domain.sources import SOURCES, jira_not_connected
 from app.domain.tasks import GITHUB, LINEAR, NotConnected, linear_url
 from app.domain.workspaces import Memberships
 
@@ -87,10 +87,11 @@ def _linear(request: Request) -> TaskProvider:
     person = current_person(request)
     if not is_visitor(request) and (key := state.settings.source_token(person.id, LINEAR)):
         return state.linear_readers.of(person.id, key.get_secret_value())
+    name = SOURCES[LINEAR].name
     return NotConnected(
         LINEAR,
-        "Linear",
-        ValidationFailed("Connect your Linear key in Settings → My tracker."),
+        name,
+        ValidationFailed(f"Connect your {name} key in Settings → My tracker."),
         linear_url,
     )
 

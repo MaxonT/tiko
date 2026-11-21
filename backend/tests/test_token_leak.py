@@ -70,3 +70,36 @@ def test_same_host_other_path_keeps_token(jira_client):
         "/api/settings", json={"jira": {"base_url": JIRA["base_url"] + "/jira"}}
     )
     assert moved.json()["jira"]["token_state"] == "set"
+
+
+def test_linear_key_absent_from_responses_and_logs(caplog):
+    import httpx
+
+    from app.config import Settings
+    from app.main import create_app
+    from tests.conftest import signed_in
+    from tests.linear_fake import KEY, FakeLinear
+
+    caplog.set_level(logging.DEBUG)
+    fake = FakeLinear()
+    app = create_app(
+        Settings(db_path=":memory:", tiko_secret_key="test-secret-key"),
+        linear_transport=httpx.MockTransport(fake),
+    )
+    client = signed_in(app)
+    link = "https://linear.app/acme/issue/ENG-1"
+    responses = [
+        client.put("/api/me/tracker", json={"token": KEY, "source": "linear"}),
+        client.get("/api/me/tracker"),
+        client.post("/api/tasks/resolve", json={"ref": link}),
+        client.post("/api/tasks/resolve", json={"ref": "https://linear.app/acme/issue/ENG-404"}),
+    ]
+    fake.keys.clear()
+    responses.append(client.post("/api/tasks/resolve", json={"ref": link}))
+    for response in responses:
+        assert KEY not in response.text
+        assert all(KEY not in value for value in response.headers.values())
+    formatter = logging.getLogger().handlers[0].formatter
+    for record in caplog.records:
+        assert KEY not in formatter.format(record)
+    assert {r.url.host for r in fake.requests} == {"api.linear.app"}

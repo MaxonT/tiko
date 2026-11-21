@@ -10,6 +10,7 @@ import httpx
 
 from app.adapters.tasks.readers import PersonalReaders
 from app.domain.errors import (
+    LinearRejected,
     TaskNotFound,
     TrackerRateLimited,
     TrackerUnavailable,
@@ -69,12 +70,6 @@ _CATEGORY: dict[str, StatusCategory] = {
     "duplicate": "done",
 }
 _HEX = re.compile(r"^#?([0-9a-fA-F]{6})$")
-
-
-class LinearRejected(TrackerUnavailable):
-    """Linear did not accept the person's API key; cards keep what they last showed."""
-
-    code = "linear_rejected"
 
 
 def _number(value: object) -> str:
@@ -193,7 +188,17 @@ class LinearApi:
             raise LinearRejected(REJECTED)
         if response.status_code == 429 or "RATELIMITED" in codes:
             retry = response.headers.get("retry-after", "")
-            wait = float(retry) if retry.isdigit() else DEFAULT_RETRY_AFTER_S
+            resets = [
+                int(r) / 1000 - now
+                for kind in ("requests", "complexity")
+                if (r := response.headers.get(f"x-ratelimit-{kind}-reset", "")).isdigit()
+            ]
+            if retry.isdigit():
+                wait = float(retry)
+            elif resets and max(resets) > 0:
+                wait = max(resets)
+            else:
+                wait = DEFAULT_RETRY_AFTER_S
             self._blocked_until = now + wait
             self._limited(wait)
         if response.status_code >= 500:
@@ -218,18 +223,22 @@ class LinearProvider:
         self._clock = clock
         # The workspace's slug and its old ones, with when they were read.
         self._workspaces: tuple[set[str], float] = (set(), 0.0)
-        # By identifier: the last answer and when it came.
-        self._seen: dict[str, tuple[dict, float]] = {}
+        # By a card's identifier: the last answer, when it was read (ISO) and when (clock).
+        self._seen: dict[str, tuple[dict, str, float]] = {}
+        # A card's identifier after its issue moved to another team: the issue's new one.
+        self._moved: dict[str, str] = {}
+        # Identifiers Linear answered "not found" for, and when.
         self._missing: dict[str, float] = {}
 
     def _viewer(self) -> dict:
         data, _ = self._api.query(_VIEWER)
-        if not data or not data.get("viewer") or not data.get("organization"):
-            raise TrackerUnavailable("Linear returned an unexpected response.")
-        org = data["organization"]
-        slugs = {org["urlKey"], *(org.get("previousUrlKeys") or [])}
-        self._workspaces = ({s.lower() for s in slugs}, self._clock())
-        return data
+        try:
+            viewer, org = data["viewer"], data["organization"]
+            slugs = {org["urlKey"], *(org.get("previousUrlKeys") or [])}
+        except (KeyError, TypeError) as exc:
+            raise TrackerUnavailable("Linear returned an unexpected response.") from exc
+        self._workspaces = ({str(s).lower() for s in slugs}, self._clock())
+        return {"viewer": viewer, "organization": org}
 
     def _mine(self, workspace: str) -> bool:
         slugs, read_at = self._workspaces
@@ -242,6 +251,13 @@ class LinearProvider:
         data = self._viewer()
         return f"{data['viewer']['name']} in {data['organization']['name']}"
 
+    def _keep(self, identifier: str, issue: dict) -> None:
+        self._seen[identifier] = (issue, now_iso(), self._clock())
+        self._missing.pop(identifier, None)
+        current = issue.get("identifier")
+        if isinstance(current, str) and current != identifier:
+            self._moved[identifier] = current
+
     def _single(self, identifier: str) -> dict | None:
         data, _ = self._api.query(_ISSUE, {"id": identifier})
         return (data or {}).get("issue")
@@ -253,46 +269,53 @@ class LinearProvider:
         issue = self._single(identifier)
         if issue is None:
             raise TaskNotFound(f"Linear has no issue {identifier} that you can read.")
-        self._seen[identifier] = (issue, self._clock())
+        self._keep(identifier, issue)
         return _task(key, issue)
 
     def _fetch(self, identifiers: list[str]) -> None:
-        now = self._clock()
-        for start in range(0, len(identifiers), PAGE):
-            page = identifiers[start : start + PAGE]
-            data, _ = self._api.query(_ISSUES, {"ids": page, "first": PAGE})
+        """One request per hundred cards; what the list misses is asked by its card's identifier."""
+        current = {i: self._moved.get(i, i) for i in identifiers}
+        answered: dict[str, dict] = {}
+        wanted = sorted(set(current.values()))
+        for start in range(0, len(wanted), PAGE):
+            data, _ = self._api.query(_ISSUES, {"ids": wanted[start : start + PAGE], "first": PAGE})
             for issue in ((data or {}).get("issues") or {}).get("nodes") or []:
-                self._seen[issue["identifier"]] = (issue, now)
-        # An issue moved to another team answers under its new identifier; ask by the old one.
-        asked = 0
+                if isinstance(issue, dict) and isinstance(issue.get("identifier"), str):
+                    answered[issue["identifier"]] = issue
+        unanswered = []
         for identifier in identifiers:
-            fresh = self._seen.get(identifier)
-            if fresh and fresh[1] >= now:
-                continue
-            if asked == SINGLES_PER_POLL or now - self._missing.get(identifier, -MISS_S) < MISS_S:
-                continue
-            asked += 1
-            if issue := self._single(identifier):
-                self._seen[identifier] = (issue, now)
-                self._missing.pop(identifier, None)
+            if issue := answered.get(current[identifier]):
+                self._keep(identifier, issue)
             else:
-                self._missing[identifier] = now
+                unanswered.append(identifier)
+        # A moved or deleted issue is asked by its card's identifier, the longest-waiting first.
+        unanswered.sort(key=lambda i: self._seen.get(i, ({}, "", 0.0))[2])
+        for identifier in unanswered[:SINGLES_PER_POLL]:
+            if issue := self._single(identifier):
+                self._keep(identifier, issue)
+            else:
+                self._seen.pop(identifier, None)
+                self._moved.pop(identifier, None)
+                self._missing[identifier] = self._clock()
 
     def poll(self, keys: list[str]) -> list[Task]:
         now = self._clock()
-        mine = [k for k in keys if self._mine(k.partition("/")[0])]
+        mine = {k for k in keys if self._mine(k.partition("/")[0])}
+        identifiers = sorted({k.partition("/")[2] for k in mine})
+        missing = {i for i in identifiers if now - self._missing.get(i, -MISS_S) < MISS_S}
         stale = [
-            k.partition("/")[2]
-            for k in mine
-            if now - self._seen.get(k.partition("/")[2], ({}, -FRESH_S))[1] >= FRESH_S
+            i
+            for i in identifiers
+            if i not in missing and now - self._seen.get(i, ({}, "", -FRESH_S))[2] >= FRESH_S
         ]
         if stale:
-            self._fetch(sorted(set(stale)))
+            self._fetch(stale)
         found = []
         for key in keys:
-            seen = self._seen.get(key.partition("/")[2]) if key in mine else None
-            if seen:
-                found.append(_task(key, seen[0]))
+            identifier = key.partition("/")[2]
+            seen = self._seen.get(identifier) if key in mine else None
+            if seen and identifier not in self._missing:
+                found.append(_task(key, seen[0]).model_copy(update={"fetched_at": seen[1]}))
             else:
                 found.append(
                     Task(

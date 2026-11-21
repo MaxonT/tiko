@@ -43,6 +43,7 @@ There are no queries for GitHub. Setup: [GitHub Issues](../github-issues/).
 | What | Example |
 |---|---|
 | A link to an issue | `https://linear.app/your-workspace/issue/ENG-12/fix-the-thing` |
+| The workspace and the identifier | `your-workspace/ENG-12` |
 
 Bare identifiers and queries for Linear come later. Setup: [Linear](../linear/).
 

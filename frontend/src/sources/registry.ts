@@ -32,7 +32,7 @@ type Source = {
   /** A link to one of its tasks, as a regular expression without anchors. */
   linkPattern?: string
   /** What a person connects to read it: an account, or a token of their own. */
-  credential?: 'account' | 'token'
+  credential?: 'account' | 'key'
   token?: TokenForm
 }
 
@@ -72,6 +72,7 @@ const SOURCES: Record<string, Source> = {
     name: 'Linear',
     mark: linearMark,
     markDark: linearMarkDark,
+    credential: 'key',
     // Without its workspace: `ENG-12`.
     shortKey: (key) => key.slice(key.indexOf('/') + 1),
     keyPattern: { prefix: '[a-z0-9][a-z0-9-]*/[A-Z][A-Z0-9_]*-', number: '[1-9]\\d*' },
@@ -103,9 +104,9 @@ export function shortKey(source: string | undefined, key: string, listName?: str
   return found?.shortKey ? found.shortKey(key, listName) : key
 }
 
-/** What a person connects to read the tracker: an account for CalDAV, a token elsewhere. */
+/** What a person connects to read the tracker: an account for CalDAV, a key for Linear, a token elsewhere. */
 export function credentialName(id: string) {
-  return SOURCES[id]?.credential === 'account' ? 'account' : 'token'
+  return SOURCES[id]?.credential ?? 'token'
 }
 
 /** Whether this version knows the tracker; a board from a newer tiko may name one it does not. */

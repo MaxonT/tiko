@@ -43,6 +43,7 @@ def providers() -> dict[str, Stub]:
         "jira": Stub("jira", "jira.example.com"),
         "github": Stub("github"),
         "caldav": Stub("caldav"),
+        "linear": Stub("linear", "linear.app"),
     }
 
 
@@ -65,6 +66,8 @@ ROUTES = [
         "demo",
         ("github", "octo/widgets#7"),
     ),
+    ("https://linear.app/acme/issue/ENG-1/fix-it", "jira", ("linear", "acme/ENG-1")),
+    ("acme/ENG-2", "demo", ("linear", "acme/ENG-2")),
 ]
 
 REFUSED = [
@@ -95,6 +98,7 @@ V1_ROUTES = [
     ("demo:DEMO-1", "jira", ("demo", "DEMO-1")),
     ("github:octo/widgets#3", "jira", ("github", "octo/widgets#3")),
     ("caldav:2f1e-uid@example.com", "jira", ("caldav", "2f1e-uid@example.com")),
+    ("linear:acme/ENG-3", "jira", ("linear", "acme/ENG-3")),
 ]
 
 V1_REFUSED = [
@@ -135,6 +139,8 @@ KEYS = [
     ("caldav", "2f1e-uid@example.com", True),
     ("caldav", "has space", False),
     ("caldav", "", False),
+    ("linear", "acme/ENG-1", True),
+    ("linear", "ENG-1", False),
     ("something-new", "DEV-1", True),
     ("something-new", "octo/widgets#1", False),
 ]
@@ -153,6 +159,7 @@ def test_a_guest_gets_open_tasks_in_full_and_a_link_for_the_rest():
         "jira:DEV-1",
         "github:octo/widgets#4",
         "caldav:2f1e-uid@example.com",
+        "linear:acme/ENG-1",
     ]
     tasks, failed = guest_tasks(refs, open_sources, "https://jira.example.com")
     assert failed == {}
@@ -162,6 +169,7 @@ def test_a_guest_gets_open_tasks_in_full_and_a_link_for_the_rest():
         "jira:DEV-1": ("private", "https://jira.example.com/browse/DEV-1"),
         "github:octo/widgets#4": ("private", "https://github.com/octo/widgets/issues/4"),
         "caldav:2f1e-uid@example.com": ("private", ""),
+        "linear:acme/ENG-1": ("private", "https://linear.app/acme/issue/ENG-1"),
     }
 
 

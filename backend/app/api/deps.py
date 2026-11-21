@@ -1,3 +1,4 @@
+from collections.abc import Callable, Mapping
 from typing import Annotated
 
 from fastapi import Depends, Request
@@ -72,6 +73,11 @@ def providers(request: Request) -> dict[str, TaskProvider]:
             jira = jira_not_connected(settings.base_url(), exc)
         found[jira.source_id] = jira
     return found
+
+
+def token_checks(request: Request) -> Mapping[str, Callable[[str], str]]:
+    """Who a token signs in as, asked of its tracker before the token is stored; by tracker."""
+    return request.app.state.token_checks
 
 
 def _github(request: Request) -> TaskProvider:

@@ -1,6 +1,6 @@
 import json
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Literal
 from urllib.parse import urlparse
@@ -335,6 +335,23 @@ class SettingsService:
         self._on_token(plain)
         self._on_change()
         return self.source_token_state(user_id, source)
+
+    def connect_source_token(
+        self,
+        user_id: str,
+        source: str,
+        token: SecretStr,
+        checks: Mapping[str, Callable[[str], str]],
+    ) -> str:
+        """Stores the token once its tracker accepts it; answers who the token signs in as."""
+        found = token_source(source)
+        plain = _clean(token)
+        if plain is None:
+            raise ValidationFailed("token: enter your personal access token")
+        # A token its tracker does not accept is not stored.
+        who = checks[found.id](plain)
+        self.set_source_token(user_id, found.id, SecretStr(plain))
+        return who
 
     def remove_source_token(self, user_id: str, source: str) -> None:
         token_source(source)

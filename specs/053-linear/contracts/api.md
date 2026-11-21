@@ -57,7 +57,7 @@ All three are closed to demo visitors (`403`).
 
 ## Slice 3: query
 
-`POST /api/tasks/search` with `{"jql": "...", "limit": 50, "source": "linear"}` reads the JQL subset of the spec (FR-015) or a saved view link. Answer: `{"tasks": [Task…], "total": null, "more": true}`: Linear gives no total. A query tiko cannot read: `422 invalid_jql` with the position and what was expected. The JQL suggestion routes take `source: "linear"` and answer with Linear's fields and the person's teams, projects, cycles, states, labels and people.
+`POST /api/tasks/search` with `{"jql": "...", "limit": 50, "source": "linear"}` reads the JQL subset of the spec (FR-015) or a saved view link. Answer: `{"tasks": [Task…], "total": null, "more": true}`: Linear gives no total; `more` is the connection's `pageInfo.hasNextPage`. A query tiko cannot read: `422 invalid_jql` with the position and what was expected. The JQL suggestion routes take `source: "linear"` and answer with Linear's fields and the person's teams, projects, cycles, states, labels and people.
 
 ## Board document
 

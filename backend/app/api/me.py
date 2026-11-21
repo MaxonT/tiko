@@ -1,4 +1,5 @@
 import time
+from collections.abc import Callable, Mapping
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request, Response
@@ -12,7 +13,7 @@ from app.domain.caldav import CalDavAccount, CalDavIn, CalDavSource, TaskList, n
 from app.domain.errors import CalDavRejected, Forbidden, TrackerUnavailable, ValidationFailed
 from app.domain.onboarding import Onboarding, OnboardingChange
 from app.domain.settings import JiraKind, SettingsService, TokenState
-from app.domain.sources import credential_kinds, token_source
+from app.domain.sources import credential_kinds
 from app.domain.workspaces import current_workspace
 
 router = APIRouter(prefix="/me", tags=["me"])
@@ -100,15 +101,15 @@ def get_tracker(person: CurrentPerson, settings: Settings) -> TrackerView:
 
 @router.put("/tracker", dependencies=[NotDemoVisitor])
 def set_tracker_token(
-    body: TokenIn, person: CurrentPerson, settings: Settings, request: Request
+    body: TokenIn,
+    person: CurrentPerson,
+    settings: Settings,
+    checks: Annotated[Mapping[str, Callable[[str], str]], Depends(deps.token_checks)],
 ) -> TrackerView:
     if body.source == "jira":
         settings.set_token(person.id, body.token, body.email)
         return _tracker(person.id, settings)
-    source = token_source(body.source)
-    # A token its tracker does not accept is not stored.
-    who = request.app.state.token_checks[source.id](body.token.get_secret_value().strip())
-    settings.set_source_token(person.id, source.id, body.token)
+    who = settings.connect_source_token(person.id, body.source, body.token, checks)
     return _tracker(person.id, settings).model_copy(update={"connected_as": who})
 
 

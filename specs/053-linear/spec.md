@@ -141,7 +141,7 @@ A person types `team = ENG AND cycle in openSprints() AND labels = bug` in the c
 - A link with a slug of another workspace: not found, with "This issue is in another Linear workspace", and no request.
 - A board of 300 Linear cards: three requests of 100 in one refresh.
 - A status timer on a Linear task works on the state names of the person's workspace.
-- A Jira that cannot be reached while a prefix is checked counts as "not Jira" for that key; the card visibly comes from Linear, and the check is not remembered.
+- A Jira that cannot be reached while a prefix is checked may still know it: when Linear knows the prefix, the dialog asks, and the check is not remembered.
 - A board from this version opened by an older tiko: "Unknown tracker" with the key, as spec 013 already does.
 
 ## Requirements *(mandatory)*

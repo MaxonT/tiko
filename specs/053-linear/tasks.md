@@ -16,13 +16,13 @@ description: "Task list for Linear"
 
 **Goal**: a new tracker is an adapter, a source description and a registry entry.
 
-- [ ] T001 [US0] `backend/tests/test_sources_matrix.py` on today's code: refs through `/api/tasks/resolve` and API v1 elements, `valid_key`, guest links, token stamps, usage names, the preview, the `/api/me/tracker` body, for every source. Green before any other change
-- [ ] T002 [US0] `domain/sources.py` with a description per tracker; `valid_key`, `token_stamps`, usage names, the preview and API v1 `_EXPLICIT` read it; `route_ref()` shared by `resolve_task` and API v1. Matrix unchanged
-- [ ] T003 [US0] Guest links from the source description in `domain/public.py`; the CalDAV card no longer gets a Jira link. Own commit, the matrix row changes on purpose
-- [ ] T004 [US0] `adapters/tasks/readers.py`: `PersonalReaders` and `NotConnected`; GitHub and CalDAV use them; `deps.providers()` loops over the sources wired in `main.py`. Matrix unchanged
-- [ ] T005 [US0] Settings: token methods by source; `/api/me/tracker` answers `tokens`. Own commit, the matrix row changes on purpose
-- [ ] T006 [P] [US0] Web: `registry.ts` carries key and link patterns, short key and token texts; `refs.ts` builds from it; `SourceTokenForm` replaces `GitHubTokenForm`; `api/settings.ts` reads `tokens`. Tests
-- [ ] T007 [US0] Guard test: a tracker name written in `api/` or `domain/` outside `sources.py` and an allowlist fails. `make check`, `make smoke` green; the dev stack looks and behaves as before
+- [x] T001 [US0] `backend/tests/test_sources_matrix.py` on today's code: refs through `/api/tasks/resolve` and API v1 elements, `valid_key`, guest links, token stamps, usage names, the preview, the `/api/me/tracker` body, for every source. Green before any other change
+- [x] T002 [US0] `domain/sources.py` with a description per tracker; `valid_key`, `token_stamps`, usage names, the preview and API v1 `_EXPLICIT` read it; `route_ref()` shared by `resolve_task` and API v1. Matrix unchanged
+- [x] T003 [US0] Guest links from the source description in `domain/public.py`; the CalDAV card no longer gets a Jira link. Own commit, the matrix row changes on purpose
+- [x] T004 [US0] `adapters/tasks/readers.py`: `PersonalReaders`; `NotConnected` in `domain/tasks.py`, since the domain `NoCalDav` builds on it; GitHub and CalDAV use them; `deps.providers()` loops over one tuple of builders. Matrix unchanged
+- [x] T005 [US0] Settings: token methods by source; `/api/me/tracker` answers `tokens`. Own commit, the matrix row changes on purpose
+- [x] T006 [P] [US0] Web: `registry.ts` carries key and link patterns, short key and token texts; `refs.ts` builds from it; `SourceTokenForm` replaces `GitHubTokenForm`; `api/settings.ts` reads `tokens`. Tests
+- [x] T007 [US0] Guard test: a tracker name written in `api/` or `domain/` outside `sources.py` and an allowlist fails. `make check`, `make smoke` green; the dev stack looks and behaves as before
 
 ## Phase 1: Slice `feat/linear` — a Linear issue is a live card (US1) 🎯
 

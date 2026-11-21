@@ -12,7 +12,7 @@ from app.domain.caldav import CalDavAccount, CalDavIn, CalDavSource, TaskList, n
 from app.domain.errors import CalDavRejected, Forbidden, TrackerUnavailable, ValidationFailed
 from app.domain.onboarding import Onboarding, OnboardingChange
 from app.domain.settings import JiraKind, SettingsService, TokenState
-from app.domain.sources import token_source
+from app.domain.sources import credential_kinds, token_source
 from app.domain.workspaces import current_workspace
 
 router = APIRouter(prefix="/me", tags=["me"])
@@ -93,7 +93,7 @@ def _tracker(person_id: str, settings: SettingsService) -> TrackerView:
 def get_tracker(person: CurrentPerson, settings: Settings) -> TrackerView:
     if person.demo_expires_at:
         # The instance's tracker is for people with an account; a visitor is not shown it.
-        none = dict.fromkeys(settings.token_states(person.id), "none")
+        none = dict.fromkeys(credential_kinds(), "none")
         return TrackerView(provider="demo", base_url=None, tokens=none)
     return _tracker(person.id, settings)
 

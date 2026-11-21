@@ -37,7 +37,7 @@ const GITHUB_REPO = '[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9._-]+'
 
 /** The trackers tiko reads tasks from, as the web app names and marks them. */
 const SOURCES: Record<string, Source> = {
-  jira: { name: 'Jira', mark: jiraMark, credential: 'token' },
+  jira: { name: 'Jira', mark: jiraMark },
   github: {
     name: 'GitHub',
     mark: githubMark,
@@ -46,7 +46,6 @@ const SOURCES: Record<string, Source> = {
     shortKey: (key) => key.slice(key.indexOf('/') + 1),
     keyPattern: { prefix: `${GITHUB_REPO}#`, number: '[1-9]\\d*' },
     linkPattern: `https?://(www\\.)?github\\.com/${GITHUB_REPO}/(issues|pull)/[1-9]\\d*([/?#]\\S*)?`,
-    credential: 'token',
     token: {
       label: 'GitHub token',
       intro:

@@ -17,7 +17,7 @@ router = APIRouter(
 
 
 class SearchIn(BaseModel):
-    source: Literal[tuple(SOURCES)]  # type: ignore[valid-type]
+    source: Literal[tuple(SOURCES)]
     # JQL for Jira; words of the title for CalDAV; quoted words for the demo tasks.
     query: str = Field(default="", max_length=2000)
     # CalDAV only: include done tasks.

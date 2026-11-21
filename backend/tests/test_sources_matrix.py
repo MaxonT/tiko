@@ -170,6 +170,11 @@ def test_a_guest_without_a_jira_url_gets_no_jira_link():
     assert {ref: t.url for ref, t in tasks.items()} == {"jira:DEV-1": "", "caldav:uid-1": ""}
 
 
+def test_a_guest_gets_no_link_for_a_tracker_this_version_does_not_know():
+    tasks, _ = guest_tasks(["newer:DEV-1"], {}, "https://jira.example.com")
+    assert tasks["newer:DEV-1"].url == ""
+
+
 def test_every_personal_credential_has_a_stamp():
     app = create_app(Settings(db_path=":memory:", tiko_secret_key="test-secret-key"))
     assert set(app.state.settings.token_stamps("nobody")) == {"jira", "github", "caldav"}

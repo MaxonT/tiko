@@ -7,14 +7,16 @@ providers. Nothing else in `api/` or `domain/` asks which tracker a key belongs 
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Literal
+from urllib.parse import urlparse
 
-from app.domain.errors import InvalidRef, ValidationFailed
+from app.domain.errors import DomainError, InvalidRef, ValidationFailed
 from app.domain.ports import SnapshotRepo, TaskProvider
 from app.domain.tasks import (
     CALDAV,
     GITHUB,
     GITHUB_KEY_RE,
     KEY_RE,
+    NotConnected,
     Task,
     github_key,
     github_url,
@@ -119,6 +121,17 @@ def token_source(source_id: str) -> Source:
     if found is None or found.token_url is None:
         raise ValidationFailed(f"source: {source_id} takes no token here")
     return found
+
+
+def jira_not_connected(base_url: str | None, reason: DomainError) -> NotConnected:
+    """Jira while the person has no usable token: cards keep their key and link to the site."""
+    return NotConnected(
+        "jira",
+        "Jira Data Center",
+        reason,
+        lambda key: _jira_link(key, base_url),
+        urlparse(base_url or "").hostname or "",
+    )
 
 
 def route_ref(ref: str, providers: dict[str, TaskProvider], default_source: str) -> tuple[str, str]:

@@ -174,7 +174,7 @@ def create(app: FastAPI) -> TikoMCP:
     def search_tasks(
         ctx: Context,
         source: Annotated[
-            Literal[tuple(s.id for s in SOURCES.values() if s.search)],  # type: ignore[valid-type]
+            Literal[tuple(s.id for s in SOURCES.values() if s.search)],
             Field(description="The tracker: jira takes JQL, caldav words of the title."),
         ],
         query: Annotated[str, Field(description="The search in that tracker's terms.")],

@@ -3,8 +3,10 @@ the description instead of naming the tracker."""
 
 import re
 from pathlib import Path
+from typing import get_args
 
 from app.domain.sources import SOURCES
+from app.domain.usage import Tracker
 
 APP = Path(__file__).parents[1] / "app"
 
@@ -41,3 +43,7 @@ def test_the_guard_sees_a_named_tracker():
     assert named('if body.source == "github":', "github")
     assert named("found[GITHUB] = provider", "github")
     assert not named("github_key(ref)", "github")
+
+
+def test_every_counted_tracker_has_a_name_the_collector_accepts():
+    assert {s.usage for s in SOURCES.values() if s.usage} <= set(get_args(Tracker))

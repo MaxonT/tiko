@@ -20,7 +20,6 @@ JiraKind = Literal["dc", "cloud"]
 DEFAULT_INTERVAL_S = 30
 # A kind guessed while the site was unreachable is asked again after this long.
 KIND_RETRY_S = 60
-# A person's GitHub token is stored for this address and is only ever sent there.
 
 
 def normalize_base_url(value: str) -> str:

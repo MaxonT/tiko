@@ -1,5 +1,4 @@
 from typing import Annotated
-from urllib.parse import urlparse
 
 from fastapi import Depends, Request
 
@@ -14,8 +13,8 @@ from app.domain.public import PublicLinks
 from app.domain.refresh import RefreshService
 from app.domain.sessions import Sessions
 from app.domain.settings import Provider, SettingsService
-from app.domain.sources import guest_link
-from app.domain.tasks import GITHUB, NotConnected
+from app.domain.sources import jira_not_connected
+from app.domain.tasks import GITHUB
 from app.domain.workspaces import Memberships
 
 
@@ -70,14 +69,7 @@ def providers(request: Request) -> dict[str, TaskProvider]:
         try:
             jira = request.app.state.jira(settings.jira_credentials(current_person(request).id))
         except JiraNotConfigured as exc:
-            base_url = settings.base_url()
-            jira = NotConnected(
-                "jira",
-                "Jira Data Center",
-                exc,
-                lambda key: guest_link("jira", key, base_url),
-                urlparse(base_url or "").hostname or "",
-            )
+            jira = jira_not_connected(settings.base_url(), exc)
         found[jira.source_id] = jira
     return found
 

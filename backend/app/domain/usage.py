@@ -19,7 +19,7 @@ PING_JITTER_S = 3600
 ACTIVE_DAYS = 7
 
 Bucket = Literal["0", "1", "2-5", "6-20", "21-100", "100+"]
-Tracker = Literal["demo", "jira_dc", "jira_cloud", "github"]
+Tracker = Literal["demo", "jira_dc", "jira_cloud", "github", "linear"]
 Deploy = Literal["installer", "compose", "railway", "render", "source", "demo"]
 HostOs = Literal["linux", "darwin", "windows", "other"]
 

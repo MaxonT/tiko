@@ -10,8 +10,9 @@ type TokenForm = {
   intro: string
   /** The hint while no token is stored. */
   none: string
-  /** A page that says which token to create. */
+  /** A page that says which token to create, and the link's text. */
   guide: string
+  guideLabel: string
 }
 
 type Source = {
@@ -29,11 +30,12 @@ type Source = {
   /** A link to one of its tasks, as a regular expression without anchors. */
   linkPattern?: string
   /** What a person connects to read it: an account, or a token of their own. */
-  credential?: 'account' | 'token'
+  credential?: 'account' | 'key'
   token?: TokenForm
 }
 
 const GITHUB_REPO = '[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9._-]+'
+const LINEAR_ID = '[A-Za-z][A-Za-z0-9_]*-[1-9]\\d*'
 
 /** The trackers tiko reads tasks from, as the web app names and marks them. */
 const SOURCES: Record<string, Source> = {
@@ -55,6 +57,7 @@ const SOURCES: Record<string, Source> = {
         'picked and read-only access to Issues and Pull requests.',
       none: 'No token yet. Public issues and pull requests work without one.',
       guide: 'https://docs.tiko.run/github-issues/#your-own-token',
+      guideLabel: 'Which token to create',
     },
   },
   caldav: {
@@ -62,6 +65,23 @@ const SOURCES: Record<string, Source> = {
     // By its list: a CalDAV id is long and means nothing to people.
     shortKey: (_key, listName) => listName || 'Task',
     credential: 'account',
+  },
+  linear: {
+    name: 'Linear',
+    credential: 'key',
+    // Without its workspace: `ENG-12`.
+    shortKey: (key) => key.slice(key.indexOf('/') + 1),
+    keyPattern: { prefix: '[a-z0-9][a-z0-9-]*/[A-Z][A-Z0-9_]*-', number: '[1-9]\\d*' },
+    linkPattern: `https?://linear\\.app/[A-Za-z0-9-]+/issue/${LINEAR_ID}([/?#]\\S*)?`,
+    token: {
+      label: 'Linear API key',
+      intro:
+        'With your own API key your Linear issues become live cards, read with what your key ' +
+        'can see in your workspace. Other people on a board see them only with a key of their own.',
+      none: 'No key yet. Linear cards show only their keys until you connect one.',
+      guide: 'https://docs.tiko.run/linear/#your-api-key',
+      guideLabel: 'How to create a key',
+    },
   },
   demo: { name: 'the demo tracker' },
 }
@@ -80,9 +100,9 @@ export function shortKey(source: string | undefined, key: string, listName?: str
   return found?.shortKey ? found.shortKey(key, listName) : key
 }
 
-/** What a person connects to read the tracker: an account for CalDAV, a token elsewhere. */
+/** What a person connects to read the tracker: an account for CalDAV, a key for Linear, a token elsewhere. */
 export function credentialName(id: string) {
-  return SOURCES[id]?.credential === 'account' ? 'account' : 'token'
+  return SOURCES[id]?.credential ?? 'token'
 }
 
 /** Whether this version knows the tracker; a board from a newer tiko may name one it does not. */

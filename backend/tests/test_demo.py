@@ -140,7 +140,7 @@ def test_a_visitor_works_on_the_demo_tasks_next_to_a_tracker(jira_app):
         "base_url": None,
         "kind": None,
         "email": None,
-        "tokens": {"jira": "none", "caldav": "none", "github": "none"},
+        "tokens": {"jira": "none", "caldav": "none", "github": "none", "linear": "none"},
         "connected_as": None,
     }
     assert JIRA_URL not in ann.get("/api/settings").text

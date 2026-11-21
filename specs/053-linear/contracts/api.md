@@ -31,7 +31,7 @@ A Linear task has the source `linear` and the key `<workspace slug>/<identifier>
 
 | Route | Change |
 |---|---|
-| `POST /api/tasks/resolve` | a `linear.app/<workspace>/issue/<ID>` link or a `linear:` ref is answered by the person's Linear source; without a key: `422` "Connect your Linear key in Settings → My tracker"; another workspace: `404 task_not_found` |
+| `POST /api/tasks/resolve` | a `linear.app/<workspace>/issue/<ID>` link or a typed `<workspace>/<ID>` is answered by the person's Linear source; without a key: `422` "Connect your Linear key in Settings → My tracker"; another workspace: `404 task_not_found` |
 | `POST /api/boards/{id}/refresh` | `sources` has a `linear` entry when the board has Linear tasks; errors `linear_rejected` (new, keeps the cards) and `tracker_rate_limited` with `retry_after` |
 | `GET /api/public/{token}`, its refresh | every Linear task is `private`, with its Linear link built from the key |
 | API v1 elements, MCP | refs take Linear links and `linear:<workspace>/<ID>` |

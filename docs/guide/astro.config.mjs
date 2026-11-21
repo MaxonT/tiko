@@ -132,7 +132,7 @@ export default defineConfig({
                     'focus-and-reminders',
                   ],
                 },
-                { label: 'Trackers', items: ['trackers', 'jira-data-center', 'jira-cloud', 'github-issues', 'caldav'] },
+                { label: 'Trackers', items: ['trackers', 'jira-data-center', 'jira-cloud', 'github-issues', 'linear', 'caldav'] },
                 { label: 'API', items: ['ai-agents', 'api', 'api-keys'] },
                 {
                   label: 'Self-hosting',

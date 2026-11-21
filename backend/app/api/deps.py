@@ -6,7 +6,7 @@ from fastapi import Depends, Request
 from app.domain.accounts import Accounts, Person
 from app.domain.api_keys import ApiKeys
 from app.domain.caldav import CalDavSource, NoCalDav
-from app.domain.errors import Forbidden, JiraNotConfigured
+from app.domain.errors import Forbidden, JiraNotConfigured, ValidationFailed
 from app.domain.invites import Invites
 from app.domain.members import BoardRole, Members
 from app.domain.ports import BoardRepo, DemoTasks, LiveBoards, SnapshotRepo, TaskProvider
@@ -14,8 +14,8 @@ from app.domain.public import PublicLinks
 from app.domain.refresh import RefreshService
 from app.domain.sessions import Sessions
 from app.domain.settings import Provider, SettingsService
-from app.domain.sources import jira_not_connected
-from app.domain.tasks import GITHUB
+from app.domain.sources import SOURCES, jira_not_connected
+from app.domain.tasks import GITHUB, LINEAR, NotConnected, linear_url
 from app.domain.workspaces import Memberships
 
 
@@ -62,9 +62,10 @@ def token_stamps(request: Request) -> dict[str, str | None]:
 
 
 def providers(request: Request) -> dict[str, TaskProvider]:
-    """Every tracker this request can read, by source id: the demo tasks, GitHub and CalDAV
-    always, and Jira with the signed-in person's own token when the instance is set to it."""
-    found = {p.source_id: p for p in (build(request) for build in (demo, _github, caldav_source))}
+    """Every tracker this request can read, by source id: the demo tasks, GitHub, CalDAV and
+    Linear always, and Jira with the signed-in person's own token when the instance is set to it."""
+    builders = (demo, _github, caldav_source, _linear)
+    found = {p.source_id: p for p in (build(request) for build in builders)}
     if tracker(request) == "jira":
         settings: SettingsService = request.app.state.settings
         try:
@@ -78,6 +79,21 @@ def providers(request: Request) -> dict[str, TaskProvider]:
 def token_checks(request: Request) -> Mapping[str, Callable[[str], str]]:
     """Who a token signs in as, asked of its tracker before the token is stored; by tracker."""
     return request.app.state.token_checks
+
+
+def _linear(request: Request) -> TaskProvider:
+    """Linear with the person's own key; without one, cards say how to connect it."""
+    state = request.app.state
+    person = current_person(request)
+    if not is_visitor(request) and (key := state.settings.source_token(person.id, LINEAR)):
+        return state.linear_readers.of(person.id, key.get_secret_value())
+    name = SOURCES[LINEAR].name
+    return NotConnected(
+        LINEAR,
+        name,
+        ValidationFailed(f"Connect your {name} key in Settings → My tracker."),
+        linear_url,
+    )
 
 
 def _github(request: Request) -> TaskProvider:

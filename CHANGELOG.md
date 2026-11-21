@@ -6,6 +6,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Added
 
+- Put your Linear issues on a board: paste an issue's link and it becomes a live card with its status, priority, labels, project and cycle, read with your own Linear API key. Teammates see a card only with a key of their own, and guests of a public link see just its identifier. See [Linear](https://docs.tiko.run/linear/).
 - Say what an arrow means, "blocks" or "waits for API", right on the arrow: double-click it and type. The label rides along when things move, slides along the arrow when two of them crowd one spot, stays level on any bend, and takes a fill and a size from the bar above it. Search finds labels, and your scripts and AI agent can read and write them on the arrows they draw. See [Arrow labels](https://docs.tiko.run/on-the-board/#arrow-labels).
 
 ### Changed

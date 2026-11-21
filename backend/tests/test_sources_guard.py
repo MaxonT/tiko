@@ -16,11 +16,11 @@ INSTANCE = {"jira", "demo"}
 # Where a tracker's name belongs, and why.
 ALLOWED = {
     "domain/sources.py": set(SOURCES) - INSTANCE,  # the descriptions
-    "domain/tasks.py": {"github", "caldav"},  # source ids and key shapes
+    "domain/tasks.py": {"github", "caldav", "linear"},  # source ids and key shapes
     "domain/caldav.py": {"caldav"},  # CalDAV's own module
     "domain/settings.py": {"caldav"},  # the CalDAV account, stored as one credential
-    "domain/usage.py": {"github"},  # the names the stats collector accepts
-    "api/deps.py": {"github"},  # the list that builds each request's providers
+    "domain/usage.py": {"github", "linear"},  # the names the stats collector accepts
+    "api/deps.py": {"github", "linear"},  # the list that builds each request's providers
 }
 
 

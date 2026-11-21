@@ -26,13 +26,13 @@ description: "Task list for Linear"
 
 ## Phase 1: Slice `feat/linear` — a Linear issue is a live card (US1) 🎯
 
-- [ ] T008 [US1] Live reads with a test workspace key (never committed): an old identifier after a team move in `issue(id:)` and `id: {in}`, the team key shape, the brand terms of the mark. Results into `plan.md`
-- [ ] T009 [US1] `adapters/tasks/linear.py`: `LinearApi` (own client without redirects, auth header, both limit headers, reserve, error mapping), mapping to `Task` (state types, priority, labels, rows, due date, sub-issue), `resolve`, stateless `poll` by identifiers in pages of 100 with `includeArchived`, the capped fallback for missing ones, `check` with name and workspace. Tests on recorded made-up answers and a fake clock (SC-003)
-- [ ] T010 [US1] The `linear` source description and wiring; the key masked in logs; the token leak test covers it (SC-005); guest refs `private` with their link; the byte test of spec 012 on a board with a Linear task; `linear` in usage stats. API tests with a fake Linear, two people
-- [ ] T011 [P] [US1] Web: registry entry with the mark, Linear links in paste only for a connected person, "Sub-issue"; the Linear key in My tracker with the link to Linear's Security & access page; `THIRD_PARTY.md`, `TRADEMARKS.md`. Tests
-- [ ] T012 [US1] `scripts/smoke.py`: a Linear link with no key answers "connect Linear"
-- [ ] T013 [US1] Check on the dev stack (`:3001`) with a test workspace, both themes: key, link, a state change, a sub-issue, labels and rows, a due date on the Gantt, an archived issue, a teammate without a key, a guest. `make check`, `make smoke` green
-- [ ] T014 [US1] Guide page "Linear", trackers table, `CHANGELOG.md`, `docs/brief.md`, README trackers line
+- [x] T008 [US1] Live reads with a test workspace key (never committed): viewer, issue by link, a board of four, another workspace; the brand terms of the mark (no explicit grant for integrations, files used unchanged). A team move was not tried: it needs a write to the workspace; the poll asks a missing identifier one by one, which covers it
+- [x] T009 [US1] `adapters/tasks/linear.py`: `LinearApi` (own client without redirects, auth header, both limit headers, reserve, error mapping), mapping to `Task` (state types, priority, labels, rows, due date, sub-issue), `resolve`, stateless `poll` by identifiers in pages of 100 with `includeArchived`, the capped fallback for missing ones, `check` with name and workspace. Tests on recorded made-up answers and a fake clock (SC-003)
+- [x] T010 [US1] The `linear` source description and wiring; the key masked in logs; the token leak test covers it (SC-005); guest refs `private` with their link; the byte test of spec 012 on a board with a Linear task; `linear` in usage stats. API tests with a fake Linear, two people
+- [x] T011 [P] [US1] Web: registry entry with the mark, Linear links in paste for everyone (without a key the card tool says to connect Linear), "Sub-issue"; the Linear key in My tracker with the link to Linear's Security & access page; `THIRD_PARTY.md`, `TRADEMARKS.md`. Tests
+- [x] T012 [US1] `scripts/smoke.py`: a Linear link with no key answers "connect Linear"
+- [x] T013 [US1] Check on the dev stack with a test workspace, both themes: key, link, a state change, a sub-issue, labels and rows, a due date on the Gantt, an archived issue, a teammate without a key, a guest. `make check`, `make smoke` green
+- [x] T014 [US1] Guide page "Linear", trackers table, `CHANGELOG.md`, `docs/brief.md`, README trackers line
 
 ## Phase 2: Slice `feat/linear-keys` — bare keys and the prefix dialog (US2)
 

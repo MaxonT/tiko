@@ -585,7 +585,7 @@ def test_my_github_token(team, private):
         "base_url": None,
         "kind": None,
         "email": None,
-        "tokens": {"jira": "none", "caldav": "none", "github": "set"},
+        "tokens": {"jira": "none", "caldav": "none", "github": "set", "linear": "none"},
         "connected_as": saved.json()["connected_as"],
     }
     assert saved.json()["connected_as"]

@@ -314,6 +314,8 @@ function StageBar({
     // Space would scroll or pan the canvas, Enter would select the node.
     event.preventDefault()
     event.stopPropagation()
+    // A held key repeats; only the first press toggles.
+    if (event.repeat) return
     onOpen(!open)
   }
 
@@ -357,7 +359,10 @@ function StageBar({
               {name}
               {!below && !crowded && named.length > 0 && <Names named={named} lead=" · " />}
             </span>
-            {!below && crowded && <PeopleButton named={named} stage={name} className="ml-auto" />}
+            {/* Inside the bar's button: pointer only, the stage popover lists the same people. */}
+            {!below && crowded && (
+              <PeopleButton named={named} stage={name} className="ml-auto" inBar />
+            )}
             {!box.clippedStart && (
               <span
                 aria-hidden
@@ -460,10 +465,12 @@ function PeopleButton({
   named,
   stage,
   className,
+  inBar,
 }: {
   named: Named[]
   stage: string
   className?: string
+  inBar?: boolean
 }) {
   // Not a press on the bar: no drag, no stage popover.
   const own = (event: PointerEvent) => event.stopPropagation()
@@ -473,6 +480,8 @@ function PeopleButton({
         <button
           type="button"
           aria-label={`${named.length} ${named.length === 1 ? 'person' : 'people'} on ${stage}`}
+          aria-hidden={inBar || undefined}
+          tabIndex={inBar ? -1 : undefined}
           onPointerDown={own}
           onPointerUp={own}
           className={cn(

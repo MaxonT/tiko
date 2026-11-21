@@ -416,14 +416,19 @@ def uses_db_service(api: dict, db: dict) -> bool:
     """Whether the api's DATABASE_URL points at the db container, the one the update can dump."""
     env = dict(e.partition("=")[::2] for e in api["Config"].get("Env") or [])
     try:
-        host = urlsplit(env.get("DATABASE_URL", "")).hostname
+        url = urlsplit(env.get("DATABASE_URL", ""))
+        host = url.hostname
     except ValueError:
+        return False
+    # The dump always takes DB_NAME, so another database on the same server is not covered.
+    if url.path.lstrip("/") != DB_NAME:
         return False
     names = {db.get("Name", "").lstrip("/")}
     for endpoint in (db.get("NetworkSettings") or {}).get("Networks", {}).values():
         names.update(endpoint.get("Aliases") or [])
         names.update(endpoint.get("DNSNames") or [])
-    return bool(host) and host in names
+    # urlsplit lowercases the host; Docker keeps names as written.
+    return bool(host) and host in {n.lower() for n in names}
 
 
 def remove_old_images(docker: Docker, job: Job, repos: list[str], keep: set[str]) -> None:

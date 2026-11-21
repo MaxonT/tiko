@@ -353,6 +353,7 @@ def test_no_update_without_a_db_service_to_back_up(install: Path):
     [
         "postgresql://tiko_owner:pw@db.example.com:5432/tiko",
         "postgresql://tiko_owner:pw@10.0.0.5/tiko",
+        "postgresql://tiko_owner:pw@db:5432/other",
         "",
     ],
 )
@@ -367,11 +368,19 @@ def test_no_update_when_the_api_uses_another_database(install: Path, url: str):
     assert not (install / "data" / "backups").exists()
 
 
-@pytest.mark.parametrize("host", ["db", "tiko-db-1"])
-def test_the_db_service_by_any_of_its_names_is_backed_up(install: Path, host: str):
+@pytest.mark.parametrize(
+    "url",
+    [
+        "postgresql://tiko_owner:pw@db:5432/tiko",
+        "postgresql://tiko_owner:pw@tiko-db-1:5432/tiko",
+        "postgres://tiko_owner:pw@DB/tiko",
+        "postgresql+psycopg://tiko_owner:p%40ss@db/tiko?sslmode=disable",
+    ],
+)
+def test_the_db_service_by_any_of_its_names_is_backed_up(install: Path, url: str):
     docker = FakeDocker(install)
     env = docker.olds["api"]["Config"]["Env"]
-    env[-1] = f"DATABASE_URL=postgresql://tiko_owner:pw@{host}:5432/tiko"
+    env[-1] = f"DATABASE_URL={url}"
     assert update(docker, install).snapshot()["state"] == "done"
     assert ("exec", "pg_dump") in docker.calls
 

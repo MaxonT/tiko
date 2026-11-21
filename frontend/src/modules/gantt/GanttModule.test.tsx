@@ -621,7 +621,8 @@ test('names that do not fit turn into a count that lists them', () => {
     renderGantt({}, staged(['p1', 'p2']), PEOPLE)
     const bar = screen.getByRole('button', { name: 'Build stage of Payment API' })
     expect(bar.textContent).toBe('Build2')
-    const count = within(bar).getByRole('button', { name: '2 people on Build' })
+    // Pointer only: the stage popover gives keyboard and screen readers the same list.
+    const count = within(bar).getByLabelText('2 people on Build')
     fireEvent.pointerDown(count, { pointerId: 1, button: 0 })
     fireEvent.pointerUp(count, { pointerId: 1 })
     fireEvent.click(count)

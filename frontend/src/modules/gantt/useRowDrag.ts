@@ -323,6 +323,10 @@ export function useRowDrag({
       }
       refresh(point)
     }
+    // A row someone else folded away or removed while it was pressed is not picked.
+    const click = (id: string, event: PointerEvent) => {
+      if (latest.current.visible.some((t) => t.row.id === id)) latest.current.onClick?.(id, event)
+    }
     const up = (event: PointerEvent) => {
       const d = drag.current
       if (!d || event.pointerId !== d.pointerId) return
@@ -331,13 +335,13 @@ export function useRowDrag({
         const picked = d.dragging ? (store.lasso ?? new Set<string>()) : d.base
         finish()
         store.setLasso(null, null)
-        if (!d.dragging && d.ids[0]) latest.current.onClick?.(d.ids[0], event)
+        if (!d.dragging && d.ids[0]) click(d.ids[0], event)
         else latest.current.onSelect?.(picked)
         return
       }
       if (!d.dragging) {
         finish()
-        latest.current.onClick?.(d.ids[0], event)
+        click(d.ids[0], event)
         return
       }
       update({ x: event.clientX, y: event.clientY })

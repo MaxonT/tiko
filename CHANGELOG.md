@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- Say what an arrow means, "blocks" or "waits for API", right on the arrow: double-click it and type. The label rides along when things move, slides along the arrow when two of them crowd one spot, stays level on any bend, and takes a fill and a size from the bar above it. Search finds labels, and your scripts and AI agent can read and write them on the arrows they draw. See [Arrow labels](https://docs.tiko.run/on-the-board/#arrow-labels).
+
 ### Fixed
 
 - With `DATABASE_URL` pointing at a Postgres server of your own, Update now in About no longer runs with a backup of the unused local database and a rollback that would restore it instead of yours. It stops before it touches anything, and About says to back up your server and update with the installer.

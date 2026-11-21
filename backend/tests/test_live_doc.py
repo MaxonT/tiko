@@ -61,7 +61,15 @@ EVERY_TYPE = board(
         },
         {"id": "free", "type": "anchor", "position": {"x": 9, "y": 9}, "data": {}},
     ],
-    [{"id": "e1", "source": "sticky", "target": "free", "sourceHandle": "right"}],
+    [
+        {
+            "id": "e1",
+            "source": "sticky",
+            "target": "free",
+            "sourceHandle": "right",
+            "data": {"label": {"text": "then", "at": 0.75, "size": "small"}},
+        }
+    ],
 )
 
 
@@ -173,6 +181,17 @@ def test_an_arrow_to_a_missing_node_disappears_with_its_anchor():
     good, kept, notes = fix(nodes, edges)
     assert set(good) == {"a"} and set(kept) == {"e2"}
     assert notes == ["edge_dropped", "anchor_dropped"]
+
+
+def test_an_arrow_with_a_broken_label_is_dropped_like_any_broken_arrow():
+    nodes = {"a": stored_node(sticky("a"), 0), "b": stored_node(sticky("b"), 1)}
+    label = {"source": "a", "target": "b"}
+    edges = {
+        "good": {**label, "data": {"label": {"text": "ok"}}},
+        "bad": {**label, "data": {"label": {"text": "x" * 501}}},
+    }
+    _, kept, notes = fix(nodes, edges)
+    assert set(kept) == {"good"} and notes == ["edge_dropped"]
 
 
 @pytest.mark.parametrize(

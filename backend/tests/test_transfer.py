@@ -114,7 +114,14 @@ def test_a_board_goes_round_trip_with_everything_it_holds(client):
                 {"file": shot["id"], "w": 600, "h": 400, "color": shot["color"]},
             ),
         ],
-        "edges": [{"id": "e", "source": "s", "target": "c"}],
+        "edges": [
+            {
+                "id": "e",
+                "source": "s",
+                "target": "c",
+                "data": {"label": {"text": "ships", "at": 0.3, "color": "green"}},
+            }
+        ],
         "viewport": {"x": 10, "y": 20, "zoom": 0.5},
     }
     client.put(f"/api/boards/{board_id}", json={"version": 2, "doc": doc})
@@ -147,6 +154,7 @@ def test_a_board_goes_round_trip_with_everything_it_holds(client):
     # The card names its tracker, so another instance does not take it for its own.
     assert nodes["c"]["data"]["source"] == "demo"
     assert copy["doc"]["viewport"] == {"x": 10, "y": 20, "zoom": 0.5}
+    assert copy["doc"]["edges"][0]["data"] == doc["edges"][0]["data"]
     assert copy["tasks"]["demo:DEMO-1"]["summary"]
     picture_url = f"/api/boards/{copy['id']}/files/{nodes['i']['data']['file']}"
     assert client.get(picture_url).status_code == 200

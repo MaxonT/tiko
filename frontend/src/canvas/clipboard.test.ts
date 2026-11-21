@@ -58,10 +58,11 @@ test('a clone gets new ids, keeps links between its parts and moves only top-lev
       card('a', 10, 20, { parentId: 'f' }),
       card('b', 600, 0, { selected: true }),
     ],
-    [{ id: 'e', source: 'a', target: 'b' }],
+    [{ id: 'e', source: 'a', target: 'b', data: { label: { text: 'then', at: 0.2 } } }],
     {},
   )!
   expect(snippetOrigin(snippet)).toEqual({ x: 100, y: 0 })
+  expect(snippet.edges[0].data).toEqual({ label: { text: 'then', at: 0.2 } })
 
   const copy = cloneSnippet(snippet, { x: 24, y: 24 })
   const [f, a, b] = copy.nodes
@@ -70,6 +71,7 @@ test('a clone gets new ids, keeps links between its parts and moves only top-lev
   expect(a).toMatchObject({ parentId: f.id, position: { x: 10, y: 20 }, selected: true })
   expect(copy.edges[0]).toMatchObject({ source: a.id, target: b.id })
   expect(copy.edges[0].id).not.toBe('e')
+  expect(copy.edges[0].data?.label?.text).toBe('then')
 })
 
 test('a copied module carries the live tasks of its rows', () => {

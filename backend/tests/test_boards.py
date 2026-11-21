@@ -181,3 +181,35 @@ def test_broken_reactions_are_refused(data):
     sticky = {"id": "s", "type": "sticky", "position": {"x": 0, "y": 0}, "data": data}
     with pytest.raises(ValidationError):
         doc([sticky])
+
+
+def arrow(**data):
+    edge = {"id": "e", "source": "a", "target": "b"}
+    return edge | ({"data": data} if data else {})
+
+
+def test_an_arrow_keeps_its_label_and_one_without_stores_nothing_new():
+    nodes = [card("a", "DEV-1"), card("b", "DEV-2")]
+    label = {"text": "waits for API", "at": 0.25, "color": "pink", "size": "large"}
+    dumped = doc(nodes, [arrow(label=label)]).model_dump(exclude_none=True)["edges"][0]
+    assert dumped["data"] == {"label": label}
+    plain = doc(nodes, [arrow()]).model_dump(exclude_none=True)["edges"][0]
+    assert plain == {"id": "e", "source": "a", "target": "b"}
+
+
+@pytest.mark.parametrize(
+    "label",
+    [
+        {"text": ""},
+        {"text": "   "},
+        {"text": "x" * 501},
+        {"text": "a", "at": 1.5},
+        {"text": "a", "at": -0.1},
+        {"text": "a", "color": "none"},
+        {"text": "a", "size": "huge"},
+        {"text": "a", "at": None},
+    ],
+)
+def test_a_broken_label_is_refused(label):
+    with pytest.raises(ValidationError):
+        doc([card("a", "DEV-1"), card("b", "DEV-2")], [arrow(label=label)])

@@ -11,7 +11,7 @@ from typing import Annotated, Any, Literal
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.domain import layout
-from app.domain.boards import CodeLanguage, Opacity, ShapeKind, TextSize
+from app.domain.boards import LABEL_MAX, CodeLanguage, Opacity, ShapeKind, TextSize
 from app.domain.errors import (
     Conflict,
     KeepsPeopleWork,
@@ -129,6 +129,8 @@ class NewElement(_Styled):
     ref: str | None = Field(default=None, max_length=500)
     from_: str | None = Field(default=None, alias="from", max_length=100)
     to: str | None = Field(default=None, max_length=100)
+    # An arrow's words; empty or left out for none.
+    label: str | None = Field(default=None, max_length=LABEL_MAX)
     # A reminder: at a moment, or when the task of the card it sits on leaves `status`.
     note: str | None = Field(default=None, max_length=500)
     at: AwareDatetime | None = None
@@ -154,6 +156,8 @@ class NewElement(_Styled):
                 raise ValueError("give at, or a task or card whose status to watch")
         if (self.x is None) != (self.y is None):
             raise ValueError("give x and y together, or neither")
+        if self.kind != "arrow" and self.label is not None:
+            raise ValueError("only an arrow takes label")
         if self.kind == "arrow":
             if not (self.from_ and self.to):
                 raise ValueError("an arrow joins two elements: give from and to")
@@ -195,12 +199,14 @@ class Change(_Styled):
     title: str | None = Field(default=None, max_length=200)
     color: str | None = Field(default=None, max_length=20)
     shape: ShapeKind | None = None
+    # An arrow's words; empty takes the label away.
+    label: str | None = Field(default=None, max_length=LABEL_MAX)
 
     @model_validator(mode="after")
     def _together(self) -> "Change":
         if (self.x is None) != (self.y is None):
             raise ValueError("give x and y together, or neither")
-        for name in ("x", "y", "w", "h", "note", "at", *_STYLE_FIELDS, *_CODE):
+        for name in ("x", "y", "w", "h", "note", "at", "label", *_STYLE_FIELDS, *_CODE):
             if name in self.model_fields_set and getattr(self, name) is None:
                 raise ValueError(f"{name} cannot be null; leave it out to keep it")
         return self
@@ -370,7 +376,10 @@ class _Plan:
             node = self.nodes.get(end or "")
             if node is None or node["type"] == "anchor":
                 raise NotFound(f"element {end} not found")
-        self.edges[element.id] = {"source": element.from_, "target": element.to}
+        edge: dict[str, Any] = {"source": element.from_, "target": element.to}
+        if element.label and element.label.strip():
+            edge["data"] = {"label": {"text": element.label}}
+        self.edges[element.id] = edge
         self.changed[1].add(element.id)
 
     def _data(self, element: NewElement) -> dict[str, Any]:
@@ -459,15 +468,37 @@ class _Plan:
         for change in self.batch.changes:
             given = change.model_fields_set
             if change.id in self.edges:
-                raise ValidationFailed(f"{change.id} is an arrow: remove it and draw another.")
+                self._relabel(change, given)
+                continue
             node = self.nodes.get(change.id)
             if node is None or node["type"] == "anchor":
                 raise NotFound(f"element {change.id} not found")
+            if "label" in given:
+                raise ValidationFailed(f"{change.id}: only an arrow takes label")
             node = self._restyle(change, node, given)
             node = self._retime(change, node, given)
             node = self._resize(change, node, given)
             self._put(change.id, self._move(change, node, given))
             self.applied.ids.append(change.id)
+
+    def _relabel(self, change: Change, given: set[str]) -> None:
+        if given != {"id", "label"}:
+            raise ValidationFailed(
+                f"{change.id} is an arrow: only its label changes; remove it and draw another."
+            )
+        # The words are the person's, as a note's text is.
+        self._own(change.id, "change")
+        edge = dict(self.edges[change.id])
+        data = dict(edge.pop("data", None) or {})
+        text = change.label or ""
+        if text.strip():
+            # A new text keeps where the label sits and how it looks.
+            data["label"] = {**data.get("label", {}), "text": text}
+        else:
+            data.pop("label", None)
+        self.edges[change.id] = edge | ({"data": data} if data else {})
+        self.changed[1].add(change.id)
+        self.applied.ids.append(change.id)
 
     def _restyle(self, change: Change, node: dict[str, Any], given: set[str]) -> dict[str, Any]:
         words = given & {"text", "title", "shape"}

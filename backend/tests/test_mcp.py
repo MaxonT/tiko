@@ -209,7 +209,8 @@ def test_a_write_key_lays_a_board_out(served):
             "add_notes", {"board": board_id, "notes": [{"text": "Check with QA", "id": "agent-n"}]}
         )
         arrow = await client.call_tool(
-            "connect", {"board": board_id, "start": "agent-n", "end": "agent-c"}
+            "connect",
+            {"board": board_id, "start": "agent-n", "end": "agent-c", "label": "blocks"},
         )
         laid = await client.call_tool(
             "arrange", {"board": board_id, "cards": ["agent-c"], "frame": frame_id}

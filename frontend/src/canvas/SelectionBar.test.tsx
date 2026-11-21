@@ -2,8 +2,8 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import { ReactFlow, ReactFlowProvider } from '@xyflow/react'
 import type { ReactNode } from 'react'
 import { beforeAll, expect, test, vi } from 'vitest'
-import { placeBar, SelectionBar } from '@/canvas/SelectionBar'
-import type { AppNode } from '@/canvas/types'
+import { ArrowBar, placeBar, SelectionBar } from '@/canvas/SelectionBar'
+import type { AppEdge, AppNode } from '@/canvas/types'
 
 beforeAll(() => {
   // xyflow measures nodes; jsdom has no layout.
@@ -235,4 +235,59 @@ test('only panels over the bar push it down', () => {
   // A bar on the right side spans neither the timer nor the menu.
   const place = placeBar(selection(900, 70, 1100, 300), bar, [timer, menu])
   expect(place).toEqual({ left: 992, top: 18, above: true })
+})
+
+function renderArrowBar(edges: AppEdge[], addLabel = false) {
+  const on = {
+    onStyle: vi.fn(),
+    onPreview: vi.fn(),
+    onDelete: vi.fn(),
+    onAddLabel: addLabel ? vi.fn() : undefined,
+  }
+  const ends = [sticky('a', 'yellow'), { ...sticky('b', 'blue'), position: { x: 300, y: 0 } }]
+  render(
+    <ReactFlowProvider>
+      <div style={{ width: 800, height: 600 }}>
+        <ReactFlow nodes={ends.map((n) => ({ ...n, selected: false }))} />
+        <ArrowBar edges={edges} {...on} />
+      </div>
+    </ReactFlowProvider>,
+  )
+  return on
+}
+
+const arrow = (id: string, label?: AppEdge['data']): AppEdge => ({
+  id,
+  source: 'a',
+  target: 'b',
+  selected: true,
+  data: label,
+})
+
+test('an arrow without a label offers to add one and nothing to style', () => {
+  const on = renderArrowBar([arrow('e')], true)
+  expect(screen.getByRole('toolbar').textContent).toContain('Arrow')
+  expect(screen.queryByRole('button', { name: 'Fill' })).toBeNull()
+  fireEvent.click(button('Add label'))
+  fireEvent.click(button('Delete'))
+  expect(on.onAddLabel).toHaveBeenCalled()
+  expect(on.onDelete).toHaveBeenCalled()
+})
+
+test('labelled arrows take a fill and a text size, previewed on hover', () => {
+  const on = renderArrowBar([
+    arrow('e', { label: { text: 'a', color: 'pink' } }),
+    arrow('f', { label: { text: 'b', size: 'large' } }),
+  ])
+  expect(screen.getByRole('toolbar').textContent).toContain('2 arrows')
+  expect(screen.queryByRole('button', { name: 'Add label' })).toBeNull()
+  fireEvent.click(button('Fill'))
+  expect(button('pink fill').getAttribute('aria-pressed')).toBe('false')
+  fireEvent.pointerEnter(button('green fill'))
+  expect(on.onPreview).toHaveBeenLastCalledWith({ color: 'green' })
+  fireEvent.click(button('no fill'))
+  expect(on.onStyle).toHaveBeenCalledWith({ color: 'none' })
+  fireEvent.click(button('Text size'))
+  fireEvent.click(button('Small'))
+  expect(on.onStyle).toHaveBeenLastCalledWith({ size: 'small' })
 })

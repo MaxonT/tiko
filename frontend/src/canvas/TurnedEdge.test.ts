@@ -1,6 +1,6 @@
 import { getBezierPath, Position } from '@xyflow/react'
 import { expect, test } from 'vitest'
-import { facingSides, localSide, turnedBezier, turnedEnd } from '@/canvas/TurnedEdge'
+import { facingSides, localSide, turnedBezier, turnedBox, turnedEnd } from '@/canvas/TurnedEdge'
 
 const numbers = (path: string) => path.match(/-?\d+(\.\d+)?/g)!.map(Number)
 
@@ -62,4 +62,18 @@ test('a turned element joins with the side that now faces the other one', () => 
   const end = turnedEnd(box, localSide(Position.Right, 180), 180)
   expect(end.x).toBeCloseTo(100)
   expect(end.y).toBeCloseTo(50)
+})
+
+test('a turned element keeps labels off all it covers, its corners included', () => {
+  const node = (rotation: number) =>
+    ({
+      internals: { positionAbsolute: { x: 0, y: 0 } },
+      measured: { width: 100, height: 100 },
+      data: { rotation },
+    }) as unknown as Parameters<typeof turnedBox>[0]
+  expect(turnedBox(node(0))).toEqual({ x: 0, y: 0, width: 100, height: 100 })
+  const turned = turnedBox(node(45))!
+  expect(turned.width).toBeCloseTo(141.42, 1)
+  expect(turned.x).toBeCloseTo(-20.71, 1)
+  expect(turnedBox(undefined)).toBeNull()
 })

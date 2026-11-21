@@ -26,7 +26,7 @@ On Home, press **Import** next to **New board** and pick the file, or drop a `.t
 
 | On the board | After the import |
 |---|---|
-| Stickies, shapes, text, code, frames, arrows, styles, rotation | As they were |
+| Stickies, shapes, text, code, frames, arrows and their labels, styles, rotation | As they were. A tiko from before arrow labels takes the arrows without their labels |
 | Pictures and GIFs | Stored on this tiko with their full quality |
 | Stickers | As they were |
 | Gantts | With their rows, stages, milestones and links |

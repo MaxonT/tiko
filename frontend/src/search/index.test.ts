@@ -86,6 +86,18 @@ test('indexes every text with where it lives', () => {
   ])
 })
 
+test('arrow labels are found and lead to their arrow', () => {
+  const index = buildIndex(nodes, tasks, [
+    { id: 'e1', source: 's', target: 'c', data: { label: { text: 'waits for deploy' } } },
+    { id: 'e2', source: 's', target: 'a' },
+  ])
+  const arrows = index.filter((e) => e.kind === 'arrow')
+  expect(arrows.map((e) => [e.id, e.text, e.context, e.target])).toEqual([
+    ['e1', 'waits for deploy', 'Arrow', 'e1'],
+  ])
+  expect(search(index, words('deploy')).entries.map((e) => e.id)).toEqual(['s', 't', 'e1'])
+})
+
 test('cards are found by status, assignee, type and priority', () => {
   const index = buildIndex(nodes, tasks)
   const ids = (q: string) => search(index, words(q)).entries.map((e) => e.id)

@@ -25,7 +25,7 @@ With any key, the agent can:
 
 With a key that can also write, it can:
 
-- **Make and rename boards**, add cards, notes and frames, and draw arrows.
+- **Make and rename boards**, add cards, notes and frames, and draw arrows with words on them.
 - **Put code next to the plan:** "add the config you changed next to DEMO-7, mark the line with the port". The block comes colored in its language, with the lines that matter marked.
 - **Lay cards out** in rows or a column per status: "put the open tasks of the release on a new board, by status".
 - **Tidy what is there:** colours, bold, text size, opacity, rotation: "make the headings bold and colour the blocked frame pink".

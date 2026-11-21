@@ -42,7 +42,12 @@ DOC = {
     ],
     "edges": [
         {"id": "e1", "source": "n1", "target": "c1"},
-        {"id": "e2", "source": "c1", "target": "a1"},
+        {
+            "id": "e2",
+            "source": "c1",
+            "target": "a1",
+            "data": {"label": {"text": "then", "at": 0.3, "color": "pink"}},
+        },
     ],
 }
 
@@ -103,8 +108,15 @@ def test_elements_come_in_the_public_shape(app, admin):
     card = by_id["c1"]
     assert (card["kind"], card["source"], card["key"]) == ("card", "demo", "DEMO-1")
     assert card["task"]["title"] and card["task"]["fetched_at"]
-    assert by_id["e1"] == {"id": "e1", "kind": "arrow", "from": "n1", "to": "c1", "editable": False}
-    assert by_id["e2"]["to"] is None
+    assert by_id["e1"] == {
+        "id": "e1",
+        "kind": "arrow",
+        "from": "n1",
+        "to": "c1",
+        "label": "",
+        "editable": False,
+    }
+    assert (by_id["e2"]["to"], by_id["e2"]["label"]) == (None, "then")
 
 
 def test_one_frame_comes_with_its_arrows(app, admin):

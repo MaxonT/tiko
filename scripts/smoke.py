@@ -185,6 +185,7 @@ try:
                 "target": "b",
                 "sourceHandle": "l",
                 "targetHandle": "r",
+                "data": {"label": {"text": "waits for", "at": 0.3, "color": "blue", "size": "large"}},
             }
         ],
         "viewport": {"x": 0, "y": 0, "zoom": 1},
@@ -196,7 +197,7 @@ try:
 
     status, body = call("GET", f"{API}/api/boards/{board['id']}")
     check(
-        body["doc"] == doc, "board with styled frame, sticky, text, shape, code and arrow reopens unchanged"
+        body["doc"] == doc, "board with styled frame, sticky, text, shape, code and labelled arrow reopens unchanged"
     )
     check(
         set(body["tasks"]) == {"demo:DEMO-1", "demo:DEMO-2"},

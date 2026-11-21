@@ -33,8 +33,7 @@ function renderLabel(mixed: boolean, readOnly = false) {
             onIndent={noop}
             onOutdent={noop}
             onAddChild={noop}
-            onMove={noop}
-            onEject={noop}
+            onPress={noop}
           />
         </BoardSourcesContext.Provider>
       </ReadOnlyContext.Provider>

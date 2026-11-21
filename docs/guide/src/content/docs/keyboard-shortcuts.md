@@ -46,6 +46,7 @@ Press `?` in the app to see this list. `⌘` is `Ctrl` on Windows and Linux.
 | `⌘D` | Duplicate |
 | `Alt` + drag | Drag a copy, the original stays |
 | `⌘A` | Select all |
+| `Enter` | Label the selected arrow |
 | `Delete`, `Backspace` | Delete selection |
 | `Shift` + click | Add to selection |
 

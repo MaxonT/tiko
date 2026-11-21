@@ -50,7 +50,7 @@ FIELDS: dict[str, tuple[str, ...]] = {
         "dash",
     ),
     "frame": ("id", "kind", "x", "y", "w", "h", "editable", "title", "color", "opacity"),
-    "arrow": ("id", "kind", "editable", "from", "to"),
+    "arrow": ("id", "kind", "editable", "from", "to", "label"),
     "image": (*_PLACED,),
     "module": (*_PLACED, "module", "title"),
     "timer": (
@@ -115,6 +115,8 @@ class Element(BaseModel):
     task: TaskOut | None = None
     from_: str | None = Field(default=None, alias="from")
     to: str | None = None
+    # An arrow's words; empty for none.
+    label: str | None = None
     note: str | None = None
     due_at: str | None = None
     repeat: str | None = None
@@ -307,6 +309,7 @@ class BoardShape:
             kind="arrow",
             from_=self._end(edge.source),
             to=self._end(edge.target),
+            label=edge.data.label.text if edge.data and edge.data.label else "",
             editable=edge.id in self._editable,
         )
 

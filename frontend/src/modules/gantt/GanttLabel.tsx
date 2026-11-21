@@ -11,23 +11,18 @@ import {
   X,
   type LucideIcon,
 } from 'lucide-react'
-import { useContext, useRef, useState, type PointerEvent } from 'react'
+import { useContext, useState, type PointerEvent } from 'react'
 import type { Task } from '@/api/tasks'
 import { Checkbox } from '@/components/ui/checkbox'
 import { TypeIcon } from '@/canvas/nodes/TaskBits'
 import type { Row } from '@/modules/gantt/rows'
-import { useZoom } from '@/modules/expanded'
+import { INDENT } from '@/modules/gantt/drag'
 import { cn } from '@/lib/utils'
 import { BoardSourcesContext } from '@/sources/board-sources'
 import { credentialName, shortKey, sourceName } from '@/sources/registry'
 import { BoardSourceMark } from '@/sources/SourceMark'
 import { useTaskLinkProps } from '@/lib/task-links'
 import { useReadOnly } from '@/canvas/readonly'
-
-// A press that moves further than this starts a row drag.
-const DRAG_SLOP = 4
-// One tree level, in label pixels and in drag distance.
-export const INDENT = 16
 
 type Props = {
   row: Row
@@ -45,10 +40,10 @@ type Props = {
   onIndent: () => void
   onOutdent: () => void
   onAddChild: () => void
-  /** Dropped inside the module: how many rows down and levels right it moved. */
-  onMove: (rows: number, levels: number) => void
-  /** Dropped outside the module, at this screen point. */
-  onEject: (screen: { x: number; y: number }) => void
+  /** A press on the row, which may become a drag; the Gantt tracks the pointer from here. */
+  onPress: (event: PointerEvent) => void
+  /** A press on the row's blank space, which starts a lasso. */
+  onLasso?: (event: PointerEvent) => void
   /** Whether the bar follows the tracker's dates; undefined for a row that cannot. */
   follow?: boolean
   onFollow?: (follow: boolean) => void
@@ -75,53 +70,29 @@ export function GanttLabel({
   onIndent,
   onOutdent,
   onAddChild,
-  onMove,
-  onEject,
+  onPress,
+  onLasso,
   follow,
   onFollow,
   done: leafDone = false,
   onDone,
   progress,
 }: Props) {
-  const getZoom = useZoom()
   const readOnly = useReadOnly()
   const linkProps = useTaskLinkProps()
   const { mixed } = useContext(BoardSourcesContext)
-  const [offset, setOffset] = useState<{ x: number; y: number } | null>(null)
   const [editing, setEditing] = useState(Boolean(fresh))
-  const press = useRef<{ x: number; y: number; zoom: number } | null>(null)
 
   const down = (event: PointerEvent) => {
     if ((event.target as Element).closest('a, button, input')) return
     event.currentTarget.setPointerCapture(event.pointerId)
-    press.current = { x: event.clientX, y: event.clientY, zoom: getZoom() }
-  }
-  const move = (event: PointerEvent) => {
-    const start = press.current
-    if (!start) return
-    const dx = event.clientX - start.x
-    const dy = event.clientY - start.y
-    if (offset === null && Math.hypot(dx, dy) < DRAG_SLOP) return
-    setOffset({ x: dx / start.zoom, y: dy / start.zoom })
-  }
-  const up = (event: PointerEvent) => {
-    const start = press.current
-    press.current = null
-    if (!start || offset === null) return
-    setOffset(null)
-    const target = event.currentTarget as Element
-    const expandedView = target.closest('[data-module-expanded]')
-    const box = (expandedView ?? target.closest('.react-flow__node'))?.getBoundingClientRect()
-    const inside =
-      box &&
-      event.clientX >= box.left &&
-      event.clientX <= box.right &&
-      event.clientY >= box.top &&
-      event.clientY <= box.bottom
-    // The board is out of reach behind an expanded module, so a row is not ejected from there.
-    if (!inside && expandedView) return
-    if (!inside) return onEject({ x: event.clientX, y: event.clientY })
-    onMove(Math.round(offset.y / height), Math.round(offset.x / INDENT))
+    // The row's own background, past its title, in its indent or between its hover buttons, is
+    // blank space for a lasso.
+    const blank =
+      event.target === event.currentTarget ||
+      (event.target as Element).hasAttribute('data-row-actions')
+    if (onLasso && blank) onLasso(event)
+    else onPress(event)
   }
 
   const done = task?.status_category === 'done'
@@ -129,25 +100,12 @@ export function GanttLabel({
   return (
     <div
       onPointerDown={down}
-      onPointerMove={move}
-      onPointerUp={up}
-      onPointerCancel={() => {
-        press.current = null
-        setOffset(null)
-      }}
       // The press captures the pointer, so the double-click lands here and not on the title.
       onDoubleClick={(event) => {
         if (!row.key && !(event.target as Element).closest('a, button, input')) setEditing(true)
       }}
-      className={cn(
-        'group/label flex cursor-grab items-center gap-1 border-b border-border/60 pr-1 select-none',
-        offset !== null && 'bg-card relative z-10 cursor-grabbing shadow-md',
-      )}
-      style={{
-        height,
-        paddingLeft: 4 + depth * INDENT,
-        transform: offset !== null ? `translate(${offset.x}px, ${offset.y}px)` : undefined,
-      }}
+      className="group/label flex items-center gap-1 border-b border-border/60 pr-1 select-none [&>:not(button)]:cursor-grab"
+      style={{ height, paddingLeft: 4 + depth * INDENT }}
     >
       {/* The mark takes the grip's place until hover, so the title keeps its room. */}
       {mixed && row.key && (
@@ -281,7 +239,10 @@ export function GanttLabel({
           {progress.done}/{progress.total}
         </span>
       )}
-      <span className="bg-panel ml-auto hidden shrink-0 items-center group-hover/label:flex">
+      <span
+        data-row-actions
+        className="bg-panel ml-auto hidden shrink-0 items-center group-hover/label:flex"
+      >
         {url && <RowAction label={`Open ${name} in the tracker`} Icon={ExternalLink} href={url} />}
         {follow !== undefined && onFollow && (
           <RowAction

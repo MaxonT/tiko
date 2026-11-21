@@ -17,6 +17,7 @@ import {
   Frame,
   Image as ImageIcon,
   LayoutTemplate,
+  MoveRight,
   Maximize2,
   Minimize2,
   PenLine,
@@ -47,7 +48,14 @@ import {
   type Style,
 } from '@/canvas/selection-props'
 import type { Alignment, Distribution } from '@/canvas/align'
-import { STROKES, TEXT_SIZES, type AppNode, type Turned } from '@/canvas/types'
+import {
+  SHAPE_COLORS,
+  STROKES,
+  TEXT_SIZES,
+  type AppEdge,
+  type AppNode,
+  type Turned,
+} from '@/canvas/types'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Slider } from '@/components/ui/slider'
@@ -145,6 +153,52 @@ export function placeBar(box: Box, size: { width: number; height: number }, over
   return { left, top, above }
 }
 
+/** Where a bar for the elements goes, measured from its own size and the panels at the top. */
+function useBarLayout(ids: string[]) {
+  const box = useScreenBox(ids)
+  // A marquee in progress changes the selection under the bar.
+  const selecting = useStore((s) => s.userSelectionActive)
+  const bar = useRef<HTMLDivElement>(null)
+  const [size, setSize] = useState({ width: 0, height: 40 })
+  const [overlays, setOverlays] = useState<Overlay[]>([])
+  const overlaysChanged = useTopOverlays()
+
+  // A selection scrolled out of sight takes its bar along.
+  const laidOut = !!box && box.width > 0 && box.height > 0
+  const offscreen =
+    !!box &&
+    laidOut &&
+    (box.right < 0 || box.bottom < 0 || box.left > box.width || box.top > box.height)
+  // The bar element exists only while this is true: measuring follows it back on screen.
+  const mounted = box !== null && !selecting && !offscreen
+  // Its own size places it: the bar grows and shrinks with what the selection shares.
+  useLayoutEffect(() => {
+    const el = bar.current
+    if (!el) return
+    const measure = () =>
+      setSize((was) =>
+        was.width === el.offsetWidth && was.height === el.offsetHeight
+          ? was
+          : { width: el.offsetWidth, height: el.offsetHeight },
+      )
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [mounted])
+  // A resized window moves the top panels; the canvas size follows it.
+  const canvasSize = box && `${box.width} ${box.height}`
+  useLayoutEffect(() => {
+    const origin = bar.current?.offsetParent
+    if (!origin) return
+    const next = topOverlayRects(origin)
+    setOverlays((was) => (JSON.stringify(was) === JSON.stringify(next) ? was : next))
+  }, [mounted, overlaysChanged, canvasSize])
+
+  if (!mounted) return { shown: false as const }
+  return { shown: true as const, bar, box, laidOut, ...placeBar(box, size, overlays) }
+}
+
 const swatch = (fill: Fill) => ({ background: fill === 'none' ? NO_FILL : fillCss(fill) })
 const Divider = () => <span aria-hidden className="bg-border mx-0.5 h-5 w-px" />
 
@@ -196,48 +250,12 @@ export function SelectionBar({
   savedStickers,
   controls,
 }: Props) {
-  const box = useScreenBox(nodes.map((n) => n.id))
-  // A marquee in progress changes the selection under the bar.
-  const selecting = useStore((s) => s.userSelectionActive)
-  const bar = useRef<HTMLDivElement>(null)
-  const [size, setSize] = useState({ width: 0, height: 40 })
+  const layout = useBarLayout(nodes.map((n) => n.id))
   const [open, setOpen] = useState<Menu | null>(null)
-  const [overlays, setOverlays] = useState<Overlay[]>([])
-  const overlaysChanged = useTopOverlays()
-
-  const mounted = box !== null && !selecting
-  // Its own size places it: the bar grows and shrinks with what the selection shares.
-  useLayoutEffect(() => {
-    const el = bar.current
-    if (!el) return
-    const measure = () =>
-      setSize((was) =>
-        was.width === el.offsetWidth && was.height === el.offsetHeight
-          ? was
-          : { width: el.offsetWidth, height: el.offsetHeight },
-      )
-    measure()
-    const observer = new ResizeObserver(measure)
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [mounted])
-  // A resized window moves the top panels; the canvas size follows it.
-  const canvasSize = box && `${box.width} ${box.height}`
-  useLayoutEffect(() => {
-    const origin = bar.current?.offsetParent
-    if (!origin) return
-    const next = topOverlayRects(origin)
-    setOverlays((was) => (JSON.stringify(was) === JSON.stringify(next) ? was : next))
-  }, [mounted, overlaysChanged, canvasSize])
   useEffect(() => () => onPreview(null), [onPreview])
 
-  if (!mounted) return null
-  // A selection scrolled out of sight takes its bar along.
-  const laidOut = box.width > 0 && box.height > 0
-  if (laidOut && (box.right < 0 || box.bottom < 0 || box.left > box.width || box.top > box.height))
-    return null
-
-  const { left, top, above } = placeBar(box, size, overlays)
+  if (!layout.shown) return null
+  const { bar, box, laidOut, left, top, above } = layout
 
   const kinds = kindCounts(nodes)
   const choices = fillChoices(nodes)
@@ -575,6 +593,149 @@ export function SelectionBar({
 }
 
 const SIZE_NAMES = { small: 'Small', medium: 'Medium', large: 'Large' } as const
+
+type ArrowBarProps = {
+  /** The selected arrows; the bar shows for arrows selected on their own. */
+  edges: AppEdge[]
+  onStyle: (style: Pick<Style, 'color' | 'size'>) => void
+  onPreview: (style: Pick<Style, 'color' | 'size'> | null) => void
+  /** Set when one arrow without a label is selected. */
+  onAddLabel?: () => void
+  onDelete: () => void
+}
+
+/** The bar for arrows: the look of their labels, when every one has a label. */
+export function ArrowBar({ edges, onStyle, onPreview, onAddLabel, onDelete }: ArrowBarProps) {
+  const ends = [...new Set(edges.flatMap((e) => [e.source, e.target]))]
+  const layout = useBarLayout(ends)
+  const [open, setOpen] = useState<Menu | null>(null)
+  useEffect(() => () => onPreview(null), [onPreview])
+
+  if (!layout.shown) return null
+  const { bar, box, laidOut, left, top, above } = layout
+  const labels = edges.map((e) => e.data?.label)
+  const labelled = labels.every(Boolean)
+  const fills = SHAPE_COLORS.filter((fill) =>
+    labels.some((label) => (label?.color ?? 'none') === fill),
+  )
+  const sizes = [...new Set(labels.map((label) => label?.size ?? 'medium'))]
+  const pick = (style: Pick<Style, 'color' | 'size'>) => {
+    onPreview(null)
+    onStyle(style)
+  }
+  const popover = (name: Menu) => ({
+    open: open === name,
+    onOpenChange: (next: boolean) => {
+      setOpen(next ? name : null)
+      if (!next) onPreview(null)
+    },
+  })
+  const side = above ? 'top' : 'bottom'
+
+  return (
+    <div
+      ref={bar}
+      role="toolbar"
+      aria-label="Selection"
+      className="bg-card absolute z-10 flex w-max -translate-x-1/2 flex-wrap items-center justify-center gap-0.5 rounded-lg border p-1 shadow-md"
+      style={{ left, top, maxWidth: laidOut ? box.width - 2 * EDGE : undefined }}
+    >
+      <span className="text-muted-foreground flex items-center gap-1.5 px-2 text-xs whitespace-nowrap">
+        <MoveRight className="size-4" strokeWidth={1.75} />
+        {edges.length === 1 ? 'Arrow' : `${edges.length} arrows`}
+      </span>
+      {labelled && (
+        <>
+          <Divider />
+          <Popover {...popover('fill')}>
+            <PopoverTrigger asChild>
+              <Button
+                variant={open === 'fill' ? 'secondary' : 'ghost'}
+                size="icon"
+                aria-label="Fill"
+                title="Fill"
+              >
+                <span className="flex">
+                  {fills.slice(0, 3).map((fill) => (
+                    <span
+                      key={fill}
+                      className="-ml-2 size-4 rounded-full border first:ml-0"
+                      style={swatch(fill)}
+                    />
+                  ))}
+                </span>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent
+              side={side}
+              sideOffset={8}
+              className="w-auto flex-row gap-1 p-1.5"
+              onPointerLeave={() => onPreview(null)}
+            >
+              {SHAPE_COLORS.map((fill) => (
+                <button
+                  key={fill}
+                  type="button"
+                  aria-label={fillLabel(fill)}
+                  title={fillLabel(fill)}
+                  aria-pressed={fills.length === 1 && fills[0] === fill}
+                  onPointerEnter={() => onPreview({ color: fill })}
+                  onClick={() => pick({ color: fill })}
+                  className={cn(
+                    'size-5 rounded-full border',
+                    fills.length === 1 && fills[0] === fill && 'ring-primary ring-2 ring-offset-1',
+                  )}
+                  style={swatch(fill)}
+                />
+              ))}
+            </PopoverContent>
+          </Popover>
+          <Popover {...popover('size')}>
+            <PopoverTrigger asChild>
+              <Button
+                variant={open === 'size' ? 'secondary' : 'ghost'}
+                size="icon"
+                aria-label="Text size"
+                title="Text size"
+              >
+                <ALargeSmall className="size-[18px]" strokeWidth={1.75} />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent
+              side={side}
+              sideOffset={8}
+              className="w-32 gap-0 p-1"
+              onPointerLeave={() => onPreview(null)}
+            >
+              {TEXT_SIZES.map((size) => (
+                <Choice
+                  key={size}
+                  label={SIZE_NAMES[size]}
+                  pressed={sizes.length === 1 && sizes[0] === size}
+                  onPreview={() => onPreview({ size })}
+                  onPick={() => pick({ size })}
+                  wide
+                >
+                  {SIZE_NAMES[size]}
+                </Choice>
+              ))}
+            </PopoverContent>
+          </Popover>
+        </>
+      )}
+      <Divider />
+      {onAddLabel && (
+        <IconButton
+          Icon={Type}
+          label="Add label"
+          title={withShortcut('labelArrow')}
+          onClick={onAddLabel}
+        />
+      )}
+      <IconButton Icon={Trash2} label="Delete" onClick={onDelete} />
+    </div>
+  )
+}
 
 type Menu = 'filter' | 'fill' | 'opacity' | 'outline' | 'size' | 'align' | 'react'
 

@@ -42,6 +42,8 @@ type Props = {
   onAddChild: () => void
   /** A press on the row, which may become a drag; the Gantt tracks the pointer from here. */
   onPress: (event: PointerEvent) => void
+  /** A press on the row's blank space, which starts a lasso. */
+  onLasso?: (event: PointerEvent) => void
   /** Whether the bar follows the tracker's dates; undefined for a row that cannot. */
   follow?: boolean
   onFollow?: (follow: boolean) => void
@@ -69,6 +71,7 @@ export function GanttLabel({
   onOutdent,
   onAddChild,
   onPress,
+  onLasso,
   follow,
   onFollow,
   done: leafDone = false,
@@ -83,7 +86,13 @@ export function GanttLabel({
   const down = (event: PointerEvent) => {
     if ((event.target as Element).closest('a, button, input')) return
     event.currentTarget.setPointerCapture(event.pointerId)
-    onPress(event)
+    // The row's own background, past its title, in its indent or between its hover buttons, is
+    // blank space for a lasso.
+    const blank =
+      event.target === event.currentTarget ||
+      (event.target as Element).hasAttribute('data-row-actions')
+    if (onLasso && blank) onLasso(event)
+    else onPress(event)
   }
 
   const done = task?.status_category === 'done'
@@ -95,7 +104,7 @@ export function GanttLabel({
       onDoubleClick={(event) => {
         if (!row.key && !(event.target as Element).closest('a, button, input')) setEditing(true)
       }}
-      className="group/label flex cursor-grab items-center gap-1 border-b border-border/60 pr-1 select-none"
+      className="group/label flex items-center gap-1 border-b border-border/60 pr-1 select-none [&>:not(button)]:cursor-grab"
       style={{ height, paddingLeft: 4 + depth * INDENT }}
     >
       {/* The mark takes the grip's place until hover, so the title keeps its room. */}
@@ -230,7 +239,10 @@ export function GanttLabel({
           {progress.done}/{progress.total}
         </span>
       )}
-      <span className="bg-panel ml-auto hidden shrink-0 items-center group-hover/label:flex">
+      <span
+        data-row-actions
+        className="bg-panel ml-auto hidden shrink-0 items-center group-hover/label:flex"
+      >
         {url && <RowAction label={`Open ${name} in the tracker`} Icon={ExternalLink} href={url} />}
         {follow !== undefined && onFollow && (
           <RowAction

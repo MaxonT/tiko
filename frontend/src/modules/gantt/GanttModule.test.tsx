@@ -84,7 +84,13 @@ function Board({ start }: { start: GanttContent }) {
         (content) => updateNodeData('g', { content }),
         'top',
       )}
-      <ReactFlow nodes={nodes} nodeTypes={nodeTypes} onNodesChange={onNodesChange} />
+      {/* Shift adds to the selection, as on the board. */}
+      <ReactFlow
+        nodes={nodes}
+        nodeTypes={nodeTypes}
+        onNodesChange={onNodesChange}
+        multiSelectionKeyCode="Shift"
+      />
     </>
   )
 }
@@ -1337,6 +1343,8 @@ function pressRow(id: string, i: number, keys: { metaKey?: boolean; shiftKey?: b
     clientY: rowY(i),
     pointerId: 1,
     button: 0,
+    // A primary pointer, which the board's Shift selection box would take for its own.
+    isPrimary: true,
     ...keys,
   })
 }
@@ -1470,5 +1478,168 @@ test('a row dragged out of the module says it goes to the board', () => {
   release(1500, 900)
   expect(host.ejectNote).toHaveBeenCalledWith('Row a', { x: 1500, y: 900 })
   expect(rows().map((r) => r.id)).toEqual(['b'])
+  screenBox.mockRestore()
+})
+
+const picked = () =>
+  [...document.querySelectorAll('[data-gantt-rows] [data-selected]')].map((el) =>
+    el.getAttribute('data-shift'),
+  )
+function clickRow(id: string, i: number, keys: { metaKey?: boolean; shiftKey?: boolean } = {}) {
+  pressRow(id, i, keys)
+  release(50, rowY(i), keys)
+}
+// The row's own background, right of its title: blank space that starts a lasso.
+const blank = (id: string) => label(id).closest('.group\\/label') as HTMLElement
+
+test('rows are selected by click, Cmd-click and Shift-click, in every part of the row', () => {
+  const screenBox = placeOnScreen()
+  renderGantt({}, plan([plain('a'), plain('b'), plain('c'), plain('d'), plain('e')]))
+  clickRow('b', 1)
+  expect(picked()).toEqual(['b'])
+  clickRow('d', 3, { shiftKey: true })
+  expect(picked()).toEqual(['b', 'c', 'd'])
+  clickRow('c', 2, { metaKey: true })
+  expect(picked()).toEqual(['b', 'd'])
+  clickRow('e', 4)
+  expect(picked()).toEqual(['e'])
+  // The board does not read a Shift-click on a row as one that drops the Gantt from its selection.
+  fireEvent.keyDown(document, { key: 'Shift' })
+  clickRow('d', 3, { shiftKey: true })
+  fireEvent.click(label('d'), { shiftKey: true })
+  fireEvent.keyUp(document, { key: 'Shift' })
+  expect(latest[0].selected).toBe(true)
+  expect(picked()).toEqual(['d', 'e'])
+  clickRow('e', 4)
+  // The timeline part of the row is tinted too.
+  const bar = document.querySelector('[data-gantt-row="e"]')!.closest('[data-shift]')!
+  expect(bar.getAttribute('data-selected')).toBe('true')
+  expect(bar.className).toContain('bg-primary/10')
+  // Esc clears it and goes no further.
+  const heard = vi.fn()
+  document.addEventListener('keydown', heard, true)
+  fireEvent.keyDown(document.body, { key: 'Escape' })
+  expect(picked()).toEqual([])
+  expect(heard).not.toHaveBeenCalled()
+  document.removeEventListener('keydown', heard, true)
+  screenBox.mockRestore()
+})
+
+test('a lasso from blank space selects the rows it touches and never reaches the board', () => {
+  const screenBox = placeOnScreen()
+  renderGantt({}, plan([plain('a'), plain('b'), plain('c'), plain('d')]))
+  const board = vi.fn()
+  document.body.addEventListener('pointerdown', board)
+  fireEvent.pointerDown(blank('b'), { clientX: 150, clientY: rowY(1), pointerId: 1, button: 0 })
+  expect(board).not.toHaveBeenCalled()
+  moveTo(150, rowY(2) + 4)
+  expect(screen.getByTestId('gantt-lasso')).toBeTruthy()
+  expect(picked()).toEqual(['b', 'c'])
+  release(150, rowY(2) + 4)
+  expect(screen.queryByTestId('gantt-lasso')).toBeNull()
+  expect(picked()).toEqual(['b', 'c'])
+  // With Shift a second lasso adds to it.
+  fireEvent.pointerDown(blank('d'), {
+    clientX: 150,
+    clientY: rowY(3),
+    pointerId: 1,
+    button: 0,
+    shiftKey: true,
+  })
+  moveTo(150, rowY(3) + 8)
+  release(150, rowY(3) + 8)
+  expect(picked()).toEqual(['b', 'c', 'd'])
+  // A click on blank space without a drag clears the selection.
+  fireEvent.pointerDown(blank('a'), { clientX: 150, clientY: rowY(0), pointerId: 1, button: 0 })
+  release(150, rowY(0))
+  expect(picked()).toEqual([])
+  document.body.removeEventListener('pointerdown', board)
+  screenBox.mockRestore()
+})
+
+test('a selection moves as one: branches in plan order, siblings at the shown level', () => {
+  const screenBox = placeOnScreen()
+  // p with children p1 and p2, then q, r with child r1, then s.
+  renderGantt(
+    {},
+    plan([
+      plain('p'),
+      plain('p1', 'p'),
+      plain('p2', 'p'),
+      plain('q'),
+      plain('r'),
+      plain('r1', 'r'),
+      plain('s'),
+    ]),
+  )
+  // p with its own child p2, and r1 without its parent: a gap and two levels.
+  clickRow('p', 0)
+  clickRow('p2', 2, { metaKey: true })
+  clickRow('r1', 5, { metaKey: true })
+  pressRow('p', 0)
+  // Down to the end, past s.
+  moveTo(50, rowY(4) + 20)
+  expect(within(screen.getByTestId('gantt-drag-ghost')).getAllByText(/Row /)).toHaveLength(4)
+  release(50, rowY(4) + 20)
+  expect(rows().map((r) => [r.id, r.parent])).toEqual([
+    ['q', undefined],
+    ['r', undefined],
+    ['s', undefined],
+    ['p', undefined],
+    ['p1', 'p'],
+    ['p2', 'p'],
+    ['r1', undefined],
+  ])
+  // The moved rows stay selected.
+  expect(picked()).toEqual(['p', 'p2', 'r1'])
+  screenBox.mockRestore()
+})
+
+test('a drag from a row outside the selection moves that row alone', () => {
+  const screenBox = placeOnScreen()
+  renderGantt({}, plan([plain('a'), plain('b'), plain('c'), plain('d')]))
+  clickRow('a', 0)
+  pressRow('c', 2)
+  moveTo(50, rowY(3) + 4)
+  release(50, rowY(3) + 4)
+  expect(rows().map((r) => r.id)).toEqual(['a', 'b', 'd', 'c'])
+  expect(picked()).toEqual(['c'])
+  screenBox.mockRestore()
+})
+
+test('Delete removes the selected rows and never the Gantt', () => {
+  const screenBox = placeOnScreen()
+  renderGantt({}, plan([plain('a'), plain('b', 'a'), plain('c')]))
+  clickRow('a', 0)
+  clickRow('c', 2, { metaKey: true })
+  const heard = vi.fn()
+  document.addEventListener('keydown', heard, true)
+  fireEvent.keyDown(document.body, { key: 'Backspace' })
+  expect(heard).not.toHaveBeenCalled()
+  // a's child stays, one level up; the module is still on the board.
+  expect(rows().map((r) => [r.id, r.parent])).toEqual([['b', undefined]])
+  expect(latest).toHaveLength(1)
+  // With nothing selected Backspace goes on to the board as before.
+  fireEvent.keyDown(document.body, { key: 'Backspace' })
+  expect(heard).toHaveBeenCalledTimes(1)
+  document.removeEventListener('keydown', heard, true)
+  screenBox.mockRestore()
+})
+
+test('a selection dropped on the board becomes cards and notes in a column', () => {
+  const screenBox = placeOnScreen()
+  const host = renderGantt(
+    {},
+    plan([{ ...plain('a'), key: 'DEMO-1', title: '' }, plain('b'), plain('c')]),
+  )
+  clickRow('b', 1)
+  clickRow('c', 2, { metaKey: true })
+  pressRow('b', 1)
+  moveTo(1500, 900)
+  expect(screen.getByText('2 rows to the board')).toBeTruthy()
+  release(1500, 900)
+  expect(host.ejectNote).toHaveBeenNthCalledWith(1, 'Row b', { x: 1500, y: 900 })
+  expect(host.ejectNote).toHaveBeenNthCalledWith(2, 'Row c', { x: 1500, y: 1020 })
+  expect(rows().map((r) => r.id)).toEqual(['a'])
   screenBox.mockRestore()
 })

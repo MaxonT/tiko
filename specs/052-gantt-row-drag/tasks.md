@@ -15,12 +15,12 @@
 
 ## Slice 2: `gantt-row-select` (select and move many)
 
-- [ ] T011 `select()` for click, Cmd or Ctrl-click and Shift-click; unit tests
-- [ ] T012 Selection state in the view, `data-selected` look on the three parts, pruning on filter, collapse and remote delete, clearing on Esc, blank click and module deselect; component tests
-- [ ] T013 Lasso from blank space in the task column: box with the board's tokens, rows touched are selected, Shift or Cmd adds, auto-scroll and pan shared with the drag, press does not reach the board; tests
-- [ ] T014 `moveRows` for many ids: top-most only, plan order, one level, depth limit for the deepest branch; unit tests
-- [ ] T015 Drag of a selection: ghost and gap for the batch, drag from an unselected row selects it alone; component tests with a parent, its selected child, a lone child and gaps; one Undo step
-- [ ] T016 Several rows to the board: cards and notes in a column, "N rows to the board", one Undo restores all; test
-- [ ] T017 Delete and Backspace remove the selected rows: `claimDelete` in the host and `Canvas` `onBeforeDelete`, own listener in the expanded view; tests that the module stays
-- [ ] T018 By hand: two browsers on one board, a selection dragged in one shows in the other; speed check of a lasso over 200 rows
-- [ ] T019 Guide `gantt.mdx` (select rows, move several, Delete), CHANGELOG line
+- [x] T011 `select()` for click, Cmd or Ctrl-click and Shift-click; unit tests
+- [x] T012 Selection state in the view, `data-selected` look on the three parts, pruning on filter, collapse and remote delete, clearing on Esc, blank click and module deselect; component tests
+- [x] T013 Lasso from blank space in the task column: box with the board's tokens, rows touched are selected, Shift or Cmd adds, auto-scroll and pan shared with the drag, press does not reach the board; tests
+- [x] T014 `moveRows` for many ids: top-most only, plan order, one level, depth limit for the deepest branch; unit tests
+- [x] T015 Drag of a selection: ghost and gap for the batch, drag from an unselected row selects it alone; component tests with a parent, its selected child, a lone child and gaps; one Undo step
+- [x] T016 Several rows to the board: cards and notes in a column, "N rows to the board", one Undo restores all; test
+- [x] T017 Delete and Backspace remove the selected rows: one capture-phase listener on window for the board and the expanded view, no Canvas change; tests that the module stays
+- [x] T018 By hand: two browsers on one board, a selection dragged in one shows in the other; speed check of a lasso over 200 rows (results in plan.md)
+- [x] T019 Guide `gantt.mdx` (select rows, move several, Delete), CHANGELOG line

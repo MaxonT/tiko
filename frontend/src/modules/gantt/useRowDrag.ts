@@ -17,6 +17,8 @@ const SETTLE_MS = 150
 type Point = { x: number; y: number }
 
 type Drag = {
+  /** A drag moves rows; a lasso selects them. */
+  mode: 'drag' | 'lasso'
   ids: string[]
   pointerId: number
   press: Point
@@ -29,6 +31,9 @@ type Drag = {
   target: DropTarget | null
   outside: boolean
   dragging: boolean
+  /** Lasso: the press below the rows' top, and what stays selected besides what it covers. */
+  startY: number
+  base: Set<string>
 }
 
 const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
@@ -44,7 +49,8 @@ export function edgeStep(at: number, start: number, end: number) {
 
 /**
  * Drags rows in the task column: the rows that stay move aside, a gap shows where and at which
- * level the dragged rows land, the list scrolls or the board pans at an edge, Esc cancels.
+ * level the dragged rows land, the list scrolls or the board pans at an edge, Esc cancels. A press
+ * on blank space draws a lasso that selects the rows it touches.
  */
 export function useRowDrag({
   store,
@@ -58,6 +64,7 @@ export function useRowDrag({
   onDrop,
   onEject,
   onClick,
+  onSelect,
 }: {
   store: DragStore
   rowsEl: React.RefObject<HTMLDivElement | null>
@@ -72,15 +79,18 @@ export function useRowDrag({
   onEject: (ids: string[], screen: Point) => void
   /** A press that never became a drag. */
   onClick?: (id: string, event: PointerEvent) => void
+  /** What a lasso selected; the selection before it for a click on blank space. */
+  onSelect?: (ids: Set<string>) => void
 }) {
   const getZoom = useZoom()
   const flow = useReactFlow()
   const drag = useRef<Drag | null>(null)
   // Removes the window listeners of the drag in progress.
   const unlisten = useRef<(() => void) | null>(null)
-  const latest = useRef({ rows, visible, rowHeight, expanded, edgeTop, onDrop, onEject, onClick })
+  const props = { rows, visible, rowHeight, expanded, edgeTop, onDrop, onEject, onClick, onSelect }
+  const latest = useRef(props)
   useEffect(() => {
-    latest.current = { rows, visible, rowHeight, expanded, edgeTop, onDrop, onEject, onClick }
+    latest.current = props
   })
 
   const moduleBox = () => {
@@ -135,9 +145,8 @@ export function useRowDrag({
     const at = local(point)
     const top = at.y - d.grab.y - d.ghostIndex * h
     const dx = at.x - d.grab.x
-    const place = () => {
-      if (ghostEl.current) ghostEl.current.style.transform = `translate(${dx}px, ${top}px)`
-    }
+    const place = () =>
+      ghostEl.current?.style.setProperty('transform', `translate(${dx}px, ${top}px)`)
     place()
     const lifted = visible.filter((t) => moving.has(t.row.id))
     const target = inside
@@ -165,11 +174,28 @@ export function useRowDrag({
       rows: lifted,
       startDepth: d.startDepth,
       outside,
-      count: tops.length,
+      count: d.ids.length,
     })
     // The ghost appears with the first layout: place it as soon as it is there.
     place()
   }
+
+  const updateLasso = (point: Point) => {
+    const d = drag.current
+    if (!d?.dragging) return
+    d.last = point
+    const { visible, rowHeight: h } = latest.current
+    const y = local(point).y
+    const top = Math.min(d.startY, y)
+    const bottom = Math.max(d.startY, y)
+    const hit = new Set(d.base)
+    visible.forEach((t, i) => {
+      if (i * h < bottom && (i + 1) * h > top) hit.add(t.row.id)
+    })
+    store.setLasso(hit, { top, height: bottom - top })
+  }
+
+  const refresh = (point: Point) => (drag.current?.mode === 'lasso' ? updateLasso : update)(point)
 
   const finish = () => {
     drag.current = null
@@ -181,6 +207,7 @@ export function useRowDrag({
     const d = drag.current
     if (!d) return
     finish()
+    if (d.mode === 'lasso') return store.setLasso(null, null)
     if (!d.dragging) return
     store.set(layoutOf(new Set(), null, true), null)
     setTimeout(() => {
@@ -206,6 +233,9 @@ export function useRowDrag({
     if (pressed < 0) return
     const grab = local(point)
     drag.current = {
+      mode: 'drag',
+      startY: 0,
+      base: new Set(),
       // The pressed row first, so the ghost knows which of its rows the pointer holds.
       ids: [id, ...ids.filter((other) => other !== id)],
       pointerId: event.pointerId,
@@ -222,6 +252,29 @@ export function useRowDrag({
     unlisten.current = listen()
   }
 
+  const lasso = (event: ReactPointerEvent, base: Set<string>) => {
+    if (event.button !== 0 || drag.current) return
+    // The board must not start its own selection box or pan from here.
+    event.stopPropagation()
+    const point = { x: event.clientX, y: event.clientY }
+    drag.current = {
+      mode: 'lasso',
+      ids: [],
+      pointerId: event.pointerId,
+      press: point,
+      grab: { x: 0, y: 0 },
+      ghostIndex: 0,
+      startDepth: 0,
+      last: point,
+      target: null,
+      outside: false,
+      dragging: false,
+      startY: local(point).y,
+      base,
+    }
+    unlisten.current = listen()
+  }
+
   const listen = () => {
     const move = (event: PointerEvent) => {
       const d = drag.current
@@ -229,13 +282,22 @@ export function useRowDrag({
       const point = { x: event.clientX, y: event.clientY }
       if (!d.dragging) {
         if (Math.hypot(point.x - d.press.x, point.y - d.press.y) < DRAG_SLOP) return
-        begin(d)
+        if (d.mode === 'lasso') d.dragging = true
+        else begin(d)
       }
-      update(point)
+      refresh(point)
     }
     const up = (event: PointerEvent) => {
       const d = drag.current
       if (!d || event.pointerId !== d.pointerId) return
+      if (d.mode === 'lasso') {
+        if (d.dragging) updateLasso({ x: event.clientX, y: event.clientY })
+        const picked = d.dragging ? (store.lasso ?? new Set<string>()) : d.base
+        finish()
+        store.setLasso(null, null)
+        latest.current.onSelect?.(picked)
+        return
+      }
       if (!d.dragging) {
         finish()
         latest.current.onClick?.(d.ids[0], event)
@@ -247,7 +309,9 @@ export function useRowDrag({
       if (outside) {
         finish()
         store.set(null, null)
-        return onEject(movingRows(rows, d.ids).tops, { x: event.clientX, y: event.clientY })
+        const ids = new Set(d.ids)
+        const ordered = rows.filter((r) => ids.has(r.id)).map((r) => r.id)
+        return onEject(ordered, { x: event.clientX, y: event.clientY })
       }
       if (!target?.fits) return cancel()
       finish()
@@ -300,13 +364,13 @@ export function useRowDrag({
         if (!step) return
         const before = scroller.scrollTop
         scroller.scrollTop = before + step
-        if (scroller.scrollTop !== before) update(d.last)
+        if (scroller.scrollTop !== before) refresh(d.last)
       } else {
         const step = edgeStep(d.last.y, 0, window.innerHeight)
         if (!step) return
         const view = flow.getViewport()
         flow.setViewport({ ...view, y: view.y - step })
-        update(d.last)
+        refresh(d.last)
       }
     }
     if (typeof requestAnimationFrame === 'function') frame = requestAnimationFrame(tick)
@@ -322,15 +386,16 @@ export function useRowDrag({
 
   useEffect(() => () => unlisten.current?.(), [])
 
-  // Someone else changed the plan mid-drag: the gap follows; rows they removed leave the drag.
+  // The Gantt renders mid-drag only when someone else changed the plan: the gap follows, and
+  // rows they removed leave the drag.
   useEffect(() => {
     const d = drag.current
     if (!d?.dragging) return
-    const ids = new Set(rows.map((r) => r.id))
+    const ids = new Set(latest.current.rows.map((r) => r.id))
     d.ids = d.ids.filter((id) => ids.has(id))
-    if (d.ids.length === 0) return cancel()
-    update(d.last)
-  }, [rows, visible])
+    if (d.mode === 'drag' && d.ids.length === 0) return cancel()
+    refresh(d.last)
+  })
 
-  return { press }
+  return { press, lasso, busy: () => drag.current !== null }
 }

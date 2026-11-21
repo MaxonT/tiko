@@ -48,10 +48,12 @@ import {
   DragStore,
   DragStoreContext,
   FadeWhileDragging,
+  LassoBox,
   Placeholder,
   Shift,
 } from '@/modules/gantt/drag-store'
 import { useRowDrag } from '@/modules/gantt/useRowDrag'
+import { select } from '@/modules/gantt/drag'
 import { activeFilters, FILTER_BAR, shownRows } from '@/modules/gantt/filters'
 import { ConnectHandle, Links, type BarPlace, type Point } from '@/modules/gantt/Links'
 import { Milestone } from '@/modules/gantt/Milestone'
@@ -230,6 +232,9 @@ export function GanttModule({
   const ghostEl = useRef<HTMLDivElement>(null)
   const getZoom = useZoom()
   const [picked, setPicked] = useState<string | null>(null)
+  // Rows picked in the task column: this tab's own, never stored or sent.
+  const [rowsPicked, setRowsPicked] = useState<ReadonlySet<string>>(() => new Set())
+  const anchor = useRef<string | null>(null)
   const [wire, setWire] = useState<{ from: Point; to: Point } | null>(null)
   const todayLine = useRef<HTMLDivElement>(null)
   const opened = useRef(false)
@@ -341,6 +346,12 @@ export function GanttModule({
   // Expanded, the headers and the title column stay in view while the plan scrolls under them.
   const stickTop = planning.enabled ? FILTER_BAR : 0
   const stuck = expanded ? 'sticky z-20' : undefined
+  // Only rows in view count as selected: a filter, a fold or someone else's delete drops the rest.
+  const selection = new Set(visible.filter((t) => rowsPicked.has(t.row.id)).map((t) => t.row.id))
+  const pickRows = (ids: ReadonlySet<string>) => {
+    if (ids.size === 0) anchor.current = null
+    setRowsPicked(ids)
+  }
   const rowDrag = useRowDrag({
     store,
     rowsEl,
@@ -350,9 +361,58 @@ export function GanttModule({
     rowHeight: height,
     expanded,
     edgeTop: stickTop + HEADER,
-    onDrop: (ids, aboveId, depth) => onChange(moveRows(content, ids, aboveId, depth)),
-    onEject: eject,
+    onDrop: (ids, aboveId, depth) => {
+      pickRows(new Set(ids))
+      onChange(moveRows(content, ids, aboveId, depth))
+    },
+    onEject: (ids, screen) => {
+      pickRows(new Set())
+      eject(ids, screen)
+    },
+    onClick: (id, event) => {
+      const order = visible.map((t) => t.row.id)
+      const toggle = event.metaKey || event.ctrlKey
+      const next = select(selection, anchor.current, id, order, { shift: event.shiftKey, toggle })
+      anchor.current = next.anchor
+      setRowsPicked(next.selected)
+    },
+    onSelect: pickRows,
   })
+  const lassoFrom = (event: PointerEvent) =>
+    rowDrag.lasso(event, event.shiftKey || event.metaKey || event.ctrlKey ? selection : new Set())
+  // Esc clears the selection and Delete removes its rows, before the board or the expanded view
+  // hears either: the module itself is never deleted from here.
+  const keys = useRef<(event: KeyboardEvent) => void>(() => {})
+  useEffect(() => {
+    keys.current = (event) => {
+      const target = event.target as HTMLElement | null
+      if (target?.closest?.('input, textarea, [contenteditable="true"]')) return
+      if (event.key === 'Escape' && !rowDrag.busy()) {
+        event.preventDefault()
+        event.stopPropagation()
+        pickRows(new Set())
+      }
+      if (event.key === 'Delete' || event.key === 'Backspace') {
+        event.preventDefault()
+        event.stopPropagation()
+        pickRows(new Set())
+        onChange([...selection].reduce((next, id) => liftRemove(next, id), content))
+      }
+    }
+  })
+  const anyPicked = selection.size > 0
+  useEffect(() => {
+    if (!anyPicked) return
+    const listen = (event: KeyboardEvent) => keys.current(event)
+    window.addEventListener('keydown', listen, true)
+    return () => window.removeEventListener('keydown', listen, true)
+  }, [anyPicked])
+  // Selecting something else on the board ends the selection.
+  const wasSelected = useRef(selected)
+  useEffect(() => {
+    if (wasSelected.current && !selected) setRowsPicked(new Set())
+    wasSelected.current = selected
+  }, [selected])
   const labelOf = (row: Row) =>
     row.key ? `${keyOf(row, taskOf(row))} ${taskOf(row)?.summary ?? ''}` : row.title || 'Untitled'
 
@@ -377,8 +437,18 @@ export function GanttModule({
         <div className="flex min-h-0 flex-1">
           <div className={cn('bg-panel flex shrink-0', expanded && 'sticky left-0 z-30')}>
             <div
-              className="relative flex shrink-0 flex-col border-r"
+              // nokey: with Shift held the board would take the press for its selection box.
+              className="nokey relative flex shrink-0 flex-col border-r"
               style={{ width: content.labelWidth }}
+              // The blank band under the rows starts a lasso too.
+              onPointerDown={(event) => {
+                if (event.target === event.currentTarget && !readOnly) lassoFrom(event)
+              }}
+              // Shift or Cmd here picks rows; the board must not take it as a click that drops
+              // the Gantt from its own selection.
+              onClick={(event) => {
+                if (event.shiftKey || event.metaKey || event.ctrlKey) event.stopPropagation()
+              }}
             >
               <ColumnResizer
                 width={content.labelWidth}
@@ -416,7 +486,7 @@ export function GanttModule({
               )}
               <div ref={rowsEl} data-gantt-rows className="relative">
                 {visible.map(({ row, depth, hasChildren }) => (
-                  <Shift key={row.id} id={row.id} label>
+                  <Shift key={row.id} id={row.id} label selected={selection.has(row.id)}>
                     <GanttLabel
                       row={row}
                       depth={depth}
@@ -437,7 +507,14 @@ export function GanttModule({
                       onIndent={() => onChange(indent(content, row.id))}
                       onOutdent={() => onChange(outdent(content, row.id))}
                       onAddChild={() => addChildRow(row.id)}
-                      onPress={(event) => rowDrag.press(event, row.id, [row.id])}
+                      onPress={(event) =>
+                        rowDrag.press(
+                          event,
+                          row.id,
+                          selection.has(row.id) ? [...selection] : [row.id],
+                        )
+                      }
+                      onLasso={lassoFrom}
                       follow={
                         row.key && !hasChildren && !row.stages?.length
                           ? Boolean(row.follow)
@@ -459,6 +536,7 @@ export function GanttModule({
                   </Shift>
                 ))}
                 <Placeholder />
+                <LassoBox />
                 <DragGhost
                   ref={ghostEl}
                   labelOf={labelOf}
@@ -484,6 +562,7 @@ export function GanttModule({
               <GanttColumns
                 content={content}
                 visible={visible.map(({ row }) => row)}
+                selected={selection}
                 fields={planning.fields}
                 rowHeight={height}
                 lane={lane}
@@ -568,7 +647,7 @@ export function GanttModule({
                 />
               )
               return (
-                <Shift key={row.id} id={row.id}>
+                <Shift key={row.id} id={row.id} selected={selection.has(row.id)}>
                   <div
                     data-gantt-row={row.id}
                     className="group/row relative border-b border-border/60"

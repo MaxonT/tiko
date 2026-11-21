@@ -29,6 +29,9 @@ export type Ghost = { rows: TreeRow[]; startDepth: number; outside: boolean; cou
 export class DragStore {
   layout: Layout | null = null
   ghost: Ghost | null = null
+  /** Rows a lasso in progress has selected; null when no lasso is drawn. */
+  lasso: Set<string> | null = null
+  lassoBox: { top: number; height: number } | null = null
   private listeners = new Set<() => void>()
 
   subscribe = (listener: () => void) => {
@@ -39,6 +42,16 @@ export class DragStore {
   set(layout: Layout | null, ghost: Ghost | null = this.ghost) {
     this.layout = layout
     this.ghost = ghost
+    this.notify()
+  }
+
+  setLasso(lasso: Set<string> | null, box: { top: number; height: number } | null) {
+    this.lasso = lasso
+    this.lassoBox = box
+    this.notify()
+  }
+
+  private notify() {
     this.listeners.forEach((listener) => listener())
   }
 }
@@ -56,12 +69,14 @@ function useDrag<T>(read: (store: DragStore) => T, fallback: T) {
 export function Shift({
   id,
   label,
+  selected = false,
   className,
   children,
 }: {
   id: string
   /** The label part, which marks the row the dragged rows will nest under. */
   label?: boolean
+  selected?: boolean
   className?: string
   children: ReactNode
 }) {
@@ -72,13 +87,18 @@ export function Shift({
     const parent = label && layout.parentId === id ? 'p' : ''
     return `${layout.shift.get(id) ?? 0}|${layout.hidden.has(id) ? 'h' : ''}|${layout.animate ? 'a' : ''}|${parent}`
   }, '')
+  // While a lasso is drawn it decides what looks selected.
+  const lassoed = useDrag((store) => (store.lasso ? store.lasso.has(id) : null), null)
+  const picked = lassoed ?? selected
   const [shift, hidden, animate, parent] = state.split('|')
   const y = Number(shift || 0)
   return (
     <div
       data-shift={id}
+      data-selected={picked || undefined}
       className={cn(
         className,
+        picked && 'bg-primary/10',
         parent &&
           'relative before:bg-primary before:absolute before:inset-y-0 before:left-0 before:z-10 before:w-0.5',
       )}
@@ -160,6 +180,19 @@ export const DragGhost = forwardRef<
     </div>
   )
 })
+
+/** The box a lasso draws over the task column. */
+export function LassoBox() {
+  const box = useDrag((store) => store.lassoBox, null)
+  if (!box) return null
+  return (
+    <div
+      data-testid="gantt-lasso"
+      className="border-primary bg-primary/10 pointer-events-none absolute inset-x-0 z-20 border border-dotted"
+      style={{ top: box.top, height: box.height }}
+    />
+  )
+}
 
 /** Dependency lines point at the rows' old places while rows move, so they step aside. */
 export function FadeWhileDragging({ children }: { children: ReactNode }) {

@@ -7,6 +7,7 @@ All notable changes to this project are documented here. The format follows [Kee
 ### Changed
 
 - Rearranging a Gantt plan is no longer guesswork: while you drag a row, the other rows move aside and a gap shows where and at which level it will land. Near an edge the expanded view scrolls and the board pans, and Esc puts the row back. A row dropped into a collapsed row now opens it instead of vanishing from view. See [Arrange rows](https://docs.tiko.run/gantt/#arrange-rows).
+- Rearrange a Gantt plan in batches: select rows with Shift and Cmd-click or by dragging a box, then move them together in one drag, drop them on the board as cards and notes, or remove them with Delete. Backspace with rows selected no longer deletes the whole Gantt. See [Arrange rows](https://docs.tiko.run/gantt/#arrange-rows).
 
 ### Fixed
 

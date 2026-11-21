@@ -124,7 +124,7 @@ def test_my_tracker_token(team):
         "base_url": "https://jira.example.com",
         "kind": "dc",
         "email": None,
-        "tokens": {"jira": "set", "caldav": "none", "github": "none"},
+        "tokens": {"jira": "set", "caldav": "none", "github": "none", "linear": "none"},
         "connected_as": None,
     }
     assert carl.post("/api/settings/jira/test", json={}).json()["user"] == "Alex Rivera"

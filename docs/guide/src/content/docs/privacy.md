@@ -74,7 +74,7 @@ A running instance sends one ping 10 minutes after it starts and then once a day
 | `version` | the tiko release that runs |
 | `deploy` | how it runs: `installer`, `compose`, `railway`, `render`, `source` or `demo` |
 | `arch` | processor type: `amd64`, `arm64` or `other` |
-| `trackers` | kinds of trackers the cards come from: `demo`, `jira_dc`, `github`. No addresses |
+| `trackers` | kinds of trackers the cards come from: `demo`, `jira_dc`, `jira_cloud`, `github`, `linear`. No addresses |
 | `people` | active accounts as a range: `1`, `2-5`, `6-20`, `21-100`, `100+` |
 | `boards` | boards as a range, the same ranges plus `0` |
 | `boards_active` | boards someone changed in the last 7 days, the same ranges. It tells an instance in use from one that only runs; it comes from the time a board last changed, not from sign-ins |

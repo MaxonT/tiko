@@ -3445,7 +3445,8 @@
               "jira",
               "demo",
               "caldav",
-              "github"
+              "github",
+              "linear"
             ],
             "title": "Source"
           },

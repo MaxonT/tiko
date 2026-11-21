@@ -21,6 +21,15 @@ _GITHUB_LINK_RE = re.compile(
     rf"^https?://(?:www\.)?github\.com/({_REPO})/(?:issues|pull)/([1-9]\d*)(?:[/?#].*)?$"
 )
 
+LINEAR = "linear"
+_WORKSPACE = r"[a-z0-9][a-z0-9-]*"
+_IDENTIFIER = r"[A-Z][A-Z0-9_]*-[1-9]\d*"
+# The workspace keeps a key apart from the same identifier in another workspace.
+LINEAR_KEY_RE = re.compile(rf"^{_WORKSPACE}/{_IDENTIFIER}$")
+_LINEAR_LINK_RE = re.compile(
+    rf"^https?://linear\.app/({_WORKSPACE})/issue/({_IDENTIFIER})(?:[/?#].*)?$", re.IGNORECASE
+)
+
 SOURCE_PATTERN = r"^[a-z][a-z0-9_]{0,39}$"
 
 StatusCategory = Literal["new", "indeterminate", "done"]
@@ -118,6 +127,19 @@ def github_url(key: str) -> str:
     """The issue page of a key; GitHub sends a pull request's number on to the pull request."""
     repo, _, number = key.rpartition("#")
     return f"https://github.com/{repo}/issues/{number}"
+
+
+def linear_key(ref: str) -> str | None:
+    """The key in a Linear issue link or a typed `workspace/ENG-12`; None for anything else."""
+    text = ref.strip()
+    if match := _LINEAR_LINK_RE.match(text):
+        return f"{match.group(1).lower()}/{match.group(2).upper()}"
+    return text if LINEAR_KEY_RE.match(text) else None
+
+
+def linear_url(key: str) -> str:
+    workspace, _, identifier = key.partition("/")
+    return f"https://linear.app/{workspace}/issue/{identifier}"
 
 
 def now_iso() -> str:

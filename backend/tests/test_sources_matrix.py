@@ -177,7 +177,7 @@ def test_a_guest_gets_no_link_for_a_tracker_this_version_does_not_know():
 
 def test_every_personal_credential_has_a_stamp():
     app = create_app(Settings(db_path=":memory:", tiko_secret_key="test-secret-key"))
-    assert set(app.state.settings.token_stamps("nobody")) == {"jira", "github", "caldav"}
+    assert set(app.state.settings.token_stamps("nobody")) == {"jira", "github", "caldav", "linear"}
 
 
 def test_my_tracker_answers_the_state_of_each_token():
@@ -187,6 +187,6 @@ def test_my_tracker_answers_the_state_of_each_token():
         "base_url": None,
         "kind": None,
         "email": None,
-        "tokens": {"jira": "none", "caldav": "none", "github": "none"},
+        "tokens": {"jira": "none", "caldav": "none", "github": "none", "linear": "none"},
         "connected_as": None,
     }

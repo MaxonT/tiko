@@ -33,6 +33,7 @@ from app.adapters.tasks.github import GitHubReaders
 from app.adapters.tasks.jira_cloud import JiraCloudProvider
 from app.adapters.tasks.jira_dc import JiraDateFields, JiraDcProvider
 from app.adapters.tasks.jira_kind import find_kind
+from app.adapters.tasks.linear import LinearReaders
 from app.adapters.updater.http import HttpUpdater, ensure_token
 from app.api import mcp, v1
 from app.api.errors import register_error_handlers
@@ -67,7 +68,7 @@ from app.domain.settings import (
     normalize_base_url,
 )
 from app.domain.stickers import Stickers
-from app.domain.tasks import GITHUB
+from app.domain.tasks import GITHUB, LINEAR
 from app.domain.updates import OneClickUpdate, UpdateService
 from app.domain.upgrade import adopt_orphans, bootstrap_admin
 from app.domain.usage import Deploy, HostOs, Privacy
@@ -176,6 +177,7 @@ def create_app(
     jira_transport: httpx.BaseTransport | None = None,
     github_transport: httpx.BaseTransport | None = None,
     caldav_transport: httpx.BaseTransport | None = None,
+    linear_transport: httpx.BaseTransport | None = None,
     caldav_resolver: Resolver | None = None,
     release_feed: ReleaseFeed | None = None,
     updater: Updater | None = None,
@@ -459,8 +461,16 @@ def create_app(
         timeout=httpx.Timeout(15.0, connect=5.0), transport=github_transport, follow_redirects=True
     )
     app.state.github_readers = GitHubReaders(github_client, github_token or None)
+    # Linear sends no redirects; a key must never follow one to another host.
+    linear_client = httpx.Client(
+        timeout=httpx.Timeout(15.0, connect=5.0), transport=linear_transport
+    )
+    app.state.linear_readers = LinearReaders(linear_client)
     # Who a token signs in as, asked before it is stored; by tracker.
-    app.state.token_checks = {GITHUB: app.state.github_readers.login}
+    app.state.token_checks = {
+        GITHUB: app.state.github_readers.login,
+        LINEAR: app.state.linear_readers.login,
+    }
     # The reader of public repositories: guests and people without a token of their own.
     app.state.github = app.state.github_readers.shared
     caldav_private = settings.tiko_caldav_private_network or (

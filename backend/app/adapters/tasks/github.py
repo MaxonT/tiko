@@ -1,4 +1,3 @@
-import hashlib
 import math
 import re
 import threading
@@ -10,6 +9,7 @@ from urllib.parse import urlparse
 
 import httpx
 
+from app.adapters.tasks.readers import PersonalReaders
 from app.domain.errors import (
     TaskNotFound,
     TooManyRepositories,
@@ -555,26 +555,20 @@ class GitHubReaders:
         self._client = client
         self._clock = clock
         self.shared = SharedGitHub(GitHubApi(client, server_token, clock), clock)
-        # By person: the digest of the token the reader was made for, the reader, its last use.
-        self._own: dict[str, tuple[bytes, PersonalGitHub, float]] = {}
-        self._lock = threading.Lock()
+        self._own: PersonalReaders[PersonalGitHub] = PersonalReaders(clock)
 
     def _api(self, token: str) -> GitHubApi:
         return GitHubApi(self._client, token, self._clock, personal=True)
 
     def of(self, user_id: str, token: str) -> PersonalGitHub:
         """The person's reader, kept between requests so its pace and memory last."""
-        digest = hashlib.sha256(token.encode()).digest()
-        now = self._clock()
-        with self._lock:
-            for idle in [u for u, (_, _, used) in self._own.items() if now - used > IDLE_S]:
-                del self._own[idle]
-            kept = self._own.get(user_id)
-            if kept is None or kept[0] != digest:
-                own = GitHubReader(self._api(token), self._clock)
-                kept = (digest, PersonalGitHub(own, self.shared, self._clock), now)
-            self._own[user_id] = (kept[0], kept[1], now)
-            return kept[1]
+        return self._own.of(
+            user_id,
+            token,
+            lambda: PersonalGitHub(
+                GitHubReader(self._api(token), self._clock), self.shared, self._clock
+            ),
+        )
 
     def login(self, token: str) -> str:
         """Whose token this is, asked before it is saved."""

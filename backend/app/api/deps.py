@@ -1,4 +1,5 @@
 from typing import Annotated
+from urllib.parse import urlparse
 
 from fastapi import Depends, Request
 
@@ -13,7 +14,8 @@ from app.domain.public import PublicLinks
 from app.domain.refresh import RefreshService
 from app.domain.sessions import Sessions
 from app.domain.settings import Provider, SettingsService
-from app.domain.tasks import NoTokenProvider
+from app.domain.sources import guest_link
+from app.domain.tasks import NotConnected
 from app.domain.workspaces import Memberships
 
 
@@ -60,27 +62,34 @@ def token_stamps(request: Request) -> dict[str, str | None]:
 
 
 def providers(request: Request) -> dict[str, TaskProvider]:
-    """Every tracker this request can read, by source id: the demo tasks and GitHub always,
-    and Jira with the signed-in person's own token when the instance is set to it. GitHub is
-    read with the person's own token when they have one, and by the shared reader of public
-    repositories otherwise. A demo visitor has no token."""
-    state = request.app.state
-    settings: SettingsService = state.settings
-    person = current_person(request)
-    demo_tasks: TaskProvider = state.demo.scoped(_statuses_owner(request))
-    github: TaskProvider = state.github
-    if not is_visitor(request) and (token := settings.github_token(person.id)):
-        github = state.github_readers.of(person.id, token.get_secret_value())
-    found = {demo_tasks.source_id: demo_tasks, github.source_id: github}
-    caldav = caldav_source(request)
-    found[caldav.source_id] = caldav
+    """Every tracker this request can read, by source id: the demo tasks, GitHub and CalDAV
+    always, and Jira with the signed-in person's own token when the instance is set to it."""
+    found = {p.source_id: p for p in (build(request) for build in (demo, _github, caldav_source))}
     if tracker(request) == "jira":
+        settings: SettingsService = request.app.state.settings
         try:
-            jira = state.jira(settings.jira_credentials(person.id))
+            jira = request.app.state.jira(settings.jira_credentials(current_person(request).id))
         except JiraNotConfigured as exc:
-            jira = NoTokenProvider(settings.base_url(), exc)
+            base_url = settings.base_url()
+            jira = NotConnected(
+                "jira",
+                "Jira Data Center",
+                exc,
+                lambda key: guest_link("jira", key, base_url),
+                urlparse(base_url or "").hostname or "",
+            )
         found[jira.source_id] = jira
     return found
+
+
+def _github(request: Request) -> TaskProvider:
+    """GitHub with the person's own token when they have one, else the shared reader of public
+    repositories. A demo visitor has no token."""
+    state = request.app.state
+    person = current_person(request)
+    if not is_visitor(request) and (token := state.settings.github_token(person.id)):
+        return state.github_readers.of(person.id, token.get_secret_value())
+    return state.github
 
 
 def caldav_source(request: Request) -> CalDavSource:

@@ -1,4 +1,5 @@
 import re
+from collections.abc import Callable
 from datetime import UTC, date, datetime
 from typing import Literal, NamedTuple, NoReturn
 from urllib.parse import parse_qs, urlparse
@@ -160,32 +161,36 @@ def search_tasks(
     return found
 
 
-class NoTokenProvider:
-    """Stands in for Jira while the person has no usable token of their own.
+class NotConnected:
+    """Stands in for a tracker the person has not connected, or cannot read with what they
+    stored.
 
     Cards keep their key and say how to connect; nothing is fetched with anyone else's token.
     """
 
-    source_id = "jira"
-    source_name = "Jira Data Center"
     source_note = None
 
-    def __init__(self, base_url: str | None, reason: DomainError) -> None:
-        self._base_url = base_url or ""
+    def __init__(
+        self,
+        source_id: str,
+        source_name: str,
+        reason: DomainError,
+        link: Callable[[str], str] = lambda key: "",
+        base_host: str = "",
+    ) -> None:
+        self.source_id = source_id
+        self.source_name = source_name
+        self.base_host = base_host
         self._reason = reason
-
-    @property
-    def base_host(self) -> str:
-        return urlparse(self._base_url).hostname or ""
+        self._link = link
 
     def poll(self, keys: list[str]) -> list[Task]:
-        url = f"{self._base_url}/browse/" if self._base_url else ""
         return [
             Task(
                 source=self.source_id,
                 key=key,
                 state="no_token",
-                url=f"{url}{key}" if url else "",
+                url=self._link(key),
                 fetched_at=now_iso(),
             )
             for key in keys

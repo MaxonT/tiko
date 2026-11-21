@@ -21,5 +21,5 @@
 
 ## Slice 3: `arrow-label-api` (agents write labels)
 
-- [ ] T014 `POST /elements` arrow `label`; `PATCH` `label` on the key's person's arrows, other arrow changes still refused; MCP `connect` and `update_elements`; API tests, contract `api-v1.md` and `openapi-v1.json`
-- [ ] T015 Guide API reference, CHANGELOG
+- [x] T014 `POST /elements` arrow `label`; `PATCH` `label` on the key's person's arrows, other arrow changes still refused; MCP `connect` and `update_elements`; API tests, contract `api-v1.md` and `openapi-v1.json`
+- [x] T015 Guide API reference, CHANGELOG

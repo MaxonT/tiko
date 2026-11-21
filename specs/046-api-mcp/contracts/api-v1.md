@@ -151,7 +151,7 @@ Without parameters, an outline:
 - A card takes `ref`: a key or a link, resolved the way the card tool resolves it. At most 50 cards per call.
 - A code block (spec 049) takes `text` up to 10 000 characters, `language` (default `plain`), `title`, `collapsed`, `numbered` and `marked`; those fields on any other kind, or `text` over 5000 characters on one, answer `422`.
 - Sizes: `w` and `h` within 1 – 20 000 for notes, shapes and frames, `w` only for text and code; cards take none. Coordinates within ±1 000 000.
-- An arrow joins two elements of the board or of the same call, never an element to itself. v1 makes no arrow with a free end.
+- An arrow joins two elements of the board or of the same call, never an element to itself. v1 makes no arrow with a free end. It takes an optional `label` up to 500 characters (spec 051); empty or only spaces is none; `label` on any other kind answers `422`.
 - Answers `200` with `{"elements": [...], "created": [ids]}`: the elements as they now stand, and which of them this call made. A re-add of an id the person already added through the API answers with the element as it is and leaves it out of `created`.
 
 ### `PATCH /api/v1/boards/{id}/elements`
@@ -166,6 +166,7 @@ Without parameters, an outline:
 - On any element: `x`, `y` (together), `w`, `h` (as for adding), `frame`.
 - On any code block: `language`, `collapsed`, `numbered`, `marked`.
 - Only on elements added through the API: `text`, `title`, `color`, `shape`.
+- On an arrow added through the API: `label` only (spec 051); an empty one removes the label, a new one keeps the label's place and look. Any other field on an arrow answers `422`; `label` on a person's arrow answers `409 not_api_element`, on any other kind `422`.
 - `frame: null` takes the element out of its frame and keeps it where it is on the board. Leaving `frame` out never changes it, even when `x` and `y` move the element outside the frame. Moving a frame moves its content.
 - Answers with the changed elements.
 
@@ -213,7 +214,7 @@ Streamable HTTP, JSON answers, the same key as `Authorization: Bearer`. `/api/mc
 | `add_cards(board, cards: [{ref, id?}], frame?)` | write | idempotent where ids are given | `POST /elements`, kind `card` |
 | `add_notes(board, notes: [{text, color?, kind?, id?}], frame?)` | write | idempotent where ids are given | `POST /elements`, kind `note` or `text` |
 | `add_frame(board, title, id?, x?, y?, w?, h?)` | write | idempotent with an id | `POST /elements`, kind `frame` |
-| `connect(board, start, end, id?)` | write | idempotent with an id | `POST /elements`, kind `arrow` |
+| `connect(board, start, end, label?, id?)` | write | idempotent with an id | `POST /elements`, kind `arrow` |
 | `update_elements(board, changes)` | write | idempotent | `PATCH /elements` |
 | `arrange(board, cards, layout, frame?, new_frame?)` | write | — (a frame by title is made anew on a retry) | `POST /arrange` |
 | `remove_elements(board, ids)` | write | destructive, idempotent | `POST /elements/remove` |

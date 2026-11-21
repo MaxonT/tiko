@@ -1745,6 +1745,18 @@
               }
             ],
             "title": "Shape"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
           }
         },
         "additionalProperties": false,
@@ -3030,6 +3042,18 @@
               }
             ],
             "title": "To"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
           },
           "note": {
             "anyOf": [

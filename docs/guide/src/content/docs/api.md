@@ -78,6 +78,7 @@ A key with read and write access can change the boards you can edit:
 
 - **Placing:** without `x` and `y`, new elements are laid out in rows below what is on the board, or inside the frame you name, which grows to hold them.
 - **Retries:** give each element your own `id` and a retry never adds it twice.
+- **Arrow labels:** an arrow takes a `label`, the words on it, when you add it: `{"kind": "arrow", "from": "<id>", "to": "<id>", "label": "blocks"}`. `PATCH …/elements` with `{"id": "<arrow>", "label": "…"}` changes the label of an arrow you drew, and an empty one removes it. Where the label sits and how it looks stay in the web app. An arrow's ends never change: remove it and draw another.
 - **Look:** `color`, `bold`, `size` (`small`, `medium`, `large`), `opacity` (10 to 100 in steps of 5), `rotation` (degrees), and a shape's `stroke` (1, 1.5, 3) and `dash`. A code block's `language`, `collapsed`, `numbered` and `marked` lines count as its look too, so a key may fix the language of a block a person made. New elements take the same fields; a code block holds up to 10,000 characters of `text`. A field an element does not have in the web app, such as bold on a frame, is refused.
 
 ```bash

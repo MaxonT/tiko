@@ -463,10 +463,16 @@ def create(app: FastAPI) -> TikoMCP:
         board: Annotated[str, _BOARD],
         start: Annotated[str, Field(description="The element the arrow leaves.")],
         end: Annotated[str, Field(description="The element the arrow points at.")],
+        label: Annotated[
+            str | None,
+            Field(description="Words on the arrow, such as blocks or waits for.", max_length=500),
+        ] = None,
         id: Annotated[str | None, _ID] = None,
     ) -> dict[str, Any]:
-        """Draws an arrow from one element of the board to another."""
-        items = [NewElement.model_validate({"kind": "arrow", "from": start, "to": end, "id": id})]
+        """Draws an arrow from one element of the board to another, with words on it if
+        given."""
+        fields = {"kind": "arrow", "from": start, "to": end, "id": id, "label": label}
+        items = [NewElement.model_validate({k: v for k, v in fields.items() if v is not None})]
         return write(ctx, board, lambda request: adds(board, items, request))
 
     @server.tool(annotations=_ADDS)
@@ -477,8 +483,9 @@ def create(app: FastAPI) -> TikoMCP:
     ) -> dict[str, Any]:
         """Moves, resizes or puts elements in and out of frames, and restyles any element:
         colour, bold, text size, opacity, rotation, a shape's stroke and dash, a code block's
-        language, folding, line numbers and marked lines. Changes the text of what you added;
-        text people wrote is theirs and cannot be changed here."""
+        language, folding, line numbers and marked lines. Changes the text of what you added,
+        and the label of an arrow you drew (empty removes it); text people wrote is theirs and
+        cannot be changed here."""
         body = elements.ChangeIn(changes=changes)
         return write(
             ctx,

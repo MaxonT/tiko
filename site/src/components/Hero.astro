@@ -288,6 +288,29 @@ const showCloud = false
     margin-top: 2.5rem;
   }
 
+  /* Phones: one left edge instead of a centred stack of uneven lines. */
+  @media (max-width: 640px) {
+    .copy {
+      justify-items: start;
+      text-align: left;
+    }
+    .rot-box {
+      justify-items: start;
+    }
+    .rot {
+      margin-inline: 0;
+    }
+    .actions {
+      flex-direction: column;
+      align-self: stretch;
+      justify-self: stretch;
+      align-items: stretch;
+    }
+    .actions .btn {
+      justify-content: center;
+    }
+  }
+
   .track {
     padding-bottom: clamp(3rem, 6vw, 5rem);
   }

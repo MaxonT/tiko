@@ -280,8 +280,11 @@ def token_settings(store, snapshots):
 TOKEN_CHANGES = {
     "jira replaced": ("jira", lambda s: s.set_token("owner", SecretStr("new"))),
     "jira removed": ("jira", lambda s: s.remove_token("owner")),
-    "github replaced": ("github", lambda s: s.set_github_token("owner", SecretStr("new"))),
-    "github removed": ("github", lambda s: s.remove_github_token("owner")),
+    "github replaced": (
+        "github",
+        lambda s: s.set_source_token("owner", "github", SecretStr("new")),
+    ),
+    "github removed": ("github", lambda s: s.remove_source_token("owner", "github")),
 }
 
 
@@ -308,7 +311,7 @@ def test_a_poll_outlived_by_its_token_leaves_the_cache_empty(store, repos, chang
     source, swap = change
     settings = token_settings(store, snapshots)
     settings.set_token("owner", SecretStr("old"))
-    settings.set_github_token("owner", SecretStr("old"))
+    settings.set_source_token("owner", "github", SecretStr("old"))
     in_poll = (lambda: None) if late else (lambda: swap(settings))
     cache = LateWrite(snapshots, lambda: swap(settings)) if late else snapshots
     tasks, _ = refresh_with_tokens(repos, settings, cache, Racing(source, in_poll))
@@ -319,7 +322,7 @@ def test_a_poll_outlived_by_its_token_leaves_the_cache_empty(store, repos, chang
 def test_a_poll_with_the_same_token_fills_the_cache(store, repos):
     _, _, snapshots = repos
     settings = token_settings(store, snapshots)
-    settings.set_github_token("owner", SecretStr("old"))
+    settings.set_source_token("owner", "github", SecretStr("old"))
     refresh_with_tokens(repos, settings, snapshots, Racing("github", lambda: None))
     refs = ["github:DEMO-1", "github:DEMO-2"]
     assert set(snapshots.get_many(refs)) == set(refs)

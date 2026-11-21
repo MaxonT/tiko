@@ -81,7 +81,7 @@ check(status == 204, "revoke invite")
 status, _ = call("GET", f"{API}/api/invites/{token}")
 check(status == 410, "revoked invite is gone")
 
-TRACKER_FIELDS = {"provider", "base_url", "token_state", "github_token_state", "kind", "email"}
+TRACKER_FIELDS = {"provider", "base_url", "kind", "email", "tokens", "connected_as"}
 # The scenario runs on demo tasks; a connected Jira is switched back afterwards.
 status, settings = call("GET", f"{API}/api/settings")
 check(status == 200, "read settings")

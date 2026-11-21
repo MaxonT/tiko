@@ -24,6 +24,7 @@ from app.domain.api_keys import KeyIdentity
 from app.domain.batch import Change, NewElement
 from app.domain.boards import CodeLanguage
 from app.domain.errors import DomainError, NotFound
+from app.domain.sources import SOURCES
 from app.domain.workspaces import in_workspace
 
 # The key of the request a tool runs for; the SDK lists tools without a request at hand.
@@ -173,7 +174,7 @@ def create(app: FastAPI) -> TikoMCP:
     def search_tasks(
         ctx: Context,
         source: Annotated[
-            Literal["jira", "caldav", "demo"],
+            Literal[tuple(s.id for s in SOURCES.values() if s.search)],
             Field(description="The tracker: jira takes JQL, caldav words of the title."),
         ],
         query: Annotated[str, Field(description="The search in that tracker's terms.")],

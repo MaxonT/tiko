@@ -2,7 +2,6 @@
 PROPFIND, REPORT and GET are ever sent."""
 
 import base64
-import hashlib
 import ipaddress
 import re
 import socket
@@ -18,6 +17,7 @@ from urllib.parse import unquote, urljoin, urlsplit, urlunsplit
 import httpx
 from icalendar import Calendar
 
+from app.adapters.tasks.readers import PersonalReaders
 from app.domain.caldav import CalDavAccount, ListTasks, TaskList, no_account
 from app.domain.errors import (
     CalDavAddressRefused,
@@ -820,8 +820,7 @@ class CalDavReaders:
     ) -> None:
         self._http = CalDavHttp(client, allow_private, resolver)
         self._clock = clock
-        self._own: dict[str, tuple[bytes, CalDavReader, float]] = {}
-        self._lock = threading.Lock()
+        self._own: PersonalReaders[CalDavReader] = PersonalReaders(clock)
 
     def reader(self, account: CalDavAccount) -> CalDavReader:
         """A fresh reader that checks an account before it is saved."""
@@ -829,21 +828,12 @@ class CalDavReaders:
 
     def of(self, user_id: str, account: CalDavAccount) -> CalDavReader:
         password = account.password.get_secret_value()
-        digest = hashlib.sha256(
-            "\0".join((account.address, account.username, password)).encode()
-        ).digest()
-        now = self._clock()
-        with self._lock:
-            for idle in [u for u, (_, _, used) in self._own.items() if now - used > IDLE_S]:
-                del self._own[idle]
-            kept = self._own.get(user_id)
-            if kept is None or kept[0] != digest:
-                kept = (digest, CalDavReader(self._http, account, self._clock), now)
-            else:
-                kept[1].set_hidden(account.hidden)
-            self._own[user_id] = (kept[0], kept[1], now)
-            return kept[1]
+        return self._own.of(
+            user_id,
+            "\0".join((account.address, account.username, password)),
+            lambda: CalDavReader(self._http, account, self._clock),
+            lambda kept: kept.set_hidden(account.hidden),
+        )
 
     def forget(self, user_id: str) -> None:
-        with self._lock:
-            self._own.pop(user_id, None)
+        self._own.forget(user_id)

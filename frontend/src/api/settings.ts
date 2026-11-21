@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { fetchJson } from '@/api/client'
 
 const jiraKind = z.enum(['dc', 'cloud'])
+const tokenState = z.enum(['none', 'set', 'unreadable'])
 
 const settingsSchema = z.object({
   provider: z.enum(['demo', 'jira']),
@@ -9,7 +10,7 @@ const settingsSchema = z.object({
   secret_key_configured: z.boolean(),
   jira: z.object({
     base_url: z.string().nullable(),
-    token_state: z.enum(['none', 'set', 'unreadable']),
+    token_state: tokenState,
     /** Found from the site itself; null while no URL is set. */
     kind: jiraKind.nullable().default(null),
     /** The field a task's start is read from; null finds it by name. */
@@ -67,11 +68,13 @@ export function getJiraDateFields() {
 const trackerSchema = z.object({
   provider: z.enum(['demo', 'jira']),
   base_url: z.string().nullable(),
-  token_state: z.enum(['none', 'set', 'unreadable']),
-  github_token_state: z.enum(['none', 'set', 'unreadable']),
   kind: jiraKind.nullable().default(null),
   /** The person's own Jira Cloud e-mail. */
   email: z.string().nullable().default(null),
+  /** The person's own credentials by tracker. */
+  tokens: z.record(z.string(), tokenState),
+  /** Who the token just saved signs in as. */
+  connected_as: z.string().nullable().default(null),
 })
 export type Tracker = z.infer<typeof trackerSchema>
 
@@ -80,7 +83,8 @@ export function getTracker() {
   return fetchJson('/api/me/tracker', trackerSchema)
 }
 
-export type TokenSource = 'jira' | 'github'
+/** A tracker's id: `jira`, or one the registry gives a token form. */
+export type TokenSource = string
 
 export function saveTrackerToken(token: string, source: TokenSource = 'jira', email?: string) {
   return fetchJson('/api/me/tracker', trackerSchema, {

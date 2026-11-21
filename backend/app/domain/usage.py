@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from app.domain.errors import DependencyUnavailable, ValidationFailed
 from app.domain.ports import SettingsRepo, StatsSender, UsageCounts
+from app.domain.sources import SOURCES
 
 log = logging.getLogger(__name__)
 
@@ -23,7 +24,7 @@ Deploy = Literal["installer", "compose", "railway", "render", "source", "demo"]
 HostOs = Literal["linux", "darwin", "windows", "other"]
 
 # Snapshot sources as stored, named as the guide lists them.
-_TRACKERS: dict[str, Tracker] = {"demo": "demo", "jira": "jira_dc", "github": "github"}
+_TRACKERS: dict[str, str] = {s.id: s.usage for s in SOURCES.values() if s.usage}
 
 
 def bucket(count: int) -> Bucket:

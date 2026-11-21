@@ -17,7 +17,8 @@ from app.domain.errors import BoardLimit, Forbidden, NotFound, ValidationFailed
 from app.domain.members import BoardRole, ShareRole, effective_role, granted_role
 from app.domain.modules import KIND_PATTERN, module_keys, validate_module
 from app.domain.ports import BoardRepo, LiveBoards, SnapshotRepo
-from app.domain.tasks import SOURCE_PATTERN, Task, task_ref, valid_key
+from app.domain.sources import valid_key
+from app.domain.tasks import SOURCE_PATTERN, Task, task_ref
 from app.domain.welcome import WELCOME_NAME, welcome_doc
 
 MAX_NODES = 2000

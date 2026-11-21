@@ -24,12 +24,13 @@ from app.domain.batch import (
 from app.domain.boards import BoardName, create_board, rename_board
 from app.domain.demo import board_limit
 from app.domain.errors import InvalidRef, TaskNotFound, ValidationFailed
-from app.domain.tasks import GITHUB, github_key, parse_ref, task_ref, valid_key
+from app.domain.sources import SOURCES, route_ref, valid_key
+from app.domain.tasks import task_ref
 
 router = APIRouter(prefix="/boards", tags=["writing"], dependencies=[Depends(write_budget)])
 
 # A card named by its tracker outright: CalDAV tasks have neither a short key nor a link.
-_EXPLICIT = re.compile(r"^(jira|github|caldav|demo):(.+)$")
+_EXPLICIT = re.compile(rf"^({'|'.join(SOURCES)}):(.+)$")
 _RANK = {"new": 0, "indeterminate": 1, "done": 2}
 
 
@@ -252,13 +253,8 @@ def _status_now(source: str, key: str, request: Request) -> str:
 def _parse(ref: str, providers: dict, tracker: str) -> tuple[str, str]:
     if match := _EXPLICIT.match(ref.strip()):
         source, key = match.group(1), match.group(2)
-    elif key := github_key(ref):
-        source = GITHUB
     else:
-        source = tracker
-        if source not in providers:
-            raise InvalidRef(f"This tiko does not read {source}.")
-        key = parse_ref(ref, providers[source].base_host)
+        source, key = route_ref(ref, providers, tracker)
     if source not in providers:
         raise InvalidRef(f"This tiko does not read {source}.")
     if not valid_key(source, key):

@@ -3,7 +3,7 @@ import { useEffect, useRef, type PointerEvent as ReactPointerEvent } from 'react
 import { dropTarget, INDENT, type DropTarget } from '@/modules/gantt/drag'
 import type { DragStore, Layout } from '@/modules/gantt/drag-store'
 import type { Row } from '@/modules/gantt/rows'
-import { movingDepth, movingRows, type TreeRow } from '@/modules/gantt/tree'
+import { MAX_DEPTH, movingDepth, movingRows, type TreeRow } from '@/modules/gantt/tree'
 import { useZoom } from '@/modules/expanded'
 
 // A press that moves further than this starts a drag.
@@ -31,6 +31,8 @@ type Drag = {
   target: DropTarget | null
   outside: boolean
   dragging: boolean
+  /** The visible rows the layout was drawn for, so a change by someone else redraws it. */
+  rowsKey: string
   /** Lasso: the press below the rows' top, and what stays selected besides what it covers. */
   startY: number
   base: Set<string>
@@ -163,7 +165,9 @@ export function useRowDrag({
         })
       : null
     const outside = !inside && !expanded
+    const rowsKey = visible.map((t) => t.row.id).join(' ')
     const same =
+      d.rowsKey === rowsKey &&
       d.target?.slot === target?.slot &&
       d.target?.depth === target?.depth &&
       d.target?.fits === target?.fits &&
@@ -172,6 +176,7 @@ export function useRowDrag({
       store.layout?.hidden.size === lifted.length
     d.target = target
     d.outside = outside
+    d.rowsKey = rowsKey
     if (same && store.ghost) return
     store.set(layoutOf(moving, target, true), {
       rows: lifted,
@@ -219,6 +224,30 @@ export function useRowDrag({
     }, SETTLE_MS)
   }
 
+  // The drop place against the plan as it is now: its row in view and its level still allowed.
+  const stillFits = (ids: string[], target: DropTarget) => {
+    const { rows, visible } = latest.current
+    const { tops, moving } = movingRows(rows, ids)
+    if (tops.length === 0) return false
+    const rest = visible.filter((t) => !moving.has(t.row.id))
+    const slot =
+      target.aboveId === null ? 0 : rest.findIndex((t) => t.row.id === target.aboveId) + 1
+    if (slot === 0 && target.aboveId !== null) return false
+    const above = rest[slot - 1]
+    const below = rest[slot]
+    const min = below ? below.depth : 0
+    const max = Math.min(above ? above.depth + 1 : 0, MAX_DEPTH - 1 - movingDepth(rows, tops))
+    return target.depth >= min && target.depth <= max
+  }
+
+  // Where the pressed row sits among the lifted rows, which change when someone else edits.
+  const placeInGhost = (d: Drag) => {
+    const { rows, visible } = latest.current
+    const { moving } = movingRows(rows, d.ids)
+    const lifted = visible.filter((t) => moving.has(t.row.id))
+    return lifted.findIndex((t) => t.row.id === d.ids[0])
+  }
+
   const begin = (d: Drag) => {
     const { rows, visible } = latest.current
     const { tops, moving } = movingRows(rows, d.ids)
@@ -240,6 +269,7 @@ export function useRowDrag({
       mode: 'drag',
       startY: 0,
       base: new Set(),
+      rowsKey: '',
       // The pressed row first, so the ghost knows which of its rows the pointer holds.
       ids: [id, ...ids.filter((other) => other !== id)],
       pointerId: event.pointerId,
@@ -273,6 +303,7 @@ export function useRowDrag({
       target: null,
       outside: false,
       dragging: false,
+      rowsKey: '',
       startY: local(point).y,
       base,
     }
@@ -324,6 +355,9 @@ export function useRowDrag({
         settle.current.animation = undefined
         if (!alive.current) return
         store.set(null, null)
+        // Someone may have folded or removed the place while the ghost glided: then the rows
+        // stay where they were rather than land out of sight.
+        if (!stillFits(d.ids, target)) return
         latest.current.onDrop(d.ids, target.aboveId, target.depth)
       }
       // The ghost glides into the gap first, so the rows land where it was without a jump.
@@ -404,8 +438,15 @@ export function useRowDrag({
     const d = drag.current
     if (!d?.dragging) return
     const ids = new Set(latest.current.rows.map((r) => r.id))
+    const pressed = d.ids[0]
     d.ids = d.ids.filter((id) => ids.has(id))
-    if (d.mode === 'drag' && d.ids.length === 0) return cancel()
+    if (d.mode === 'drag') {
+      // The row under the pointer is gone, or out of view: the drag has nothing to hold.
+      if (d.ids[0] !== pressed) return cancel()
+      const index = placeInGhost(d)
+      if (index < 0) return cancel()
+      d.ghostIndex = index
+    }
     refresh(d.last)
   })
 

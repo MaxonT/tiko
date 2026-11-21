@@ -4,7 +4,7 @@
 
 **Created**: 2026-11-21
 
-**Status**: Draft, waiting for the owner at G2.
+**Status**: Approved by the owner at G2 on 2026-11-21 with every recommended answer below.
 
 **Input**: Owner's request: double-click an arrow and a text label appears in its middle; it moves with the arrow; its color and size come from the selection bar, as for a text or a sticky note. The label can be dragged along the arrow toward either end, not only kept in the middle. Arrows with strong or unusual bends must still carry a readable label.
 
@@ -55,8 +55,8 @@ Principles check:
 
 ### Everywhere else
 
-11. **Live and undo.** A label is part of its arrow: text arrives for others as it is typed, a new place when the drag ends. Undo, redo, copy and paste, duplicate and Alt-drag copy carry the label with its arrow. Deleting an arrow deletes its label.
-12. **Search finds label text.** `⌘K` lists a matching label with an arrow icon and "Arrow" as its context; opening it selects the arrow and centers the label. While a query matches, a matching arrow and its label stay bright and the label gets the search ring.
+11. **Live and undo.** A label is part of its arrow: others get its text when editing finishes, as with a text element, and a new place when the drag ends. Undo, redo, copy and paste, duplicate and Alt-drag copy carry the label with its arrow. Deleting an arrow deletes its label.
+12. **Search finds label text.** `⌘K` lists a matching label with an arrow icon and "Arrow" as its context; opening it selects the arrow and centers it. While a query matches, a matching arrow and its label stay bright and the label gets the search ring.
 13. **The far view draws a label as a bar.** At 20% zoom and below it is one 12px bar, as wide as its text would be up to 240px, at its place on the arrow, in the label's fill when it has one, with the line still cut under it. A double-click there zooms in, as on any element.
 14. **View-only boards and public links show labels** and nothing else: no editing, no dragging, no bar.
 15. **Accessibility.** A labeled arrow is announced by its label ("Arrow: waits for API"); the editor is a field named "Arrow label"; the keyboard path is Decision 1's `Enter`. Labels follow the theme tokens and meet text contrast in both themes.
@@ -74,7 +74,7 @@ Principles check:
 
 A lead draws arrows between a backend task, a frontend task and a release note, double-clicks the first arrow and types "waits for API", the second "ships in". Later they move the cards into another frame: the labels ride along.
 
-**Independent Test**: on the compose stack double-click an arrow between two cards, type a word, press `Enter`. Move one card: the label stays in the middle of the redrawn arrow. Reload: it is there. A second window sees it as typed. Undo removes it. `make smoke` saves and reopens a board with a labeled arrow.
+**Independent Test**: on the compose stack double-click an arrow between two cards, type a word, press `Enter`. Move one card: the label stays in the middle of the redrawn arrow. Reload: it is there. A second window sees it once editing finishes. Undo removes it. `make smoke` saves and reopens a board with a labeled arrow.
 
 **Acceptance Scenarios**:
 
@@ -142,11 +142,11 @@ An agent that lays out a dependency map through MCP connects two cards with the 
 - Labels that mean something to tiko, such as a link type that changes a task or the tracker.
 - The place, fill and size of a label through the API.
 
-## Open questions for the owner
+## Owner's answers (G2, 2026-11-21)
 
-1. **Color: fill or text color?** "Color from the selection bar" could mean the text's color. Recommended: a fill (a chip in a sticky color), as tiko colors only fills (Decision 9).
-2. **Where does a new label appear: middle or where you double-click?** You said middle. Recommended: the middle, as you said; the drag moves it.
-3. **`Esc` while editing: keep or cancel?** Recommended: keep, as every text on the board does; Undo takes it back (Decision 2).
-4. **Default size: 14px (a shape's text) or 13px (the canvas base)?** Recommended: 14px, so Small, Medium, Large match shapes.
-5. **Should agents label a person's arrows?** Recommended: no, only arrows they added, the same rule v1 has for text and colour (Decision 17).
-6. **An older tiko drops labels on import instead of refusing the file.** Recommended: drop and say so in the guide (Decision 16).
+1. **Color is a fill**, a chip in a sticky color, not a text color (Decision 9).
+2. **A new label appears in the middle**; the drag moves it (Decision 1).
+3. **`Esc` keeps the text**, as every text on the board does; Undo takes it back (Decision 2).
+4. **Medium is 14px**, so Small, Medium and Large match shapes (Decision 9).
+5. **Agents label only the arrows they added**, the rule v1 has for text and colour (Decision 17).
+6. **An older tiko drops labels on import** instead of refusing the file; the guide says so (Decision 16).

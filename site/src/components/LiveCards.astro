@@ -3,7 +3,6 @@
 // markup is the finished board; the loop plays only when the frame is in view and motion is on.
 import { DOCS, TRACKERS } from '../data/site'
 import Brand from './Brand.astro'
-import Connector from './Connector.astro'
 import Icon from './Icon.astro'
 import Logo from './Logo.astro'
 
@@ -42,7 +41,6 @@ const ray = (t: number) => `M${tile(t).x} ${tile(t).y} L ${HUB.x} ${HUB.y}`
 
 <section class="frame-sec" id="features">
   <div class="wrap">
-    <Connector />
     <div class="frame">
       <span class="frame-title">Live cards</span>
       <div class="copy">
@@ -136,7 +134,7 @@ const ray = (t: number) => `M${tile(t).x} ${tile(t).y} L ${HUB.x} ${HUB.y}`
 
 <style>
   .frame-sec {
-    padding-block: 0 clamp(4rem, 9vw, 7rem);
+    padding-block: clamp(2.5rem, 4vw, 3.5rem) clamp(4rem, 9vw, 7rem);
   }
   .frame {
     position: relative;

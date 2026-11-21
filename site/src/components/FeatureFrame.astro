@@ -1,7 +1,5 @@
 ---
-// One feature as a frame on the page's canvas: copy on one side, a large drawing on the other,
-// joined to the frame above by a short arrow that draws itself on scroll.
-import Connector from './Connector.astro'
+// One feature as a frame on the page's canvas: copy on one side, a large drawing on the other.
 import Icon from './Icon.astro'
 
 interface Props {
@@ -19,7 +17,6 @@ const { id, label, heading, lead, points, more, tone = 'blue', flip = false } = 
 
 <section class="frame-sec" id={id}>
   <div class="wrap">
-    <Connector />
     <div class:list={['frame', { flip }]} style={`--tone: var(--sticky-${tone})`}>
       <span class="frame-title">{label}</span>
       <div class="copy">
@@ -39,7 +36,7 @@ const { id, label, heading, lead, points, more, tone = 'blue', flip = false } = 
 
 <style>
   .frame-sec {
-    padding-block: 0 clamp(4rem, 9vw, 7rem);
+    padding-block: clamp(2.5rem, 4vw, 3.5rem) clamp(4rem, 9vw, 7rem);
   }
   .frame {
     position: relative;

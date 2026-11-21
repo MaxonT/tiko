@@ -463,14 +463,16 @@
 }
 /* While searching, matches are ringed and everything else steps back. */
 .react-flow.searching .react-flow__node,
-.react-flow.searching .react-flow__edge {
+.react-flow.searching .react-flow__edge,
+.react-flow.searching .edge-label-place {
   transition: opacity 150ms ease-out;
 }
 .react-flow.searching .react-flow__node:not(.search-hit),
-.react-flow.searching .react-flow__edge:not(.search-hit) {
+.react-flow.searching .react-flow__edge:not(.search-hit),
+.react-flow.searching .edge-label-place:not([data-hit]) {
   opacity: 0.35;
 }
-.react-flow__edge.search-hit .edge-label {
+.edge-label-place[data-hit] .edge-label {
   outline: 2px solid var(--primary);
 }
 .react-flow__node.search-hit {
@@ -599,7 +601,8 @@
     animation-timing-function: step-end;
   }
   .react-flow.searching .react-flow__node,
-  .react-flow.searching .react-flow__edge {
+  .react-flow.searching .react-flow__edge,
+  .react-flow.searching .edge-label-place {
     transition: none;
   }
   .focus-dial,

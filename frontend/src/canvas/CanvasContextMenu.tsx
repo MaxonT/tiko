@@ -52,7 +52,7 @@ const PLACE: { tool: PlaceTool; label: string; Icon: typeof Frame }[] = [
 ]
 
 const CANVAS_TARGETS =
-  '.react-flow__pane, .react-flow__node, .react-flow__edge, .react-flow__nodesselection-rect'
+  '.react-flow__pane, .react-flow__node, .react-flow__edge, .edge-label-place, .react-flow__nodesselection-rect'
 
 /** Right-click menu: add elements at the clicked spot, or act on the selection. */
 export function CanvasContextMenu({

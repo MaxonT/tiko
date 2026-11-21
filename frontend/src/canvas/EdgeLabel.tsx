@@ -1,4 +1,4 @@
-import { useReactFlow, type XYPosition } from '@xyflow/react'
+import { useReactFlow, useStore, ViewportPortal, type XYPosition } from '@xyflow/react'
 import { useContext, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { LABEL_MAX, LABEL_WIDTH, editedLabel, farBar, type Size } from '@/canvas/edge-label'
 import { LabelEditing } from '@/canvas/label-editing'
@@ -6,9 +6,7 @@ import { FarContext, useReadOnly } from '@/canvas/readonly'
 import { fillCss, textPx } from '@/canvas/selection-props'
 import type { AppEdge, EdgeLabel } from '@/canvas/types'
 
-// Room the foreignObject gives the label; the label itself is centered in it and measured.
-const ROOM_W = LABEL_WIDTH + 40
-const ROOM_H = 1200
+const LABEL_Z = 1_000_000
 
 function labelLook(label: EdgeLabel | undefined): React.CSSProperties {
   const color = label?.color
@@ -39,8 +37,8 @@ type Props = {
 }
 
 /**
- * Words on an arrow, level, centered on `at`. Drawn inside the arrow's own SVG, so they stack
- * with it: an arrow between elements in a frame is lifted above the frame, and so is its label.
+ * Words on an arrow, level, centered on `at`. Drawn above the elements rather than in the arrow's
+ * SVG: a label that runs over a sticker's see-through corner can still be grabbed.
  */
 export function ArrowLabel({ edge, label, at, onSize, drag }: Props) {
   const { editing, setEditing } = useContext(LabelEditing)
@@ -48,6 +46,10 @@ export function ArrowLabel({ edge, label, at, onSize, drag }: Props) {
   const far = useContext(FarContext)
   const { updateEdgeData } = useReactFlow<never, AppEdge>()
   const box = useRef<HTMLDivElement>(null)
+  // Search rings the arrow by its class; the label, out of the arrow's DOM, follows it by hand.
+  const hit = useStore(
+    (s) => !!s.edgeLookup.get(edge.id)?.className?.split(' ').includes('search-hit'),
+  )
   const isEditing = editing === edge.id && !readOnly && !far
   // Far out a label has no editor; editing ends instead of waiting to come back.
   useEffect(() => {
@@ -73,14 +75,21 @@ export function ArrowLabel({ edge, label, at, onSize, drag }: Props) {
   }
 
   return (
-    <foreignObject
-      x={at.x - ROOM_W / 2}
-      y={at.y - ROOM_H / 2}
-      width={ROOM_W}
-      height={ROOM_H}
-      style={{ pointerEvents: 'none', overflow: 'visible' }}
-    >
-      <div className="flex h-full w-full items-center justify-center">
+    <ViewportPortal>
+      <div
+        className="edge-label-place"
+        data-hit={hit || undefined}
+        style={{
+          position: 'absolute',
+          left: 0,
+          top: 0,
+          width: 'max-content',
+          transform: `translate(${at.x}px, ${at.y}px) translate(-50%, -50%)`,
+          pointerEvents: 'none',
+          // Over every element: React Flow lifts nested ones by 10 for each frame before them.
+          zIndex: LABEL_Z,
+        }}
+      >
         {far ? (
           <div
             className="edge-label-bar"
@@ -111,7 +120,7 @@ export function ArrowLabel({ edge, label, at, onSize, drag }: Props) {
           </div>
         )}
       </div>
-    </foreignObject>
+    </ViewportPortal>
   )
 }
 

@@ -42,7 +42,7 @@ type Props = {
   onAddChild: () => void
   /** A press on the row, which may become a drag; the Gantt tracks the pointer from here. */
   onPress: (event: PointerEvent) => void
-  /** A press on the row's blank space, which starts a lasso. */
+  /** A press on the row's blank space: a drag draws a lasso, a click picks the row. */
   onLasso?: (event: PointerEvent) => void
   /** Whether the bar follows the tracker's dates; undefined for a row that cannot. */
   follow?: boolean
@@ -87,7 +87,7 @@ export function GanttLabel({
     if ((event.target as Element).closest('a, button, input')) return
     event.currentTarget.setPointerCapture(event.pointerId)
     // The row's own background, past its title, in its indent or between its hover buttons, is
-    // blank space for a lasso.
+    // blank space: a drag there draws a lasso, a click picks the row.
     const blank =
       event.target === event.currentTarget ||
       (event.target as Element).hasAttribute('data-row-actions')

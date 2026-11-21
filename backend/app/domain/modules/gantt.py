@@ -3,7 +3,8 @@ from typing import Annotated, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from app.domain.tasks import SOURCE_PATTERN, valid_key
+from app.domain.sources import valid_key
+from app.domain.tasks import SOURCE_PATTERN
 
 MAX_RANGE_DAYS = 1096
 MAX_DEPTH = 5

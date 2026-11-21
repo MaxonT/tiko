@@ -9,7 +9,8 @@ from app.api.v1.elements import _parse
 from app.config import Settings
 from app.domain.errors import HostMismatch, InvalidRef
 from app.domain.public import guest_tasks
-from app.domain.tasks import Task, now_iso, resolve_task, valid_key
+from app.domain.sources import resolve_task, valid_key
+from app.domain.tasks import Task, now_iso
 from app.main import create_app
 from tests.conftest import signed_in
 

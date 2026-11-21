@@ -13,7 +13,8 @@ from app.domain.errors import (
     TrackerUnavailable,
     TrackerUnreachable,
 )
-from app.domain.tasks import github_key, valid_key
+from app.domain.sources import valid_key
+from app.domain.tasks import github_key
 from app.main import create_app
 from tests.conftest import signed_in
 from tests.github_fake import REPO, T_ANN, T_BOB, TOKEN, FakeGitHub, issue

@@ -8,6 +8,7 @@ from app.api import deps
 from app.api.v1.deps import read_budget, search_budget
 from app.domain.caldav import MAX_LIST_TASKS, PICKER_TASKS
 from app.domain.errors import JiraNotConfigured, ValidationFailed
+from app.domain.sources import SOURCES
 from app.domain.tasks import MAX_SEARCH, Task, search_tasks
 
 router = APIRouter(
@@ -16,7 +17,7 @@ router = APIRouter(
 
 
 class SearchIn(BaseModel):
-    source: Literal["jira", "demo", "caldav", "github"]
+    source: Literal[tuple(SOURCES)]  # type: ignore[valid-type]
     # JQL for Jira; words of the title for CalDAV; quoted words for the demo tasks.
     query: str = Field(default="", max_length=2000)
     # CalDAV only: include done tasks.
@@ -26,9 +27,10 @@ class SearchIn(BaseModel):
 
     @model_validator(mode="after")
     def _limits(self) -> "SearchIn":
+        titles = SOURCES[self.source].search == "titles"
         if self.limit is None:
-            self.limit = PICKER_TASKS if self.source == "caldav" else 50
-        if self.source == "caldav" and self.limit > MAX_LIST_TASKS:
+            self.limit = PICKER_TASKS if titles else 50
+        if titles and self.limit > MAX_LIST_TASKS:
             raise ValueError(f"CalDAV returns at most {MAX_LIST_TASKS} tasks a call")
         return self
 
@@ -68,9 +70,10 @@ def _found(task: Task) -> FoundTask:
 def search(body: SearchIn, request: Request) -> SearchOut:
     """Tasks of one tracker, with the person's own credentials."""
     snapshots = deps.snapshots(request)
-    if body.source == "github":
-        raise ValidationFailed("GitHub has no search here: add a card by its key or link.")
-    if body.source == "caldav":
+    source = SOURCES[body.source]
+    if source.search is None:
+        raise ValidationFailed(f"{source.name} has no search here: add a card by its key or link.")
+    if source.search == "titles":
         found = deps.caldav_source(request).find_tasks(body.query, None, body.done, body.limit)
         snapshots.put_many(found.tasks)
         return SearchOut(tasks=[_found(t) for t in found.tasks], total=found.total)

@@ -6,7 +6,8 @@ from pydantic import BaseModel, Field
 from app.api import deps
 from app.domain.caldav import CalDavSource, FindTasksIn, ListTasks
 from app.domain.ports import SnapshotRepo, TaskProvider
-from app.domain.tasks import MAX_SEARCH, Task, resolve_task, search_tasks
+from app.domain.sources import resolve_task
+from app.domain.tasks import MAX_SEARCH, Task, search_tasks
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 

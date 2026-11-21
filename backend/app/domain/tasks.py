@@ -105,13 +105,6 @@ def valid_uid(uid: str) -> bool:
     return 0 < len(uid) <= 255 and uid.isprintable() and not any(c.isspace() for c in uid)
 
 
-def valid_key(source: str | None, key: str) -> bool:
-    """Whether the key has the shape its tracker uses; a missing source is the instance's."""
-    if source == CALDAV:
-        return valid_uid(key)
-    return bool((GITHUB_KEY_RE if source == GITHUB else KEY_RE).match(key))
-
-
 def github_key(ref: str) -> str | None:
     """The key in a GitHub link or a typed `owner/repo#number`; None for anything else."""
     text = ref.strip()
@@ -147,20 +140,6 @@ def parse_ref(ref: str, base_host: str) -> str:
     if not KEY_RE.match(key):
         raise InvalidRef("expected an issue key like ABC-123 or an issue link")
     return key
-
-
-def resolve_task(
-    ref: str, providers: dict[str, TaskProvider], default_source: str, snapshots: SnapshotRepo
-) -> Task:
-    """A GitHub link or key goes to GitHub on any instance, the rest to the instance's tracker."""
-    key = github_key(ref)
-    if key and GITHUB in providers:
-        task = providers[GITHUB].resolve(key)
-    else:
-        provider = providers[default_source]
-        task = provider.resolve(parse_ref(ref, provider.base_host))
-    snapshots.put_many([task])
-    return task
 
 
 MAX_SEARCH = 100

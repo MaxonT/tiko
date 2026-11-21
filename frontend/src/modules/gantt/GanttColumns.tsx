@@ -16,6 +16,7 @@ import {
 } from '@/modules/gantt/fields'
 import { HEADER, type Row } from '@/modules/gantt/rows'
 import type { GanttContent } from '@/modules/gantt/schema'
+import { Shift } from '@/modules/gantt/drag-store'
 import { cn } from '@/lib/utils'
 import { toastError } from '@/lib/toast'
 
@@ -65,25 +66,23 @@ export function GanttColumns({
       </div>
       {lane > 0 && <div className="bg-muted shrink-0 border-b" style={{ height: lane }} />}
       {visible.map((row) => (
-        <div
-          key={row.id}
-          className="flex shrink-0 border-b border-border/60"
-          style={{ height: rowHeight }}
-        >
-          {columns.map((id) => {
-            const { value, own } = cellValue(content.rows, row, id)
-            return (
-              <Cell
-                key={id}
-                label={`${nameOf(id)} of ${row.title || row.key || 'row'}`}
-                value={own ? value : ''}
-                inherited={own ? '' : value}
-                onSave={(text) => onRow(setValue(row, id, text))}
-              />
-            )
-          })}
-          <div style={{ width: ADD_COLUMN_WIDTH }} />
-        </div>
+        <Shift key={row.id} id={row.id}>
+          <div className="flex shrink-0 border-b border-border/60" style={{ height: rowHeight }}>
+            {columns.map((id) => {
+              const { value, own } = cellValue(content.rows, row, id)
+              return (
+                <Cell
+                  key={id}
+                  label={`${nameOf(id)} of ${row.title || row.key || 'row'}`}
+                  value={own ? value : ''}
+                  inherited={own ? '' : value}
+                  onSave={(text) => onRow(setValue(row, id, text))}
+                />
+              )
+            })}
+            <div style={{ width: ADD_COLUMN_WIDTH }} />
+          </div>
+        </Shift>
       ))}
     </div>
   )

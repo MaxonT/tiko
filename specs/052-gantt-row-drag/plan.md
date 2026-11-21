@@ -78,3 +78,11 @@ The drag moves from `GanttLabel` (one label with an offset) to a drag controller
 - **Links drawn from indexes** would detach during the shift; hiding them while dragging is the simple answer, kept until someone misses them.
 - **Delete claim** touches `Canvas` for one module kind; the hook is generic (`claimDelete`) so another module can use it, and nothing else changes when no handler is set.
 - **Expanded Esc** relies on the capture-phase listener running before Radix's `DismissableLayer`, which listens on `document`; a component test covers it.
+
+## Deviations found while building
+
+- `moveRows` places rows **after** a visible row (`aboveId`) instead of before one: the parent is then always the row above or one of its ancestors, never a row hidden in a collapsed branch or by a filter. `moveSubtree` stays as it was for the indent and outdent buttons.
+- The store and its parts live in `drag-store.tsx` (`DragStore`, `Shift`, `Placeholder`, `DragGhost`, `FadeWhileDragging`); the controller is `useRowDrag.ts`. The placeholder is drawn in the task column only; in the field and timeline parts the gap is empty space.
+- The gap is as tall as every lifted row, not capped at the 5 the ghost shows, so a drop never pushes rows after it lands.
+- The controller binds its window listeners by hand, not through React state: a press no longer renders the whole Gantt again (a 200-row plan spent up to 125ms there).
+- Speed, slice 1, on the local stack in headless Chromium with the GPU (Apple M3 Max), 200 rows with 12 stages each, a scripted 90-step drag in the expanded view: 60 fps at 1x, auto-scroll included (p95 17ms, one 50ms frame); with the CPU slowed four times 38 fps against 39 for the pointer moving over the plan without a drag. The long frames at 4x (up to 280ms) are the list scrolling at the edge: an existing scroll handler and a full repaint, the same as scrolling by hand.

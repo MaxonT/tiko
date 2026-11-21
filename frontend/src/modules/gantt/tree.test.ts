@@ -10,7 +10,9 @@ import {
   indent,
   insertRow,
   liftRemove,
+  moveRows,
   moveSubtree,
+  movingDepth,
   outdent,
   shiftBranch,
   visibleRows,
@@ -164,5 +166,66 @@ describe('foldAll', () => {
 
   it('returns the same content when nothing changes', () => {
     expect(foldAll(plan, false)).toBe(plan)
+  })
+})
+
+describe('moveRows', () => {
+  it('puts a branch after a row as its sibling or its child', () => {
+    expect(shape(moveRows(tree, ['E'], 'A', 0))).toBe('A<- B<A C<B D<A E<-')
+    expect(shape(moveRows(tree, ['E'], 'A', 1))).toBe('A<- B<A C<B D<A E<A')
+    expect(shape(moveRows(tree, ['E'], null, 0))).toBe('E<- A<- B<A C<B D<A')
+    expect(shape(moveRows(tree, ['E'], 'C', 2))).toBe('A<- B<A C<B E<B D<A')
+    expect(shape(moveRows(tree, ['B'], 'D', 1))).toBe('A<- D<A B<A C<B E<-')
+  })
+
+  it('lands after the whole branch of the row above at that depth', () => {
+    expect(shape(moveRows(tree, ['E'], 'C', 0))).toBe('A<- B<A C<B D<A E<-')
+    expect(shape(moveRows(tree, ['E'], 'C', 1))).toBe('A<- B<A C<B E<A D<A')
+  })
+
+  it('opens a collapsed parent so a row dropped in it stays in view', () => {
+    const folded = {
+      ...tree,
+      rows: tree.rows.map((r) => (r.id === 'B' ? { ...r, collapsed: true } : r)),
+    }
+    const moved = moveRows(folded, ['E'], 'B', 2)
+    expect(shape(moved)).toBe('A<- B<A C<B E<B D<A')
+    expect(moved.rows.find((r) => r.id === 'B')!.collapsed).toBe(false)
+    expect(visibleRows(moved.rows).map((t) => t.row.id)).toContain('E')
+  })
+
+  it('never puts a row under a row hidden in a collapsed branch', () => {
+    // A folded: C is hidden, so after A the deepest level is a child of A.
+    const folded = {
+      ...tree,
+      rows: tree.rows.map((r) => (r.id === 'A' ? { ...r, collapsed: true } : r)),
+    }
+    expect(shape(moveRows(folded, ['E'], 'A', 3))).toBe('A<- B<A C<B D<A E<A')
+  })
+
+  it('moves several branches in plan order as siblings at one depth', () => {
+    expect(shape(moveRows(tree, ['E', 'C'], 'D', 1))).toBe('A<- B<A D<A C<A E<A')
+    // C rides with A, its picked ancestor.
+    expect(shape(moveRows(tree, ['C', 'A'], 'E', 0))).toBe('E<- A<- B<A C<B D<A')
+  })
+
+  it('keeps the tree within five levels and leaves it alone otherwise', () => {
+    const deep = content([
+      row('1'),
+      row('2', '1'),
+      row('3', '2'),
+      row('4', '3'),
+      row('X'),
+      row('Y', 'X'),
+    ])
+    expect(movingDepth(deep.rows, ['X'])).toBe(1)
+    expect(moveRows(deep, ['X'], '4', 4)).toBe(deep)
+    expect(shape(moveRows(deep, ['X'], '4', 3))).toBe('1<- 2<1 3<2 4<3 X<3 Y<X')
+    expect(moveRows(deep, ['X'], 'X', 0)).toBe(deep)
+  })
+
+  it('returns the same content for a drop where the rows already are', () => {
+    expect(moveRows(tree, ['D'], 'C', 1)).toBe(tree)
+    expect(moveRows(tree, [], 'C', 1)).toBe(tree)
   })
 })

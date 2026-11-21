@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Changed
+
+- Rearranging a Gantt plan is no longer guesswork: while you drag a row, the other rows move aside and a gap shows where and at which level it will land. Near an edge the expanded view scrolls and the board pans, and Esc puts the row back. A row dropped into a collapsed row now opens it instead of vanishing from view. See [Arrange rows](https://docs.tiko.run/gantt/#arrange-rows).
+
 ### Fixed
 
 - Importing a board whose Gantt has stages with no type no longer warns that stages arrived without their types, and the import report shows one Planning button instead of one per note.

@@ -1,6 +1,6 @@
 # Feature Specification: Smooth Gantt row drag and multi-row selection
 
-**Status**: Draft, waiting for the owner at G2.
+**Status**: Approved at G2 on 2026-11-21, all seven open questions answered as recommended.
 
 **Input**: Reordering a Gantt plan is guesswork. While a row is dragged in the task column, only its label slides under the pointer: the other rows do not move out of the way, there is no mark of where it will land or at which level, and the result shows only on release. A plan is rearranged a few rows at a time, so moving five rows means five such drags. People asked for two things: rows that make room while one is dragged, and a way to select several rows (a lasso, Shift and Cmd-click) and drag them as one batch.
 
@@ -39,12 +39,12 @@ What the code does now (`GanttLabel.tsx`, `GanttModule.tsx`, `tree.ts`):
 ### Drag (slice 1)
 
 1. **The dragged rows lift out and the plan closes up.** When a drag starts, the dragged row and every row under it (its whole subtree, as today) lift out of the list in all three parts of the row: label, field columns and timeline. The rows that stay close the hole in 150ms ease-out. A ghost follows the pointer in the label column: the dragged labels stacked as they look, up to 5, then "+ N more"; on `--card` with the drag shadow it has today.
-2. **A gap opens where they will land.** As the pointer moves, the rows under the ghost slide apart to open a gap as tall as the ghost, across the whole width of the Gantt. Where the gap is, is where the rows land. The place is picked by the ghost's top edge, to the nearest gap between the rows that stay. Rows change places only when the pointer crosses half a row, so the plan does not flicker.
-3. **The gap shows the level.** Inside the gap a placeholder (`--accent` fill, 1px dashed `--primary` at 40%) starts at the indent of the level the rows will take. Moving the pointer right or left by 16px changes the level by one, as today, and the placeholder slides to the new indent in 100ms. When the rows would become children, the row that will be their parent gets a 2px `--primary` bar at its left edge. The level is clamped as today (no shallower than the row below the gap, no deeper than one level under the row above, 5 levels in all) and the placeholder always shows the clamped level, so what it shows is what lands.
+2. **A gap opens where they will land.** As the pointer moves, the rows under the ghost slide apart to open a gap as tall as the lifted rows, across the whole width of the Gantt. Where the gap is, is where the rows land. The place is picked by the ghost's top edge, to the nearest gap between the rows that stay. Rows change places only when the pointer crosses half a row, so the plan does not flicker.
+3. **The gap shows the level.** In the task column the gap holds a placeholder (`--accent` fill, 1px dashed `--primary` at 40%) starts at the indent of the level the rows will take. Moving the pointer right or left by 16px changes the level by one, as today, and the placeholder slides to the new indent in 100ms. When the rows would become children, the row that will be their parent gets a 2px `--primary` bar at its left edge. The level is clamped as today (no shallower than the row below the gap, no deeper than one level under the row above, 5 levels in all) and the placeholder always shows the clamped level, so what it shows is what lands.
    - When no level fits (a deep branch into a deep gap), the placeholder turns `--destructive` dashed with "Too deep: 5 levels at most", and a drop there puts the rows back.
    - Rejected: a thin line between rows instead of a gap. A line does not show how much room a branch takes, and the owner asked for rows that move aside.
 4. **Dropped as a child of a collapsed row, the row opens**, so the rows stay in view. Hovering over a collapsed row during a drag does not open it.
-5. **The drop settles.** On release the ghost glides into the gap (150ms) and the plan is drawn in its new order with no jump. Rows beyond the 5 shown in the ghost push the rows below down in the same 150ms.
+5. **The drop settles.** On release the ghost glides into the gap (150ms) and the plan is drawn in its new order with no jump: the gap already had the room of every lifted row.
 6. **Auto-scroll.** In the expanded view the list scrolls while the pointer is within 40px of the top or bottom edge of the scrolling area (under the sticky header), faster closer to the edge. On the board the module has no inner scroll, so the board pans in the same way when the pointer is within 40px of the window edge, as when an element is dragged on the board.
 7. **Esc cancels.** Esc during a drag puts the rows back where they were (150ms) and writes nothing. In the expanded view the first Esc ends the drag, the view stays open. The same happens when the browser cancels the pointer or the window loses focus.
 8. **Out of the module.** On the board, when the pointer leaves the module, the gap closes and the ghost reads "Drop on the board" under its labels; a drop there works as today (Today, 6). In the expanded view a pointer outside the plan closes the gap too and a drop there puts the rows back, as today.
@@ -73,7 +73,8 @@ What the code does now (`GanttLabel.tsx`, `GanttModule.tsx`, `tree.ts`):
 19. **Undo and live.** A drop, a several-row eject and a Delete are each one change of the module and one Undo step; ejected cards and notes come back with the same step. Nothing is sent while dragging. Others see the new order when the drop lands, as today. If someone else edits the same Gantt during a drag, the gap follows their change; a dragged row they delete drops out of the drag, and if none is left the drag ends. Two people dropping into the same Gantt at the same moment: the later write wins (spec 009).
 20. **What rides with a row.** A row keeps everything it holds when it moves: dates, follow, done, Planning stages with their people, its own field values, its links. Values a row inherited in a field column now come from its new parent. A moved leaf keeps its stages; a row that becomes a parent keeps its stages hidden as today (spec 027).
 21. **Viewers** cannot drag or select, as today.
-22. **Speed.** A Gantt of 200 rows (the limit) with 20 stages each, Planning on, drags and lassos at 60 fps on the reference laptop of spec 019, the budget of spec 027 Decision 12; measured again with the CPU slowed four times, no frame takes over 50ms. The main chunk grows by at most 3 KB gzipped. No new dependency.
+22. **Speed.** A Gantt of 200 rows (the limit) with stages, Planning on, drags and lassos at 60 fps on the reference laptop of spec 019, the budget of spec 027 Decision 12; with the CPU slowed four times a drag costs no more frames than moving the pointer over the plan does. The main chunk grows by at most 3 KB gzipped. No new dependency.
+    - Measured at slice 1 on a plan of 200 rows with 12 stages each: 20 stages on every row do not fit the Gantt's 256 KB content limit, 12 is the most that imports. The result is in the slice's PR text.
 23. **API and MCP.** Nothing to open: row order and nesting are written through the Gantt's content, and writing the Gantt through API v1 is not offered yet (spec 047, out of scope there). When it is, moving rows comes with it. A selection is the person's own view of the moment and is closed by design.
 
 ## Scenarios
@@ -145,20 +146,14 @@ Media for What's new are shot at release, not in a slice.
 - Tuning for touch screens: touch keeps working as pointer events do today.
 - Writing the Gantt, row order included, through API v1 or MCP.
 
-## Open questions for the owner
+## Answers at G2
 
-1. **Where does the lasso start?** Rows fill the task column, and a press on a row already drags it.
-   - **Recommended**: blank space in the column, right of the title and below the last row, as Finder's list does; Shift and Cmd-click cover rows with long titles.
-   - Other options: drag only by the grip and lasso from anywhere else on the row (changes how every drag starts today, and the grip hides behind the tracker mark on mixed boards); Shift + drag anywhere for a lasso.
-2. **A selection from several levels: siblings at one level, or keep their levels?**
-   - **Recommended**: all moved branches become siblings at the level the placeholder shows (Decision 15). Each keeps its own subtree.
-3. **Several rows dropped on the board: allowed?**
-   - **Recommended**: yes, a column of cards and notes, one Undo (Decision 16). Otherwise a drop outside with a selection would either do nothing without saying why or need a rule of its own.
-4. **Delete with rows selected removes the rows?**
-   - **Recommended**: yes (Decision 17). Today Backspace after a click in the Gantt deletes the whole module; with rows visibly selected that would be a nasty surprise.
-5. **Should the board pan during a drag near the window edge?**
-   - **Recommended**: yes (Decision 6). On the board the module has no scroll of its own, so without it a far place needs zooming out mid-drag.
-6. **Move selected rows with the keyboard (Alt + ↑/↓, Tab to indent)?**
-   - **Recommended**: not now. On the board arrow keys and Tab already belong to the canvas and the fields; it needs its own focus model. A follow-up if people ask.
-7. **How a selected row looks.**
-   - **Recommended**: `--primary` at 10% across the whole row (Decision 14), so the bar of a selected row is marked too; `/ui-review` checks it in both themes.
+The owner took every recommendation on 2026-11-21:
+
+1. **Lasso** starts on blank space in the task column (right of the title, below the last row); Shift and Cmd-click cover rows with long titles (Decision 13).
+2. **Several levels** become siblings at the level the placeholder shows, each with its own subtree (Decision 15).
+3. **Several rows on the board**: allowed, a column of cards and notes, one Undo (Decision 16).
+4. **Delete with rows selected** removes the rows, never the Gantt (Decision 17).
+5. **Board pan** near the window edge during a drag or a lasso: yes (Decision 6).
+6. **Keyboard moves**: not now, out of scope.
+7. **Selected look**: `--primary` at 10% across the whole row (Decision 14).

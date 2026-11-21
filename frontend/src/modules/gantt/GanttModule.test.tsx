@@ -1290,3 +1290,185 @@ test('a done stage raises no time off warning', () => {
   renderGantt({}, staffed(true), away)
   expect(screen.queryByLabelText('Someone is away')).toBeNull()
 })
+
+// Rows start 200px down the screen; the module covers 1200 by 800 from the top left.
+const ROWS_TOP = 200
+function placeOnScreen() {
+  return vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (
+    this: Element,
+  ) {
+    const box = (left: number, top: number, width: number, height: number) =>
+      ({
+        left,
+        top,
+        width,
+        height,
+        right: left + width,
+        bottom: top + height,
+        x: left,
+        y: top,
+      }) as DOMRect
+    if (this.matches('.react-flow__node')) return box(0, 0, 1200, 800)
+    if (this.matches('[data-gantt-rows]')) return box(0, ROWS_TOP, 160, 400)
+    return box(0, 0, 0, 0)
+  })
+}
+
+type PlanRow = GanttContent['rows'][number]
+const plain = (id: string, parent?: string, extra: Partial<PlanRow> = {}): PlanRow => ({
+  id,
+  title: `Row ${id}`,
+  start: '2026-10-05',
+  end: '2026-10-09',
+  ...(parent && { parent }),
+  ...extra,
+})
+const plan = (list: PlanRow[]): GanttContent => ({ ...content, rows: list })
+// The title in the task column, not the bar's label or the ghost.
+const label = (id: string) =>
+  screen.getAllByText(`Row ${id}`).find((el) => el.closest('.group\\/label'))!
+const shiftOf = (id: string) => (label(id).closest('[data-shift]') as HTMLElement).style
+// The middle of the row at index `i` on screen.
+const rowY = (i: number) => ROWS_TOP + i * 34 + 17
+
+function pressRow(id: string, i: number, keys: { metaKey?: boolean; shiftKey?: boolean } = {}) {
+  fireEvent.pointerDown(label(id), {
+    clientX: 50,
+    clientY: rowY(i),
+    pointerId: 1,
+    button: 0,
+    ...keys,
+  })
+}
+const moveTo = (x: number, y: number) =>
+  fireEvent.pointerMove(window, { clientX: x, clientY: y, pointerId: 1 })
+const release = (x: number, y: number, keys: { metaKey?: boolean; shiftKey?: boolean } = {}) =>
+  fireEvent.pointerUp(window, { clientX: x, clientY: y, pointerId: 1, ...keys })
+
+test('a dragged row opens a gap where it will land, and lands there', () => {
+  const screenBox = placeOnScreen()
+  renderGantt({}, plan([plain('a'), plain('b'), plain('c'), plain('d')]))
+  pressRow('a', 0)
+  moveTo(50, rowY(2))
+  // a is lifted out, b and c close up, the gap opens before d.
+  expect(shiftOf('a').visibility).toBe('hidden')
+  expect(shiftOf('b').transform).toBe('translateY(-34px)')
+  expect(shiftOf('c').transform).toBe('translateY(-34px)')
+  expect(shiftOf('d').transform).toBe('')
+  // The timeline part of the row moves with its label.
+  const bar = document.querySelector('[data-gantt-row="b"]')!.closest('[data-shift]') as HTMLElement
+  expect(bar.style.transform).toBe('translateY(-34px)')
+  const place = screen.getByTestId('gantt-drop-place')
+  expect(place.style.top).toBe(`${2 * 34 + 2}px`)
+  expect(place.getAttribute('data-depth')).toBe('0')
+  release(50, rowY(2))
+  expect(rows().map((r) => r.id)).toEqual(['b', 'c', 'a', 'd'])
+  expect(screen.queryByTestId('gantt-drop-place')).toBeNull()
+  screenBox.mockRestore()
+})
+
+test('a row dragged sideways shows and takes the level it will nest at', () => {
+  const screenBox = placeOnScreen()
+  renderGantt({}, plan([plain('a'), plain('b'), plain('c')]))
+  pressRow('c', 2)
+  moveTo(50 + 16, rowY(2))
+  const place = screen.getByTestId('gantt-drop-place')
+  expect(place.getAttribute('data-depth')).toBe('1')
+  // b will be its parent: it gets the bar.
+  expect((label('b').closest('[data-shift]') as HTMLElement).className).toContain(
+    'before:bg-primary',
+  )
+  release(50 + 16, rowY(2))
+  expect(rows().map((r) => [r.id, r.parent])).toEqual([
+    ['a', undefined],
+    ['b', undefined],
+    ['c', 'b'],
+  ])
+  screenBox.mockRestore()
+})
+
+test('a dragged parent lifts its children, and the distance counts what is on screen', () => {
+  const screenBox = placeOnScreen()
+  renderGantt({}, plan([plain('p'), plain('c1', 'p'), plain('c2', 'p'), plain('x'), plain('y')]))
+  pressRow('p', 0)
+  moveTo(50, rowY(0) + 10)
+  // The whole branch rides in the ghost.
+  expect(within(screen.getByTestId('gantt-drag-ghost')).getAllByText(/Row /)).toHaveLength(3)
+  expect(shiftOf('c1').visibility).toBe('hidden')
+  expect(shiftOf('x').transform).toBe('')
+  // One row down on screen: x closes up under the ghost, and the branch lands past it.
+  moveTo(50, rowY(1))
+  expect(shiftOf('x').transform).toBe('translateY(-102px)')
+  release(50, rowY(1))
+  expect(rows().map((r) => r.id)).toEqual(['x', 'p', 'c1', 'c2', 'y'])
+  screenBox.mockRestore()
+})
+
+test('a row dropped into a collapsed row opens it and stays in view', () => {
+  const screenBox = placeOnScreen()
+  renderGantt({}, plan([plain('a', undefined, { collapsed: true }), plain('a1', 'a'), plain('b')]))
+  pressRow('b', 1)
+  moveTo(50 + 16, rowY(1))
+  release(50 + 16, rowY(1))
+  expect(rows().map((r) => [r.id, r.parent])).toEqual([
+    ['a', undefined],
+    ['a1', 'a'],
+    ['b', 'a'],
+  ])
+  expect(rows()[0].collapsed).toBe(false)
+  expect(label('b')).toBeTruthy()
+  screenBox.mockRestore()
+})
+
+test('the level is clamped to five in all, and a place with no level says so', () => {
+  const screenBox = placeOnScreen()
+  const deep = plan([
+    plain('1'),
+    plain('2', '1'),
+    plain('3', '2'),
+    plain('4', '3'),
+    plain('5'),
+    plain('6', '5'),
+  ])
+  renderGantt({}, deep)
+  pressRow('5', 4)
+  moveTo(50 + 999, rowY(4))
+  // Under 4 at most level 3: its child 6 is then the fifth level.
+  expect(screen.getByTestId('gantt-drop-place').getAttribute('data-depth')).toBe('3')
+  release(50 + 999, rowY(4))
+  expect(rows().map((r) => r.parent)).toEqual([undefined, '1', '2', '3', '3', '5'])
+  screenBox.mockRestore()
+})
+
+test('Esc ends a drag with nothing written, before the expanded view or the board hears it', () => {
+  const screenBox = placeOnScreen()
+  renderGantt({}, plan([plain('a'), plain('b'), plain('c')]))
+  const before = current()
+  const heard = vi.fn()
+  document.addEventListener('keydown', heard, true)
+  pressRow('a', 0)
+  moveTo(50, rowY(2))
+  fireEvent.keyDown(window, { key: 'Escape' })
+  expect(heard).not.toHaveBeenCalled()
+  expect(shiftOf('b').transform).toBe('')
+  release(50, rowY(2))
+  expect(current()).toBe(before)
+  // With no drag Esc goes on as before.
+  fireEvent.keyDown(document, { key: 'Escape' })
+  expect(heard).toHaveBeenCalledTimes(1)
+  document.removeEventListener('keydown', heard, true)
+  screenBox.mockRestore()
+})
+
+test('a row dragged out of the module says it goes to the board', () => {
+  const screenBox = placeOnScreen()
+  const host = renderGantt({}, plan([plain('a'), plain('b')]))
+  pressRow('a', 0)
+  moveTo(1500, 900)
+  expect(screen.getByText('Drop on the board')).toBeTruthy()
+  expect(screen.queryByTestId('gantt-drop-place')).toBeNull()
+  release(1500, 900)
+  expect(host.ejectNote).toHaveBeenCalledWith('Row a', { x: 1500, y: 900 })
+  expect(rows().map((r) => r.id)).toEqual(['b'])
+  screenBox.mockRestore()
+})

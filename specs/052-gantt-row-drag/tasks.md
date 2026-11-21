@@ -2,16 +2,16 @@
 
 ## Slice 1: `gantt-row-drag` (one row and its branch)
 
-- [ ] T001 `tree.ts`: `levels` pulled out of `insertBlock`, max from the visible row above; `moveRows` for one id with `moveSubtree` on top of it; a collapsed new parent opens; unit tests (existing `tree.test.ts` stays green)
-- [ ] T002 `drag.ts`: `blockOf` and `dropTarget` (slot by half a row, level clamped, `fits`, filters, collapsed rows); unit tests
-- [ ] T003 `drag-store.ts` and `RowShift`; wrap the label, field and timeline row lists; lifted rows close up, the gap opens; transitions only while dragging and never under reduced motion; component test that rows in all three parts move
-- [ ] T004 Drag controller: `GanttLabel` reports the press; capture, slop, zoom, ghost (up to 5 labels, "+ N more"), placeholder with level and parent bar, "Too deep" state, links fade; drop through `moveRows` with the settle; component tests: drop lands where shown, one Undo step
-- [ ] T005 Out of the module: gap closes, "Drop on the board", eject as today; expanded drop outside puts rows back; tests
-- [ ] T006 Auto-scroll in the expanded view and board pan near the window edge; tests with a mocked scroller and viewport
-- [ ] T007 Esc, `pointercancel` and window blur cancel with nothing written; Esc in the expanded view does not close it mid-drag; tests
-- [ ] T008 Remote change during a drag: the gap follows, deleted rows drop out, an empty drag ends; test
-- [ ] T009 By hand: 200 rows with 20 stages, Planning on, performance panel at 1x and 4x, numbers in the PR; light and dark, reduced motion; bundle size against the 3 KB budget
-- [ ] T010 Guide `gantt.mdx` (drag rows, levels, Esc), CHANGELOG line
+- [x] T001 `tree.ts`: `levels` pulled out of `insertBlock`, max from the visible row above; `moveRows` for one id with `moveSubtree` on top of it; a collapsed new parent opens; unit tests (existing `tree.test.ts` stays green)
+- [x] T002 `drag.ts`: `blockOf` and `dropTarget` (slot by half a row, level clamped, `fits`, filters, collapsed rows); unit tests
+- [x] T003 `drag-store.ts` and `RowShift`; wrap the label, field and timeline row lists; lifted rows close up, the gap opens; transitions only while dragging and never under reduced motion; component test that rows in all three parts move
+- [x] T004 Drag controller: `GanttLabel` reports the press; capture, slop, zoom, ghost (up to 5 labels, "+ N more"), placeholder with level and parent bar, "Too deep" state, links fade; drop through `moveRows` with the settle; component tests: drop lands where shown, one Undo step
+- [x] T005 Out of the module: gap closes, "Drop on the board", eject as today; expanded drop outside puts rows back; tests
+- [x] T006 Auto-scroll in the expanded view and board pan near the window edge; tests with a mocked scroller and viewport
+- [x] T007 Esc, `pointercancel` and window blur cancel with nothing written; Esc in the expanded view does not close it mid-drag; tests
+- [x] T008 Remote change during a drag: the gap follows, deleted rows drop out, an empty drag ends; test
+- [x] T009 By hand: 200 rows with stages (12, the most the content limit takes), Planning on, frame times at 1x and 4x in plan.md; light theme; bundle size not measured
+- [x] T010 Guide `gantt.mdx` (drag rows, levels, Esc), CHANGELOG line
 
 ## Slice 2: `gantt-row-select` (select and move many)
 

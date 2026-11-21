@@ -1,9 +1,18 @@
 import { BaseEdge, Position, useInternalNode, type EdgeProps, type XYPosition } from '@xyflow/react'
 import { memo, useCallback, useContext, useMemo, useState } from 'react'
 import { ArrowLabel } from '@/canvas/EdgeLabel'
-import { clampShare, cutDashes, farBar, flatten, pointAt, type Size } from '@/canvas/edge-label'
+import {
+  clampShare,
+  cutDashes,
+  farBar,
+  flatten,
+  pointAt,
+  type Ends,
+  type Size,
+} from '@/canvas/edge-label'
 import { LabelEditing } from '@/canvas/label-editing'
-import { FarContext } from '@/canvas/readonly'
+import { useLabelDrag } from '@/canvas/label-drag'
+import { FarContext, useReadOnly } from '@/canvas/readonly'
 import { turnVector } from '@/canvas/turn'
 import { sideInset, type ShapeKind } from '@/canvas/shapes'
 import type { EdgeData, Turned } from '@/canvas/types'
@@ -118,6 +127,7 @@ function TurnedEdgeView(props: EdgeProps) {
   const label = (props.data as EdgeData | undefined)?.label
   const { editing } = useContext(LabelEditing)
   const far = useContext(FarContext)
+  const readOnly = useReadOnly()
   const labelled = !!label || editing === props.id
   const [size, setSize] = useState<Size>({ width: 0, height: 0 })
   const onSize = useCallback(
@@ -148,7 +158,17 @@ function TurnedEdgeView(props: EdgeProps) {
   const path = turnedBezier(source.at, source.side, source.deg, target.at, target.side, target.deg)
   const poly = useMemo(() => (labelled ? flatten(path) : null), [labelled, path])
   const box = far ? farBar(label) : size
-  const at = poly && pointAt(poly, clampShare(poly, label?.at ?? 0.5, box))
+  // A label never slides under the elements its arrow ties together.
+  const ends: Ends = [from ? boxOf(from) : null, to ? boxOf(to) : null]
+  const drag = useLabelDrag(
+    props.id,
+    label,
+    poly,
+    box,
+    ends,
+    !readOnly && !far && editing !== props.id,
+  )
+  const at = poly && pointAt(poly, clampShare(poly, drag.dragged ?? label?.at ?? 0.5, box, ends))
   // Dashes leave the line out under the label; a mask would be clipped to the arrow's SVG box.
   const dashes = poly && at && cutDashes(poly, at, box)
   return (
@@ -162,7 +182,19 @@ function TurnedEdgeView(props: EdgeProps) {
         pathLength={dashes && poly ? poly.total : undefined}
         interactionWidth={props.interactionWidth}
       />
-      {at && <ArrowLabel edge={props} label={label} at={at} onSize={onSize} />}
+      {at && (
+        <ArrowLabel
+          edge={props}
+          label={label}
+          at={at}
+          onSize={onSize}
+          drag={
+            drag.draggable
+              ? { onPointerDown: drag.onPointerDown, active: drag.dragged !== null }
+              : undefined
+          }
+        />
+      )}
     </>
   )
 }

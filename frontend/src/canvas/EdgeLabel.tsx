@@ -34,13 +34,15 @@ type Props = {
   at: XYPosition
   /** The label's measured box, so the arrow places it and leaves its line out under it. */
   onSize: (size: Size) => void
+  /** Set when the label can slide along its arrow. */
+  drag?: { onPointerDown: (event: React.PointerEvent<HTMLElement>) => void; active: boolean }
 }
 
 /**
  * Words on an arrow, level, centered on `at`. Drawn inside the arrow's own SVG, so they stack
  * with it: an arrow between elements in a frame is lifted above the frame, and so is its label.
  */
-export function ArrowLabel({ edge, label, at, onSize }: Props) {
+export function ArrowLabel({ edge, label, at, onSize, drag }: Props) {
   const { editing, setEditing } = useContext(LabelEditing)
   const readOnly = useReadOnly()
   const far = useContext(FarContext)
@@ -92,8 +94,14 @@ export function ArrowLabel({ edge, label, at, onSize }: Props) {
           <div
             ref={box}
             data-testid="arrow-label"
-            className={`edge-label${edge.selected ? ' outline-primary outline-1' : ''}`}
-            style={{ ...labelLook(label), pointerEvents: readOnly ? 'none' : 'auto' }}
+            className={`edge-label nopan${edge.selected ? ' outline-primary outline-1' : ''}`}
+            onPointerDown={drag?.onPointerDown}
+            style={{
+              ...labelLook(label),
+              pointerEvents: readOnly ? 'none' : 'auto',
+              cursor: drag ? (drag.active ? 'grabbing' : 'grab') : undefined,
+              touchAction: drag ? 'none' : undefined,
+            }}
           >
             {label?.text}
           </div>

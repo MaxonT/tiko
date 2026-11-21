@@ -6,7 +6,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Added
 
-- Say what an arrow means, "blocks" or "waits for API", right on the arrow: double-click it and type. The label rides along when things move, stays level on any bend, and takes a fill and a size from the bar above it. Search finds labels, and the API reads them. See [Arrow labels](https://docs.tiko.run/on-the-board/#arrow-labels).
+- Say what an arrow means, "blocks" or "waits for API", right on the arrow: double-click it and type. The label rides along when things move, slides along the arrow when two of them crowd one spot, stays level on any bend, and takes a fill and a size from the bar above it. Search finds labels, and the API reads them. See [Arrow labels](https://docs.tiko.run/on-the-board/#arrow-labels).
 
 ### Fixed
 

@@ -85,25 +85,121 @@ function clearOf(center: XYPosition, size: Size, end: XYPosition, radius: number
   return dx * dx + dy * dy >= radius * radius
 }
 
-/** The shares a label of this size can take: off both ends; null when only the middle fits. */
-export function shareRange(poly: Polyline, size: Size): [number, number] | null {
+/** An element an arrow is tied to, on the board. */
+export type Box = { x: number; y: number; width: number; height: number }
+export type Ends = [Box | null, Box | null]
+
+// Whether a level box centered on `center` stays off the element.
+function offBox(center: XYPosition, size: Size, box: Box | null) {
+  if (!box) return true
+  return (
+    center.x + size.width / 2 <= box.x ||
+    center.x - size.width / 2 >= box.x + box.width ||
+    center.y + size.height / 2 <= box.y ||
+    center.y - size.height / 2 >= box.y + box.height
+  )
+}
+
+/**
+ * The shares a label of this size can take: off the arrow's head and tail, and off the elements
+ * at its ends when they are given; null when only the middle fits.
+ */
+export function shareRange(
+  poly: Polyline,
+  size: Size,
+  ends: Ends = [null, null],
+): [number, number] | null {
   const { points, total } = poly
   if (points.length < 2 || total <= 0) return null
   const start = points[0]
   const end = points[points.length - 1]
+  const clear = (d: number, tip: XYPosition, box: Box | null) => {
+    const at = pointAtLength(poly, d)
+    return clearOf(at, size, tip, END_CLEAR) && offBox(at, size, box)
+  }
   const step = Math.max(total / 400, 1)
   let lo = 0
-  while (lo <= total && !clearOf(pointAtLength(poly, lo), size, start, END_CLEAR)) lo += step
+  while (lo <= total && !clear(lo, start, ends[0])) lo += step
   let hi = total
-  while (hi >= 0 && !clearOf(pointAtLength(poly, hi), size, end, END_CLEAR)) hi -= step
+  while (hi >= 0 && !clear(hi, end, ends[1])) hi -= step
   return lo < hi ? [lo / total, hi / total] : null
 }
 
 /** The share a label is drawn at: its own, pulled in off the ends, or the middle when nothing fits. */
-export function clampShare(poly: Polyline, share: number, size: Size): number {
-  const range = shareRange(poly, size)
+export function clampShare(poly: Polyline, share: number, size: Size, ends?: Ends): number {
+  const range = shareRange(poly, size, ends)
   if (!range) return 0.5
   return Math.max(range[0], Math.min(range[1], share))
+}
+
+// Screen pixels: how far the pointer may stray from the stretch a dragged label is on before a
+// clearly nearer part of the arrow takes it, and how close to the middle a label snaps to it.
+const JUMP_PX = 48
+const SNAP_PX = 8
+// Segments of a small bump the walk along the arrow steps over to reach a nearer point.
+const BUMP = 3
+
+// The nearest point of segment i to `p`: its distance and its distance along the path.
+function nearOnSegment(poly: Polyline, i: number, p: XYPosition) {
+  const a = poly.points[i]
+  const b = poly.points[i + 1]
+  const dx = b.x - a.x
+  const dy = b.y - a.y
+  const span = dx * dx + dy * dy
+  const t = span > 0 ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / span)) : 0
+  const x = a.x + dx * t
+  const y = a.y + dy * t
+  return {
+    distance: Math.hypot(p.x - x, p.y - y),
+    along: poly.lengths[i] + t * (poly.lengths[i + 1] - poly.lengths[i]),
+  }
+}
+
+/**
+ * Where a dragged label goes: the nearest point of the stretch of the arrow it is on, found by
+ * walking from where it is, so it passes through a crossing instead of hopping to the other
+ * branch. Another part of the arrow takes it only when the pointer is clearly nearer to it.
+ * `scale` is screen pixels per board unit.
+ */
+export function project(poly: Polyline, from: number, pointer: XYPosition, scale: number): number {
+  const segments = poly.points.length - 1
+  if (segments < 1 || poly.total <= 0) return 0.5
+  const near = (i: number) => nearOnSegment(poly, i, pointer)
+  const start = Math.min(pointAt(poly, from).index, segments - 1)
+  // Downhill from where the label is, one way along the arrow.
+  const walk = (step: number) => {
+    let i = start
+    let here = near(i)
+    for (;;) {
+      let next = -1
+      for (let k = 1; k <= BUMP; k++) {
+        const j = i + step * k
+        if (j < 0 || j >= segments) break
+        if (near(j).distance < here.distance) {
+          next = j
+          break
+        }
+      }
+      if (next < 0) return here
+      i = next
+      here = near(i)
+    }
+  }
+  const back = walk(-1)
+  const ahead = walk(1)
+  const best = back.distance <= ahead.distance ? back : ahead
+  let nearest = best
+  for (let i = 0; i < segments; i++) {
+    const candidate = near(i)
+    if (candidate.distance < nearest.distance) nearest = candidate
+  }
+  const jump = best.distance * scale > JUMP_PX && nearest.distance < best.distance / 2
+  return (jump ? nearest : best).along / poly.total
+}
+
+/** The middle, when a share is within a few screen pixels of it. */
+export function snapMiddle(poly: Polyline, share: number, scale: number): number {
+  return Math.abs(share - 0.5) * poly.total * scale < SNAP_PX ? 0.5 : share
 }
 
 type Rect = { left: number; right: number; top: number; bottom: number }

@@ -15,9 +15,9 @@
 
 ## Slice 2: `arrow-label-drag` (slide along the arrow)
 
-- [ ] T011 `project` and `snap` in `edge-label.ts`; unit tests: stays on its branch through a crossing, moves to another part only when clearly closer, snap to the middle
-- [ ] T012 Drag on the label: 3px threshold, click selects, local share while dragging, one write and one undo step on release; not draggable when only the middle fits; component tests
-- [ ] T013 Guide, CHANGELOG; by hand on hooked and self-crossing arrows, screenshots in the PR
+- [x] T011 `project` and `snap` in `edge-label.ts`; unit tests: stays on its branch through a crossing, moves to another part only when clearly closer, snap to the middle
+- [x] T012 Drag on the label: 3px threshold, click selects, local share while dragging, one write and one undo step on release; not draggable when only the middle fits; component tests
+- [x] T013 Guide, CHANGELOG; by hand on hooked and self-crossing arrows, screenshots in the PR
 
 ## Slice 3: `arrow-label-api` (agents write labels)
 

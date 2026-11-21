@@ -161,3 +161,28 @@ test('zooming far out while typing keeps what was typed and ends editing', () =>
   expect(seen.edges[0].data?.label).toEqual({ text: 'half typed' })
   expect(screen.getByTestId('editing').textContent).toBe('')
 })
+
+test('a label sits over the elements, at its point, and keeps the search ring of its arrow', () => {
+  renderLabel({ text: 'blocks release' })
+  const place = screen.getByTestId('arrow-label').closest('.edge-label-place') as HTMLElement
+  // Above the elements' layer, not in the arrow's SVG under it.
+  expect(place.closest('.react-flow__viewport-portal')).not.toBeNull()
+  expect(place.closest('svg')).toBeNull()
+  expect(Number(place.style.zIndex)).toBeGreaterThan(10_000)
+  expect(place.style.transform).toContain('translate(150px, 0px)')
+  expect(place.hasAttribute('data-hit')).toBe(false)
+})
+
+test('a label of an arrow search found is marked as found', () => {
+  const edges: AppEdge[] = [
+    { id: 'e', source: 'a', target: 'b', className: 'search-hit', data: { label: { text: 'x' } } },
+  ]
+  render(
+    <ReactFlowProvider initialEdges={edges}>
+      <ReactFlow defaultNodes={[]} defaultEdges={edges} />
+      <Board />
+    </ReactFlowProvider>,
+  )
+  const place = screen.getByTestId('arrow-label').closest('.edge-label-place')!
+  expect(place.hasAttribute('data-hit')).toBe(true)
+})

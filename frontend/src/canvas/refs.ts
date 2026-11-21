@@ -1,4 +1,5 @@
 import { resolveTask, type Task } from '@/api/tasks'
+import { OWN_KEY_PATTERNS, OWN_KEY_PREFIXES, OWN_LINK_PATTERNS } from '@/sources/registry'
 
 export const MAX_REFS = 50
 // Each key is one request to the tracker; a few at a time stays clear of rate limits.
@@ -13,22 +14,23 @@ export type Resolved = {
   estimated?: boolean
 }
 
+// Jira keys and links reach the instance's tracker; other trackers bring their own from the registry.
 const JIRA_PROJECT = '[A-Za-z][A-Za-z0-9_]+'
 const JIRA_KEY = `${JIRA_PROJECT}-\\d+`
-const GITHUB_REPO = '[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9._-]+'
-const GITHUB_KEY = `${GITHUB_REPO}#[1-9]\\d*`
+const KEYS = [JIRA_KEY, ...OWN_KEY_PATTERNS].join('|')
 
-export const REF_RE = new RegExp(`^(${JIRA_KEY}|${GITHUB_KEY}|https?://\\S+)$`)
+export const REF_RE = new RegExp(`^(${KEYS}|https?://\\S+)$`)
 // Only a key or a link to a task page counts on paste, so other links stay text.
 const TASK_REF_RE = new RegExp(
-  `^(${JIRA_KEY}|${GITHUB_KEY}|https?://\\S+/browse/${JIRA_KEY}/?` +
+  `^(${KEYS}|https?://\\S+/browse/${JIRA_KEY}/?` +
     `|https?://\\S+[?&]selectedIssue=${JIRA_KEY}(&\\S*)?` +
-    `|https?://(www\\.)?github\\.com/${GITHUB_REPO}/(issues|pull)/[1-9]\\d*([/?#]\\S*)?)$`,
+    OWN_LINK_PATTERNS.map((link) => `|${link}`).join('') +
+    ')$',
 )
 
 // "APP-1 - APP-20", "APP-1..20", "owner/repo#3 – #9": every key from the first to the last.
 const RANGE_RE = new RegExp(
-  `(?<![\\w/.#-])(${JIRA_PROJECT}-|${GITHUB_REPO}#)(\\d+)\\s*(?:-|–|—|\\.\\.)\\s*(?:\\1|#)?(\\d+)(?![\\w#/-])`,
+  `(?<![\\w/.#-])(${[`${JIRA_PROJECT}-`, ...OWN_KEY_PREFIXES].join('|')})(\\d+)\\s*(?:-|–|—|\\.\\.)\\s*(?:\\1|#)?(\\d+)(?![\\w#/-])`,
   'gi',
 )
 

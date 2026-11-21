@@ -51,6 +51,29 @@ const groups = [
       <a class="github" href={REPO} aria-label="tiko on GitHub"><Mark tracker="github" size={18} /><span>GitHub</span></a>
       <ThemeSwitch />
       <a class="btn btn-primary btn-sm" href={DEMO}>Try the demo</a>
+      <details class="mnav" data-mnav>
+        <summary aria-label="Menu"><Icon name="menu" size={20} class="open-i" /><Icon name="x" size={20} class="close-i" /></summary>
+        <nav class="sheet" aria-label="Main">
+          {
+            groups.map(({ title, pages }) => (
+              <div>
+                <p class="group">{title}</p>
+                <ul>
+                  {pages.map(({ href, title, icon }) => (
+                    <li><a {href}><Icon name={icon} size={16} />{title}</a></li>
+                  ))}
+                </ul>
+              </div>
+            ))
+          }
+          <div class="links">
+            <a href="/#scenarios">Scenarios</a>
+            <a href="/#self-host">Self-host</a>
+            <a href={`${DOCS}/`}>Docs</a>
+            <a href={ROADMAP}>Roadmap</a>
+          </div>
+        </nav>
+      </details>
     </div>
   </div>
 </header>
@@ -235,10 +258,81 @@ const groups = [
   .side .btn {
     margin-left: 0.5rem;
   }
+  .mnav {
+    display: none;
+  }
   @media (max-width: 860px) {
-    nav {
+    nav:not(.sheet) {
       display: none;
     }
+    .mnav {
+      display: block;
+    }
+  }
+  .mnav summary {
+    display: grid;
+    place-items: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    margin-left: 0.25rem;
+    border-radius: 8px;
+    color: var(--foreground);
+    cursor: pointer;
+    list-style: none;
+  }
+  .mnav summary::-webkit-details-marker {
+    display: none;
+  }
+  .mnav summary:hover,
+  .mnav[open] summary {
+    background: var(--muted);
+  }
+  .mnav :global(.close-i),
+  .mnav[open] :global(.open-i) {
+    display: none;
+  }
+  .mnav[open] :global(.close-i) {
+    display: block;
+  }
+  .sheet {
+    position: fixed;
+    inset: 3.75rem 0 auto;
+    display: grid;
+    gap: 1rem;
+    max-height: calc(100dvh - 3.75rem);
+    overflow-y: auto;
+    padding: 1rem 1rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--card);
+    box-shadow: var(--shadow);
+  }
+  .sheet ul {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .sheet a {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 2.75rem;
+    padding-inline: 0.5rem;
+    border-radius: 8px;
+    font-size: 0.9375rem;
+    color: var(--foreground);
+  }
+  .sheet a:hover,
+  .sheet a:focus-visible {
+    background: var(--muted);
+  }
+  .sheet a :global(svg) {
+    flex: none;
+    color: var(--primary);
+  }
+  .links {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border);
   }
   @media (max-width: 420px) {
     .github span {
@@ -283,6 +377,18 @@ const groups = [
       if (event.key !== 'Escape') return
       close()
       trigger.focus()
+    })
+  }
+
+  // The phone menu is a plain <details>; same-page anchors and Escape would otherwise leave it open.
+  for (const mnav of document.querySelectorAll<HTMLDetailsElement>('[data-mnav]')) {
+    mnav.addEventListener('click', (event) => {
+      if ((event.target as Element).closest('a')) mnav.open = false
+    })
+    mnav.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape' || !mnav.open) return
+      mnav.open = false
+      mnav.querySelector('summary')!.focus()
     })
   }
 </script>

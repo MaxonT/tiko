@@ -1,6 +1,9 @@
 ---
-import { DOCS } from '../data/site'
+import { DOCS, TRACKERS } from '../data/site'
 import Mark from './Mark.astro'
+
+// The same planned set the hero rotator marks "soon", so the two never disagree.
+const planned = TRACKERS.filter((t) => !t.live)
 ---
 
 <section class="trackers" aria-label="Supported trackers">
@@ -9,7 +12,7 @@ import Mark from './Mark.astro'
     <span class="tracker"><Mark tracker="jira" /> Jira Cloud, Data Center and Server</span>
     <span class="tracker"><Mark tracker="github" /> GitHub Issues</span>
     <span class="soon">
-      Planned: Linear, Plane
+      Planned: {planned.slice(0, 3).map((t) => t.name).join(', ')} and {planned.length - 3} more
     </span>
     <a class="more" href={`${DOCS}/trackers/`}>All trackers</a>
   </div>

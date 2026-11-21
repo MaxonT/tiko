@@ -26,10 +26,10 @@ const pick = (id: string) => FLOW.findIndex((t) => t.id === id)
 const cards = [
   { src: 'jira', k: 'APP-112', title: 'Retry payments', type: 'story', s: 'progress', flip: true },
   { src: 'github', k: 'web#214', title: 'Docs dark theme', type: 'task', s: 'review' },
-  { src: 'linear', k: 'MOB-31', title: 'Crash on login', type: 'bug', s: 'todo' },
-  { src: 'gitlab', k: 'ops!7', title: 'Rotate the certificates', type: 'task', s: 'progress' },
-  { src: 'notion', k: 'Q4', title: 'Hire a product designer', type: 'story', s: 'todo' },
-  { src: 'todoist', k: '#me', title: 'Book the offsite venue', type: 'task', s: 'done' },
+  { src: 'jira', k: 'MOB-31', title: 'Crash on login', type: 'bug', s: 'todo' },
+  { src: 'github', k: 'ops#7', title: 'Rotate the certificates', type: 'task', s: 'progress' },
+  { src: 'jira', k: 'HR-4', title: 'Hire a product designer', type: 'story', s: 'todo' },
+  { src: 'github', k: 'team#12', title: 'Book the offsite venue', type: 'task', s: 'done' },
 ].map((card, i) => ({ ...card, from: tile(pick(card.src)), y: 48 + 46 * i }))
 // The ray a card's signal runs along lights up while it passes.
 const signal = (t: number) => cards.findIndex((c) => c.src === FLOW[t].id)
@@ -46,8 +46,8 @@ const ray = (t: number) => `M${tile(t).x} ${tile(t).y} L ${HUB.x} ${HUB.y}`
       <div class="copy">
         <h2 class="h2">Tasks from your trackers as live cards on one whiteboard</h2>
         <p class="lead">
-          Connect Jira and GitHub today, the others marked soon as they land, and put tasks from
-          several of them side by side. Each card
+          Connect Jira or GitHub, with more trackers on the way, and put tasks from several of
+          them side by side. Each card
           shows the status from its own tracker and refreshes on its own, so the board is never a
           stale screenshot of last week.
         </p>
@@ -110,7 +110,7 @@ const ray = (t: number) => `M${tile(t).x} ${tile(t).y} L ${HUB.x} ${HUB.y}`
           <div class="mtiles">
             {
               FLOW.map((t, k) => (
-                <span class:list={['tile', { soon: !t.live }]} title={t.name} data-k={k < 4 ? k : undefined}>
+                <span class:list={['tile', { soon: !t.live }]} title={t.name} data-src={t.id}>
                   <Logo id={t.id} size={20} />
                 </span>
               ))
@@ -119,8 +119,8 @@ const ray = (t: number) => `M${tile(t).x} ${tile(t).y} L ${HUB.x} ${HUB.y}`
           <span class="mlink"><i class="mdot"></i><span class="hub"><Brand mark="emblem" height={30} /></span></span>
           <div class="mboard dots">
             {
-              cards.slice(0, 4).map((c, k) => (
-                <span class="card" data-status={c.s} data-k={k}>
+              cards.slice(0, 4).map((c) => (
+                <span class="card" data-status={c.s} data-src={c.src}>
                   <Logo id={c.src} size={14} />
                   <span class="ty"><Icon name={TYPE_ICON[c.type as keyof typeof TYPE_ICON]} size={10} /></span>
                   <b>{c.k}</b>
@@ -164,11 +164,16 @@ const ray = (t: number) => `M${tile(t).x} ${tile(t).y} L ${HUB.x} ${HUB.y}`
   // Phones: the same story step by step. Each card lands only after its signal reaches the board.
   const mflow = document.querySelector<HTMLElement>('[data-mflow]')
   if (mflow && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    const tiles = [...mflow.querySelectorAll<HTMLElement>('.tile[data-k]')]
-    const cards = [...mflow.querySelectorAll<HTMLElement>('.card[data-k]')]
+    const cards = [...mflow.querySelectorAll<HTMLElement>('.card')]
+    // Each card's signal starts at its own tracker's tile.
+    const tileOf = (card: HTMLElement) => mflow.querySelector<HTMLElement>(`.tile[data-src="${card.dataset.src}"]`)!
     const dot = mflow.querySelector<HTMLElement>('.mdot')!
     const hub = mflow.querySelector<HTMLElement>('.hub')!
-    const wait = (ms: number) => new Promise((done) => setTimeout(done, ms))
+    // Waits, and holds while the tab is in the background.
+    const wait = async (ms: number) => {
+      await new Promise((done) => setTimeout(done, ms))
+      while (document.hidden) await new Promise((done) => setTimeout(done, 500))
+    }
     // Restarts a one-shot animation by taking its class off and putting it back.
     const pulse = (el: HTMLElement, name: string) => {
       el.classList.remove(name)
@@ -183,9 +188,9 @@ const ray = (t: number) => `M${tile(t).x} ${tile(t).y} L ${HUB.x} ${HUB.y}`
         mflow.classList.add('run')
         for (const card of cards) card.classList.remove('in', 'flipped')
         await wait(600)
-        for (const [k, card] of cards.entries()) {
+        for (const card of cards) {
           if (!seen) break
-          pulse(tiles[k], 'lit')
+          pulse(tileOf(card), 'lit')
           await wait(250)
           pulse(dot, 'go')
           await wait(400)
@@ -195,6 +200,7 @@ const ray = (t: number) => `M${tile(t).x} ${tile(t).y} L ${HUB.x} ${HUB.y}`
           pulse(card, 'lit')
           await wait(500)
         }
+        if (!seen) break
         await wait(900)
         cards[0].classList.add('flipped')
         await wait(3000)
@@ -204,7 +210,7 @@ const ray = (t: number) => `M${tile(t).x} ${tile(t).y} L ${HUB.x} ${HUB.y}`
       running = false
     }
     new IntersectionObserver(([entry]) => {
-      seen = entry.isIntersecting && mflow.offsetParent !== null
+      seen = entry.isIntersecting
       if (seen && !running) loop()
     }, { threshold: 0.4 }).observe(mflow)
   }

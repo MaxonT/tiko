@@ -12,7 +12,7 @@ const planned = TRACKERS.filter((t) => !t.live)
     <span class="tracker"><Mark tracker="jira" /> Jira Cloud, Data Center and Server</span>
     <span class="tracker"><Mark tracker="github" /> GitHub Issues</span>
     <span class="soon">
-      Planned: {planned.slice(0, 3).map((t) => t.name).join(', ')} and {planned.length - 3} more
+      Planned: {planned.slice(0, 3).map((t) => t.name).join(', ')}{planned.length > 3 && ` and ${planned.length - 3} more`}
     </span>
     <a class="more" href={`${DOCS}/trackers/`}>All trackers</a>
   </div>

@@ -96,12 +96,16 @@ const showCloud = false
 <script>
   // The tracker name in the subtitle rolls up to the next one every few seconds.
   const box = document.querySelector<HTMLElement>('[data-rot] .rot-box')
-  if (box && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    const items = [...box.children] as HTMLElement[]
-    let at = 0
-    // The slot follows the shown name's width, so short names leave no gaps around them.
-    const fit = () => box.style.setProperty('width', `${items[at].offsetWidth}px`)
+  const items = box ? ([...box.children] as HTMLElement[]) : []
+  let at = 0
+  // The slot follows the shown name's width, so short names leave no gaps around them.
+  const fit = () => box?.style.setProperty('width', `${items[at].offsetWidth}px`)
+  if (box) {
     fit()
+    document.fonts.ready.then(fit)
+    addEventListener('resize', fit)
+  }
+  if (box && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
     setInterval(() => {
       if (document.hidden) return
       const current = items[at]
@@ -142,7 +146,7 @@ const showCloud = false
   .br-wide {
     display: none;
   }
-  @media (min-width: 860px) {
+  @media (min-width: 861px) {
     .br-wide {
       display: inline;
     }
@@ -155,7 +159,7 @@ const showCloud = false
     letter-spacing: -0.035em;
     text-wrap: balance;
   }
-  @media (min-width: 860px) {
+  @media (min-width: 861px) {
     h1 {
       max-width: none;
     }

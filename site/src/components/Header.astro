@@ -53,7 +53,7 @@ const groups = [
       <a class="btn btn-primary btn-sm" href={DEMO}>Try the demo</a>
       <details class="mnav" data-mnav>
         <summary aria-label="Menu"><Icon name="menu" size={20} class="open-i" /><Icon name="x" size={20} class="close-i" /></summary>
-        <nav class="sheet" aria-label="Main">
+        <nav class="sheet" aria-label="Menu">
           {
             groups.map(({ title, pages }) => (
               <div>
@@ -396,7 +396,7 @@ const groups = [
     mnav.addEventListener('click', (event) => {
       if ((event.target as Element).closest('a')) mnav.open = false
     })
-    mnav.addEventListener('keydown', (event) => {
+    document.addEventListener('keydown', (event) => {
       if (event.key !== 'Escape' || !mnav.open) return
       mnav.open = false
       mnav.querySelector('summary')!.focus()

@@ -9,19 +9,21 @@ import Install from './Install.astro'
 import Logo from './Logo.astro'
 import Waitlist from './Waitlist.astro'
 
-const facts = ['Open source, AGPL-3.0', 'Self-hosted', 'Reads your tracker, never writes back', 'No ads, anonymous counts only']
+const facts = ['AGPL-3.0', 'Self-hosted', 'Read-only to your tracker']
+// The Cloud waitlist badge is off until the hosted plan is closer; flip to show it again.
+const showCloud = false
 ---
 
 <section class="hero">
   <div class="wrap copy">
-    <Waitlist source="hero" />
+    {showCloud && <Waitlist source="hero" />}
     <h1>
-      A <span class="w-select">whiteboard<i class="h tl"></i><i class="h tr"></i><i class="h bl"></i><i class="h br"></i></span>
-      where your <span class="w-card" data-word><span class="w-type"><Icon name="check" size={12} /></span>tasks</span>
+      A&nbsp;<span class="w-select">whiteboard<i class="h tl"></i><i class="h tr"></i><i class="h bl"></i><i class="h br"></i></span>
+      where your <span class="w-card" data-word><span class="w-type"><Icon name="check" size={12} /></span>tasks</span><br class="br-wide" />
       never go <span class="w-live">stale<i></i></span>
     </h1>
     <p class="sub">
-      <b class="tiko">tiko</b> puts the tasks from
+      <b class="tiko">tiko</b> puts tasks from
       <span class="rot" data-rot>
         <span class="sr-only">your tracker</span>
         <span class="rot-box" aria-hidden="true">
@@ -36,8 +38,7 @@ const facts = ['Open source, AGPL-3.0', 'Self-hosted', 'Reads your tracker, neve
           }
         </span>
       </span>
-      on an infinite canvas as cards. Lay them out, link what blocks what, see them on a
-      timeline. Their statuses update on their own, so nobody keeps the board in sync by hand.
+      on an infinite canvas as live cards.
     </p>
     <div class="actions">
       <a class="btn btn-primary" href={DEMO}>Try the demo <Icon name="arrow-right" /></a>
@@ -159,6 +160,15 @@ const facts = ['Open source, AGPL-3.0', 'Self-hosted', 'Reads your tracker, neve
     margin-bottom: clamp(2rem, 4vw, 2.75rem);
     text-align: center;
   }
+  /* Two lines on wide screens; narrow ones wrap on their own. */
+  .br-wide {
+    display: none;
+  }
+  @media (min-width: 860px) {
+    .br-wide {
+      display: inline;
+    }
+  }
   h1 {
     max-width: 18ch;
     font-size: clamp(2.25rem, 5.6vw, 3.75rem);
@@ -166,6 +176,11 @@ const facts = ['Open source, AGPL-3.0', 'Self-hosted', 'Reads your tracker, neve
     line-height: 1.12;
     letter-spacing: -0.035em;
     text-wrap: balance;
+  }
+  @media (min-width: 860px) {
+    h1 {
+      max-width: none;
+    }
   }
 
   /* "whiteboard" is selected, as on the canvas. */
@@ -317,7 +332,7 @@ const facts = ['Open source, AGPL-3.0', 'Self-hosted', 'Reads your tracker, neve
     text-transform: uppercase;
   }
   .sub {
-    max-width: 44rem;
+    max-width: 58rem;
     margin-top: 1.25rem;
     font-size: clamp(1.0625rem, 1.6vw, 1.25rem);
     color: var(--muted-foreground);

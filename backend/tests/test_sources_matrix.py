@@ -161,10 +161,7 @@ def test_a_guest_gets_open_tasks_in_full_and_a_link_for_the_rest():
         "demo:DEMO-9": ("private", ""),
         "jira:DEV-1": ("private", "https://jira.example.com/browse/DEV-1"),
         "github:octo/widgets#4": ("private", "https://github.com/octo/widgets/issues/4"),
-        "caldav:2f1e-uid@example.com": (
-            "private",
-            "https://jira.example.com/browse/2f1e-uid@example.com",
-        ),
+        "caldav:2f1e-uid@example.com": ("private", ""),
     }
 
 

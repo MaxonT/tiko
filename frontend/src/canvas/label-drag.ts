@@ -1,14 +1,12 @@
 import { useReactFlow } from '@xyflow/react'
 import { useState } from 'react'
 import {
-  clampShare,
+  clampTo,
   project,
-  shareRange,
   snapMiddle,
   tidyLabel,
-  type Ends,
   type Polyline,
-  type Size,
+  type Range,
 } from '@/canvas/edge-label'
 import type { AppEdge, EdgeLabel } from '@/canvas/types'
 
@@ -23,19 +21,19 @@ export function useLabelDrag(
   edgeId: string,
   label: EdgeLabel | undefined,
   poly: Polyline | null,
-  box: Size,
-  ends: Ends,
+  /** Where the label may go on the arrow, worked out once by the arrow. */
+  range: Range,
   enabled: boolean,
 ) {
   const { getZoom, screenToFlowPosition, updateEdgeData } = useReactFlow<never, AppEdge>()
   const [dragged, setDragged] = useState<number | null>(null)
-  const draggable = enabled && !!label && !!poly && shareRange(poly, box, ends) !== null
+  const draggable = enabled && !!label && !!poly && range !== null
 
   const onPointerDown = (event: React.PointerEvent<HTMLElement>) => {
     if (!draggable || !label || !poly || event.button !== 0) return
     const element = event.currentTarget
     const start = { x: event.clientX, y: event.clientY }
-    let share = clampShare(poly, label.at ?? 0.5, box, ends)
+    let share = clampTo(range, label.at ?? 0.5)
     let moved = false
     element.setPointerCapture(event.pointerId)
     const move = (next: PointerEvent) => {
@@ -43,12 +41,7 @@ export function useLabelDrag(
       moved = true
       const zoom = getZoom()
       const pointer = screenToFlowPosition({ x: next.clientX, y: next.clientY })
-      share = clampShare(
-        poly,
-        snapMiddle(poly, project(poly, share, pointer, zoom), zoom),
-        box,
-        ends,
-      )
+      share = clampTo(range, snapMiddle(poly, project(poly, share, pointer, zoom), zoom))
       setDragged(share)
     }
     const end = (commit: boolean) => () => {

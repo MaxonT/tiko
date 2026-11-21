@@ -1,4 +1,4 @@
-import type { BoardDoc } from '@/api/boards'
+import { edgeLabelSchema, type BoardDoc } from '@/api/boards'
 import type { AppEdge, AppNode, EdgeData } from '@/canvas/types'
 
 /** A node as the shared document keeps it: every key is one value, replaced as a whole. */
@@ -52,6 +52,17 @@ export function storedNode(node: DocNode, order: number): StoredNode {
   }
 }
 
+/**
+ * An edge as another tab wrote it, with a label kept only when it reads as one: a broken peer
+ * must not break this tab before the server's repair arrives.
+ */
+export function readEdge(edge: StoredEdge): StoredEdge {
+  if (edge.data === undefined) return edge
+  const { data, ...rest } = edge
+  const label = edgeLabelSchema.safeParse((data as { label?: unknown } | null)?.label)
+  return label.success ? { ...rest, data: { label: label.data } } : rest
+}
+
 /** The fields of an edge the board keeps; an arrow without a label stores no `data`. */
 export function storedEdge({
   source,
@@ -65,7 +76,8 @@ export function storedEdge({
     target,
     ...(sourceHandle && { sourceHandle }),
     ...(targetHandle && { targetHandle }),
-    ...(data?.label?.text.trim() && { data: { label: data.label } }),
+    ...(typeof data?.label?.text === 'string' &&
+      data.label.text.trim() && { data: { label: data.label } }),
   }
 }
 

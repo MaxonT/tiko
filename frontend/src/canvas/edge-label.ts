@@ -127,10 +127,14 @@ export function shareRange(
 
 /** The share a label is drawn at: its own, pulled in off the ends, or the middle when nothing fits. */
 export function clampShare(poly: Polyline, share: number, size: Size, ends?: Ends): number {
-  const range = shareRange(poly, size, ends)
-  if (!range) return 0.5
-  return Math.max(range[0], Math.min(range[1], share))
+  return clampTo(shareRange(poly, size, ends), share)
 }
+
+export type Range = [number, number] | null
+
+/** A share pulled into a range worked out once; the middle when there is none. */
+export const clampTo = (range: Range, share: number) =>
+  range ? Math.max(range[0], Math.min(range[1], share)) : 0.5
 
 // Screen pixels: how far the pointer may stray from the stretch a dragged label is on before a
 // clearly nearer part of the arrow takes it, and how close to the middle a label snaps to it.

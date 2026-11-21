@@ -56,26 +56,21 @@ const docNodeSchema = z.object({
   data: z.record(z.string(), z.unknown()),
 })
 
+/** Words on an arrow, as the board keeps them (spec 051). */
+export const edgeLabelSchema = z.object({
+  text: z.string(),
+  at: z.number().min(0).max(1).optional(),
+  color: z.enum(['surface', 'yellow', 'orange', 'pink', 'violet', 'blue', 'green']).optional(),
+  size: z.enum(['small', 'medium', 'large']).optional(),
+})
+
 const docEdgeSchema = z.object({
   id: z.string(),
   source: z.string(),
   target: z.string(),
   sourceHandle: z.string().optional(),
   targetHandle: z.string().optional(),
-  data: z
-    .object({
-      label: z
-        .object({
-          text: z.string(),
-          at: z.number().optional(),
-          color: z
-            .enum(['surface', 'yellow', 'orange', 'pink', 'violet', 'blue', 'green'])
-            .optional(),
-          size: z.enum(['small', 'medium', 'large']).optional(),
-        })
-        .optional(),
-    })
-    .optional(),
+  data: z.object({ label: edgeLabelSchema.optional() }).optional(),
 })
 
 export const docSchema = z.object({

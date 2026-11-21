@@ -130,7 +130,7 @@ import { CLIPBOARD_MARKER, classifyPaste, isEditable, readPasteAs } from '@/canv
 import { MAX_REFS, resolveAll } from '@/canvas/refs'
 import { ArrowBar, SelectionBar } from '@/canvas/SelectionBar'
 import { LabelEditing } from '@/canvas/label-editing'
-import { withLabelStyle } from '@/canvas/edge-label'
+import { useArrowLabels } from '@/canvas/useArrowLabels'
 import { OPEN_VOTES_EVENT, useVoting, voteElements, VotingContext } from '@/voting/useVoting'
 import { VotePanel } from '@/voting/VotePanel'
 import { StartVote } from '@/voting/StartVote'
@@ -189,22 +189,6 @@ import { topOverlay } from '@/lib/overlays'
 
 // Arrows tied to a turned element leave it along its turned side.
 const edgeTypes = { default: TurnedEdge }
-
-/** Arrows as drawn: a label tried from the bar, named for screen readers, ringed by search. */
-function labelled(edges: AppEdge[], preview: Style | null, hits: ReadonlySet<string> | null) {
-  if (!edges.some((e) => e.data?.label)) return edges
-  return edges.map((e) => {
-    const label = e.data?.label
-    if (!label) return e
-    const tried = preview && e.selected ? withLabelStyle(e, preview) : e
-    const hit = hits?.has(e.id)
-    return {
-      ...tried,
-      ariaLabel: `Arrow: ${label.text}`,
-      ...(hit && { className: [e.className, 'search-hit'].filter(Boolean).join(' ') }),
-    }
-  })
-}
 
 const nodeTypes = {
   task_card: withPresence(farView(TaskCardNode, FarCard)),
@@ -424,18 +408,14 @@ export function BoardCanvas({
   const moving = useRemoteMotion(nodes, drags, live.glide, originOf, useBoardTravel())
   // A style tried on the selection from the bar: drawn here only, never saved or sent.
   const [preview, setPreview] = useState<Style | null>(null)
-  const [labelEditing, setLabelEditing] = useState<string | null>(null)
-  const labelEditingValue = useMemo(
-    () => ({ editing: labelEditing, setEditing: setLabelEditing }),
-    [labelEditing],
-  )
+  const labels = useArrowLabels({ edges, setEdges, hits, readOnly, far })
   const shown = useMemo(() => {
     const painted =
       preview === null ? moving : moving.map((n) => (n.selected ? withStyle(n, preview) : n))
     const standing = copying ? withStandIns(painted, dragFrom) : painted
     const raised = raiseAnchors(
       standing.map(withHandles),
-      labelled(copying ? edgesToStandIns(edges, standing) : edges, preview, hits),
+      copying ? edgesToStandIns(labels.shown, standing) : labels.shown,
     )
     if (!flashId && !hits && !locked) return raised
     const inVote = new Set(votingRound?.elements)
@@ -457,7 +437,7 @@ export function BoardCanvas({
         }
       }),
     }
-  }, [moving, preview, edges, flashId, hits, copying, dragFrom, locked, votingRound])
+  }, [moving, preview, labels.shown, flashId, hits, copying, dragFrom, locked, votingRound])
 
   // What the others see of this person: what is selected, and nodes on their way while dragged.
   const { presence } = live
@@ -955,15 +935,6 @@ export function BoardCanvas({
     if (snippet) insert(snippet, { x: DUPLICATE_OFFSET, y: DUPLICATE_OFFSET })
   }
   useShortcut('duplicate', duplicate, { enabled: !readOnly })
-  useShortcut(
-    'labelArrow',
-    () => {
-      const picked = flow.getEdges().filter((e) => e.selected)
-      if (picked.length === 1 && barNodes(flow.getNodes() as AppNode[]).length === 0)
-        setLabelEditing(picked[0].id)
-    },
-    { enabled: !readOnly && !far },
-  )
   useShortcut('selectAll', () => {
     setNodes((current) => current.map((n) => ({ ...n, selected: true })))
     setEdges((current) => current.map((e) => ({ ...e, selected: true })))
@@ -1238,8 +1209,6 @@ export function BoardCanvas({
         n.selected && !votingRound?.elements.includes(n.id) ? withStyle(n, style) : n,
       ),
     )
-  const setLabelStyle = (style: Style) =>
-    setEdges((current) => current.map((e) => (e.selected ? withLabelStyle(e, style) : e)))
   const align = (how: Alignment | Distribution) =>
     setNodes((current) => {
       const moving = movers(current)
@@ -1401,7 +1370,7 @@ export function BoardCanvas({
         })
       }}
     >
-      <LabelEditing.Provider value={labelEditingValue}>
+      <LabelEditing.Provider value={labels.editingValue}>
         <ReactFlow
           nodes={shown.nodes}
           edges={shown.edges}
@@ -1447,7 +1416,7 @@ export function BoardCanvas({
           onNodeDoubleClick={onNodeDoubleClick}
           onEdgeDoubleClick={(event, edge) => {
             if (flow.getViewport().zoom <= FAR_ZOOM) onNodeDoubleClick(event)
-            else if (!readOnly) setLabelEditing(edge.id)
+            else labels.edit(edge.id)
           }}
           onMoveEnd={(_, viewport) => saveViewport(board.id, viewport)}
           nodeTypes={nodeTypes}
@@ -1522,17 +1491,7 @@ export function BoardCanvas({
         </ReactFlow>
       </LabelEditing.Provider>
       {arrowBarShown && (
-        <ArrowBar
-          edges={barEdges}
-          onStyle={setLabelStyle}
-          onPreview={setPreview}
-          onAddLabel={
-            barEdges.length === 1 && !barEdges[0].data?.label
-              ? () => setLabelEditing(barEdges[0].id)
-              : undefined
-          }
-          onDelete={deleteSelection}
-        />
+        <ArrowBar edges={barEdges} {...labels.bar(barEdges)} onDelete={deleteSelection} />
       )}
       {barShown && (
         <SelectionBar

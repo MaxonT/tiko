@@ -1,4 +1,4 @@
-import type { InternalNode, SetCenter, Viewport } from '@xyflow/react'
+import type { InternalNode, SetCenter, Viewport, XYPosition } from '@xyflow/react'
 import { useSyncExternalStore } from 'react'
 
 const FLASH_MS = 1200
@@ -52,13 +52,20 @@ export function zoomFor(width: number, height: number, current: number, min = MI
   return Math.min(Math.max(current, min), fit)
 }
 
-/**
- * Moves the board to a node and flashes it; `flash: false` only looks.
- * `offsetY` puts the node that many screen pixels below the window center.
- */
-// A node's box; an arrow's is the box around its two ends, so its middle is the arrow's.
+// Where each drawn arrow label sits on the board, kept by the arrow that draws it.
+const labelPoints = new Map<string, XYPosition>()
+
+/** Notes where an arrow's label is drawn, or that it is gone. */
+export function placeLabel(edgeId: string, at: XYPosition | null) {
+  if (at) labelPoints.set(edgeId, at)
+  else labelPoints.delete(edgeId)
+}
+
+// A node's box; an arrow's is its label's point when drawn, else the middle between its ends.
 function boxOf(flow: Flow, id: string) {
   const edge = flow.getEdge(id)
+  const label = edge && labelPoints.get(id)
+  if (label) return { ...label, width: 0, height: 0 }
   const ids = edge ? [edge.source, edge.target] : [id]
   const boxes = ids.flatMap((one) => {
     const node = flow.getInternalNode(one)
@@ -78,12 +85,15 @@ function boxOf(flow: Flow, id: string) {
   const top = Math.min(...boxes.map((b) => b.y))
   const right = Math.max(...boxes.map((b) => b.x + b.width))
   const bottom = Math.max(...boxes.map((b) => b.y + b.height))
-  // An arrow's ends fit the view; its own width is what is between them.
   return edge
     ? { x: (left + right) / 2, y: (top + bottom) / 2, width: 0, height: 0 }
     : { x: left, y: top, width: right - left, height: bottom - top }
 }
 
+/**
+ * Moves the board to a node or an arrow's label and flashes it; `flash: false` only looks.
+ * `offsetY` puts it that many screen pixels below the window center.
+ */
 export function flyTo(
   flow: Flow,
   id: string,

@@ -3,6 +3,7 @@ import type { AppEdge, AppNode } from '@/canvas/types'
 import {
   canon,
   isStoredNode,
+  readEdge,
   storedEdge,
   storedNode,
   toDoc,
@@ -75,7 +76,7 @@ export class LiveBinding {
     for (const id of shown) visible[id] = nodes[id]
     const edges: Record<string, StoredEdge> = {}
     this.edges.forEach((edge, id) => {
-      if (edge && shown.has(edge.source) && shown.has(edge.target)) edges[id] = edge
+      if (edge && shown.has(edge.source) && shown.has(edge.target)) edges[id] = readEdge(edge)
     })
     return (this.snapshot = { nodes: visible, edges })
   }

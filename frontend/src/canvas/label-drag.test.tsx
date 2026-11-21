@@ -1,7 +1,8 @@
 import { act, render, screen } from '@testing-library/react'
 import { ReactFlow, ReactFlowProvider, useEdges } from '@xyflow/react'
+import { useEffect } from 'react'
 import { beforeAll, expect, test } from 'vitest'
-import { flatten } from '@/canvas/edge-label'
+import { flatten, shareRange } from '@/canvas/edge-label'
 import { useLabelDrag } from '@/canvas/label-drag'
 import type { AppEdge, EdgeLabel } from '@/canvas/types'
 
@@ -19,7 +20,7 @@ const box = { width: 60, height: 20 }
 
 function Handle({ enabled }: { enabled: boolean }) {
   const [edge] = useEdges<AppEdge>()
-  const drag = useLabelDrag('e', edge.data?.label, poly, box, [null, null], enabled)
+  const drag = useLabelDrag('e', edge.data?.label, poly, shareRange(poly, box), enabled)
   return (
     <div
       data-testid="label"
@@ -32,9 +33,12 @@ function Handle({ enabled }: { enabled: boolean }) {
 
 function renderDrag(label: EdgeLabel, enabled = true) {
   const edges: AppEdge[] = [{ id: 'e', source: 'a', target: 'b', data: { label } }]
-  let latest = edges
+  const seen = { edges }
   function Spy() {
-    latest = useEdges<AppEdge>()
+    const now = useEdges<AppEdge>()
+    useEffect(() => {
+      seen.edges = now
+    })
     return null
   }
   render(
@@ -44,7 +48,7 @@ function renderDrag(label: EdgeLabel, enabled = true) {
       <Spy />
     </ReactFlowProvider>,
   )
-  return { handle: screen.getByTestId('label'), label: () => latest[0].data?.label }
+  return { handle: screen.getByTestId('label'), label: () => seen.edges[0].data?.label }
 }
 
 // jsdom has no PointerEvent: plain events carry the fields the drag reads.

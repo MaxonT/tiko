@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { ReactFlow, ReactFlowProvider, useEdges } from '@xyflow/react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { beforeAll, expect, test } from 'vitest'
 import { ArrowLabel } from '@/canvas/EdgeLabel'
 import { LabelEditing } from '@/canvas/label-editing'
@@ -41,9 +41,12 @@ function renderLabel(
   }: { editing?: string | null; readOnly?: boolean; far?: boolean } = {},
 ) {
   const edges: AppEdge[] = [{ id: 'e', source: 'a', target: 'b', data: label ? { label } : {} }]
-  let latest: AppEdge[] = edges
+  const seen = { edges }
   function Spy() {
-    latest = useEdges<AppEdge>()
+    const now = useEdges<AppEdge>()
+    useEffect(() => {
+      seen.edges = now
+    })
     return null
   }
   render(
@@ -58,7 +61,7 @@ function renderLabel(
       </ReadOnlyContext.Provider>
     </ReactFlowProvider>,
   )
-  return () => latest[0].data?.label
+  return () => seen.edges[0].data?.label
 }
 
 test('a label shows its text in its size and fill', () => {
@@ -114,4 +117,38 @@ test('far out a label is a bar', () => {
   renderLabel({ text: 'hello' }, { far: true })
   expect(screen.queryByTestId('arrow-label')).toBeNull()
   expect(document.querySelector('.edge-label-bar')).not.toBeNull()
+})
+
+test('zooming far out while typing keeps what was typed and ends editing', () => {
+  const edges: AppEdge[] = [{ id: 'e', source: 'a', target: 'b', data: {} }]
+  const seen = { edges }
+  function Spy() {
+    const now = useEdges<AppEdge>()
+    useEffect(() => {
+      seen.edges = now
+    })
+    return null
+  }
+  function Zoom() {
+    const [far, setFar] = useState(false)
+    return (
+      <FarContext.Provider value={far}>
+        <button type="button" onClick={() => setFar(true)}>
+          zoom far
+        </button>
+        <Board editing="e" />
+      </FarContext.Provider>
+    )
+  }
+  render(
+    <ReactFlowProvider initialEdges={edges}>
+      <ReactFlow defaultNodes={[]} defaultEdges={edges} />
+      <Zoom />
+      <Spy />
+    </ReactFlowProvider>,
+  )
+  fireEvent.change(screen.getByRole('textbox'), { target: { value: 'half typed' } })
+  fireEvent.click(screen.getByRole('button', { name: 'zoom far' }))
+  expect(seen.edges[0].data?.label).toEqual({ text: 'half typed' })
+  expect(screen.getByTestId('editing').textContent).toBe('')
 })

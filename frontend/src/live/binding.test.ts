@@ -199,6 +199,17 @@ test('an arrow label reaches the other tab, changes, goes, and undo brings it ba
   expect(ann.edges[0].data?.label?.text).toBe('waits for API')
 })
 
+test.each([{ label: { text: {} } }, { label: 'x' }, { label: { text: 'ok', at: 7 } }, null])(
+  'a broken label from another tab is left out instead of breaking this one: %j',
+  (data) => {
+    ann.set(ann.nodes, [{ id: 'e', source: 'a', target: 'b' }])
+    sync(ann, bob)
+    ann.doc.transact(() => ann.live.edges.set('e', { source: 'a', target: 'b', data } as never))
+    sync(ann, bob)
+    expect(bob.edges).toEqual([{ id: 'e', source: 'a', target: 'b' }])
+  },
+)
+
 test('stacking: a node raised to the top is on top for everyone', () => {
   const [a, b] = ann.nodes
   ann.set([b, a])

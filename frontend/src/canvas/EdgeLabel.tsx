@@ -1,5 +1,5 @@
 import { useReactFlow, type XYPosition } from '@xyflow/react'
-import { useContext, useLayoutEffect, useRef, useState } from 'react'
+import { useContext, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { LABEL_MAX, LABEL_WIDTH, editedLabel, farBar, type Size } from '@/canvas/edge-label'
 import { LabelEditing } from '@/canvas/label-editing'
 import { FarContext, useReadOnly } from '@/canvas/readonly'
@@ -49,6 +49,10 @@ export function ArrowLabel({ edge, label, at, onSize, drag }: Props) {
   const { updateEdgeData } = useReactFlow<never, AppEdge>()
   const box = useRef<HTMLDivElement>(null)
   const isEditing = editing === edge.id && !readOnly && !far
+  // Far out a label has no editor; editing ends instead of waiting to come back.
+  useEffect(() => {
+    if (far && editing === edge.id) setEditing(null)
+  }, [far, editing, edge.id, setEditing])
 
   useLayoutEffect(() => {
     const element = box.current
@@ -121,6 +125,19 @@ function LabelField({
   onDone: (text: string) => void
 }) {
   const [draft, setDraft] = useState(label?.text ?? '')
+  const done = useRef(false)
+  const latest = useRef({ draft, onDone, typed: false })
+  useLayoutEffect(() => {
+    latest.current = { draft, onDone, typed: draft !== (label?.text ?? '') }
+  })
+  // Zooming far out takes the field away without a blur: what was typed is kept all the same.
+  useEffect(
+    () => () => {
+      const { draft: text, onDone: finish, typed } = latest.current
+      if (!done.current && typed) finish(text)
+    },
+    [],
+  )
   return (
     <div ref={boxRef} className="grid" style={{ ...labelLook(label), pointerEvents: 'auto' }}>
       {/* The hidden copy sizes the field to its text, wrapping at the label's width. */}
@@ -136,7 +153,10 @@ function LabelField({
         aria-label="Arrow label"
         onFocus={(event) => event.currentTarget.select()}
         onChange={(event) => setDraft(event.target.value)}
-        onBlur={() => onDone(draft)}
+        onBlur={() => {
+          done.current = true
+          onDone(draft)
+        }}
         onKeyDown={(event) => {
           // The canvas must not take the keys: Enter would select, Delete would remove.
           event.stopPropagation()

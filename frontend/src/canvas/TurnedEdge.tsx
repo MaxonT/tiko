@@ -1,19 +1,21 @@
 import { BaseEdge, Position, useInternalNode, type EdgeProps, type XYPosition } from '@xyflow/react'
-import { memo, useCallback, useContext, useMemo, useState } from 'react'
+import { memo, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { ArrowLabel } from '@/canvas/EdgeLabel'
 import {
-  clampShare,
+  clampTo,
   cutDashes,
+  shareRange,
   farBar,
   flatten,
   pointAt,
   type Ends,
   type Size,
 } from '@/canvas/edge-label'
+import { placeLabel } from '@/canvas/fly'
 import { LabelEditing } from '@/canvas/label-editing'
 import { useLabelDrag } from '@/canvas/label-drag'
 import { FarContext, useReadOnly } from '@/canvas/readonly'
-import { turnVector } from '@/canvas/turn'
+import { turnedBounds, turnVector } from '@/canvas/turn'
 import { sideInset, type ShapeKind } from '@/canvas/shapes'
 import type { EdgeData, Turned } from '@/canvas/types'
 
@@ -108,6 +110,10 @@ const boxOf = (node: NonNullable<Internal>): Box => ({
   height: node.measured.height ?? 0,
 })
 
+/** What a turned element covers on the board: the upright box around it. */
+export const turnedBox = (node: Internal) =>
+  node ? turnedBounds(boxOf(node), (node.data as Turned | undefined)?.rotation ?? 0) : null
+
 function end(
   node: Internal,
   handle: string | null | undefined,
@@ -158,19 +164,21 @@ function TurnedEdgeView(props: EdgeProps) {
   const path = turnedBezier(source.at, source.side, source.deg, target.at, target.side, target.deg)
   const poly = useMemo(() => (labelled ? flatten(path) : null), [labelled, path])
   const box = far ? farBar(label) : size
-  // A label never slides under the elements its arrow ties together.
-  const ends: Ends = [from ? boxOf(from) : null, to ? boxOf(to) : null]
-  const drag = useLabelDrag(
-    props.id,
-    label,
-    poly,
-    box,
-    ends,
-    !readOnly && !far && editing !== props.id,
-  )
-  const at = poly && pointAt(poly, clampShare(poly, drag.dragged ?? label?.at ?? 0.5, box, ends))
+  // A label never slides under the elements its arrow ties together, turned ones included.
+  const ends: Ends = [turnedBox(from), turnedBox(to)]
+  const range = poly && shareRange(poly, box, ends)
+  const drag = useLabelDrag(props.id, label, poly, range, !readOnly && !far && editing !== props.id)
+  const at = poly && pointAt(poly, clampTo(range, drag.dragged ?? label?.at ?? 0.5))
   // Dashes leave the line out under the label; a mask would be clipped to the arrow's SVG box.
-  const dashes = poly && at && cutDashes(poly, at, box)
+  // Far out, a label still being typed has no bar, so no gap either.
+  const dashes = poly && at && (label || !far) && cutDashes(poly, at, box)
+  // Search moves the board to the label itself.
+  const [atX, atY] = label && at ? [at.x, at.y] : [null, null]
+  useEffect(() => {
+    if (atX === null || atY === null) return
+    placeLabel(props.id, { x: atX, y: atY })
+    return () => placeLabel(props.id, null)
+  }, [props.id, atX, atY])
   return (
     <>
       <BaseEdge

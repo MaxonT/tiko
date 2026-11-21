@@ -184,6 +184,18 @@ def test_a_deleted_issue_turns_not_found_and_is_not_asked_again_at_once():
     assert len(fake.requests) == asked
 
 
+def test_an_issue_in_the_trash_is_not_found():
+    fake = FakeLinear()
+    clock = Clock()
+    reader = provider(fake, clock)
+    assert reader.poll(["acme/ENG-1"])[0].state == "ok"
+    fake.issues["ENG-1"]["trashed"] = True
+    clock.now += 30
+    assert reader.poll(["acme/ENG-1"])[0].state == "not_found"
+    with pytest.raises(TaskNotFound):
+        reader.resolve("acme/ENG-1")
+
+
 def test_another_workspace_is_not_found_without_a_request():
     fake = FakeLinear()
     reader = provider(fake)

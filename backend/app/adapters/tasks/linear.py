@@ -45,7 +45,7 @@ DEFAULT_RETRY_AFTER_S = 60
 REJECTED = "Linear rejected your key. Enter a new one in Settings → My tracker."
 
 _ISSUE_FIELDS = """
-  id identifier title url updatedAt priority priorityLabel dueDate estimate
+  id identifier title url updatedAt priority priorityLabel dueDate estimate trashed
   state { name type }
   assignee { name }
   project { name }
@@ -260,7 +260,9 @@ class LinearProvider:
 
     def _single(self, identifier: str) -> dict | None:
         data, _ = self._api.query(_ISSUE, {"id": identifier})
-        return (data or {}).get("issue")
+        issue = (data or {}).get("issue")
+        # A deleted issue waits in Linear's trash, still answered; for a card it is gone.
+        return None if not isinstance(issue, dict) or issue.get("trashed") else issue
 
     def resolve(self, key: str) -> Task:
         workspace, _, identifier = key.partition("/")
@@ -280,7 +282,11 @@ class LinearProvider:
         for start in range(0, len(wanted), PAGE):
             data, _ = self._api.query(_ISSUES, {"ids": wanted[start : start + PAGE], "first": PAGE})
             for issue in ((data or {}).get("issues") or {}).get("nodes") or []:
-                if isinstance(issue, dict) and isinstance(issue.get("identifier"), str):
+                if (
+                    isinstance(issue, dict)
+                    and isinstance(issue.get("identifier"), str)
+                    and not issue.get("trashed")
+                ):
                     answered[issue["identifier"]] = issue
         unanswered = []
         for identifier in identifiers:

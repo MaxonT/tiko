@@ -19,7 +19,7 @@ Slice 0 moves what every tracker repeats into one place: a source description pe
 - `priority` is 0–4 with `priorityLabel`; state `type` is one of triage, backlog, unstarted, started, completed, canceled, duplicate.
 - `CustomView` has `slugId`, `filterData` and `issues`.
 - Linear has no typed query language in the app, the API, its CLI or its MCP server, and no community library turns text into its filter (research, 2026-11-21).
-- Still to check on a live answer: an old identifier after a team move, in `issue(id:)` and in the `id: {in}` filter (needs a second team in the test workspace); the brand terms of the mark; the team key pattern (length, digits, `_`).
+- Checked live on a test workspace (2026-11-21): a deleted issue stays in Linear's trash and is still answered, with `trashed: true`, by `issue(id:)` and by the list; an archived one comes back with `includeArchived`; an issue moved to another team is found by its old identifier; a state change reaches the next poll. Linear's API does not create cycles ("Cycle creation is not supported"), so the Cycle row is covered by the fake only.
 
 ## Structure
 

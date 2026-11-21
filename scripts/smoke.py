@@ -124,6 +124,15 @@ try:
     routed = status == 200 or body["error"]["code"] != "invalid_ref"
     check(routed, "a GitHub key reaches the GitHub source")
 
+    # A Linear link goes to Linear on any instance; without a key of one's own it asks for one.
+    status, body = call(
+        "POST",
+        f"{API}/api/tasks/resolve",
+        {"ref": "https://linear.app/acme/issue/ENG-1/fix-the-thing"},
+    )
+    asks = status == 422 and "Linear" in body["error"]["message"]
+    check(asks, "a Linear link without a key asks to connect Linear")
+
     doc = {
         "nodes": [
             {

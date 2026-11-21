@@ -83,7 +83,7 @@ function SourceTokenForm({ tracker, source }: { tracker: Tracker; source: TokenS
           rel="noreferrer"
           className="text-primary underline-offset-2 hover:underline"
         >
-          Which token to create
+          {source.guideLabel}
         </a>
       </p>
       <div className="flex flex-col gap-1.5">

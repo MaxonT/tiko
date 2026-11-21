@@ -44,6 +44,11 @@ describe('hasRange', () => {
 })
 
 describe('pastedRefs', () => {
+  it('takes a Linear issue link and a workspace key, not a project page', () => {
+    const link = 'https://linear.app/acme/issue/ENG-12/fix-the-thing'
+    expect(pastedRefs(`${link} acme/ENG-13`)).toEqual({ refs: [link, 'acme/ENG-13'], more: false })
+    expect(pastedRefs('https://linear.app/acme/project/billing-1')).toBeNull()
+  })
   it('turns a pasted range into keys', () => {
     expect(pastedRefs('APP-1 - APP-2')).toEqual({ refs: ['APP-1', 'APP-2'], more: false })
   })

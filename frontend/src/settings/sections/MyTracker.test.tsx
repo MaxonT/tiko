@@ -101,3 +101,17 @@ test('on Jira Cloud asks for my e-mail next to the API token', async () => {
     email: 'ann.lee@example.com',
   })
 })
+
+test('saves my Linear key and says who it signs in as', async () => {
+  const fetchMock = show({ provider: 'demo', base_url: null, tokens: { linear: 'none' } })
+  expect(await screen.findByText(/Linear cards show only their keys/)).toBeVisible()
+  expect(screen.getByRole('link', { name: 'How to create a key' })).toHaveAttribute(
+    'href',
+    'https://docs.tiko.run/linear/#your-api-key',
+  )
+  fireEvent.change(screen.getByLabelText('Linear API key'), { target: { value: ' lin-key ' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Save Linear API key' }))
+  expect(await screen.findByText(/Your token is stored/)).toBeInTheDocument()
+  const put = fetchMock.mock.calls.find(([, init]) => init?.method === 'PUT')
+  expect(JSON.parse(String(put?.[1]?.body))).toEqual({ token: 'lin-key', source: 'linear' })
+})

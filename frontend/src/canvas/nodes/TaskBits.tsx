@@ -18,6 +18,7 @@ const TYPE_ICONS = {
   epic: Layers,
   'sub-task': ListTree,
   subtask: ListTree,
+  'sub-issue': ListTree,
   issue: CircleDot,
   'pull request': GitPullRequest,
 }

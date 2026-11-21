@@ -1,6 +1,8 @@
 import githubMarkDark from '@/sources/marks/github-dark.svg'
 import githubMark from '@/sources/marks/github.svg'
 import jiraMark from '@/sources/marks/jira.svg'
+import linearMarkDark from '@/sources/marks/linear-dark.svg'
+import linearMark from '@/sources/marks/linear.svg'
 
 /** What a person connects in My tracker when the tracker is read with one token of their own. */
 type TokenForm = {
@@ -10,8 +12,9 @@ type TokenForm = {
   intro: string
   /** The hint while no token is stored. */
   none: string
-  /** A page that says which token to create. */
+  /** A page that says which token to create, and the link's text. */
   guide: string
+  guideLabel: string
 }
 
 type Source = {
@@ -34,6 +37,7 @@ type Source = {
 }
 
 const GITHUB_REPO = '[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9._-]+'
+const LINEAR_ID = '[A-Za-z][A-Za-z0-9_]*-[1-9]\\d*'
 
 /** The trackers tiko reads tasks from, as the web app names and marks them. */
 const SOURCES: Record<string, Source> = {
@@ -55,6 +59,7 @@ const SOURCES: Record<string, Source> = {
         'picked and read-only access to Issues and Pull requests.',
       none: 'No token yet. Public issues and pull requests work without one.',
       guide: 'https://docs.tiko.run/github-issues/#your-own-token',
+      guideLabel: 'Which token to create',
     },
   },
   caldav: {
@@ -62,6 +67,24 @@ const SOURCES: Record<string, Source> = {
     // By its list: a CalDAV id is long and means nothing to people.
     shortKey: (_key, listName) => listName || 'Task',
     credential: 'account',
+  },
+  linear: {
+    name: 'Linear',
+    mark: linearMark,
+    markDark: linearMarkDark,
+    // Without its workspace: `ENG-12`.
+    shortKey: (key) => key.slice(key.indexOf('/') + 1),
+    keyPattern: { prefix: '[a-z0-9][a-z0-9-]*/[A-Z][A-Z0-9_]*-', number: '[1-9]\\d*' },
+    linkPattern: `https?://linear\\.app/[A-Za-z0-9-]+/issue/${LINEAR_ID}([/?#]\\S*)?`,
+    token: {
+      label: 'Linear API key',
+      intro:
+        'With your own API key your Linear issues become live cards, read with what your key ' +
+        'can see in your workspace. Other people on a board see them only with a key of their own.',
+      none: 'No key yet. Linear cards show only their keys until you connect one.',
+      guide: 'https://docs.tiko.run/linear/#your-api-key',
+      guideLabel: 'How to create a key',
+    },
   },
   demo: { name: 'the demo tracker' },
 }

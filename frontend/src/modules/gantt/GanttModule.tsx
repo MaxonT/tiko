@@ -1,4 +1,4 @@
-import type { XYPosition } from '@xyflow/react'
+import { useStoreApi, type XYPosition } from '@xyflow/react'
 import {
   CalendarRange,
   ChevronDown,
@@ -12,6 +12,7 @@ import {
 import {
   useContext,
   useEffect,
+  useId,
   useRef,
   useState,
   type FormEvent,
@@ -134,8 +135,11 @@ import { shortKey } from '@/sources/registry'
 
 type Props = ModuleViewProps<GanttContent>
 
-// Rows dropped on the board together stand this far apart, in board pixels.
-const EJECT_STEP = 120
+// Rows dropped on the board together go in a column, each this far below the one before, in
+// board pixels: a card at its usual height and a sticky note at the board's size, plus a gap.
+const EJECTED = { card: 96, note: 200, gap: 16 }
+// Tells every Gantt in the tab that one of them has picked rows, so only one selection is live.
+const PICKED = 'tiko:gantt-rows-picked'
 // A label narrower than this would be clipped to nonsense, so the cell stays blank.
 const MIN_LABEL_PX = 40
 const SCALES: { scale: Scale; label: string }[] = [
@@ -228,6 +232,9 @@ export function GanttModule({
   }
   const [fresh, setFresh] = useState<string | null>(null)
   const [store] = useState(() => new DragStore())
+  const rootEl = useRef<HTMLDivElement>(null)
+  const token = useId()
+  const flowStore = useStoreApi()
   const rowsEl = useRef<HTMLDivElement>(null)
   const ghostEl = useRef<HTMLDivElement>(null)
   const getZoom = useZoom()
@@ -307,14 +314,20 @@ export function GanttModule({
   }
   // Rows dropped on the board go in a column from the drop point, in plan order.
   const eject = (ids: string[], screen: XYPosition) => {
+    const zoom = getZoom()
     let next = content
-    ids.forEach((id, i) => {
+    // Where the next one starts; a card hangs from its point, a note is centred on it.
+    let top: number | null = null
+    ids.forEach((id) => {
       const row = content.rows.find((r) => r.id === id)
       if (!row) return
-      const at = { x: screen.x, y: screen.y + i * EJECT_STEP * getZoom() }
       const task = rowTask(row)
+      const half = (EJECTED.note / 2) * zoom
+      const y = top === null ? screen.y : task ? top : top + half
+      const at = { x: screen.x, y }
       if (task) host.ejectCard(task, at)
       else host.ejectNote(row.title, at)
+      top = (task ? y + EJECTED.card * zoom : y + half) + EJECTED.gap * zoom
       next = liftRemove(next, id)
     })
     onChange(next)
@@ -350,6 +363,7 @@ export function GanttModule({
   const selection = new Set(visible.filter((t) => rowsPicked.has(t.row.id)).map((t) => t.row.id))
   const pickRows = (ids: ReadonlySet<string>) => {
     if (ids.size === 0) anchor.current = null
+    else window.dispatchEvent(new CustomEvent(PICKED, { detail: token }))
     setRowsPicked(ids)
   }
   const rowDrag = useRowDrag({
@@ -373,8 +387,8 @@ export function GanttModule({
       const order = visible.map((t) => t.row.id)
       const toggle = event.metaKey || event.ctrlKey
       const next = select(selection, anchor.current, id, order, { shift: event.shiftKey, toggle })
+      pickRows(next.selected)
       anchor.current = next.anchor
-      setRowsPicked(next.selected)
     },
     onSelect: pickRows,
   })
@@ -385,8 +399,7 @@ export function GanttModule({
   const keys = useRef<(event: KeyboardEvent) => void>(() => {})
   useEffect(() => {
     keys.current = (event) => {
-      const target = event.target as HTMLElement | null
-      if (target?.closest?.('input, textarea, [contenteditable="true"]')) return
+      if (!ownsKey(event, rootEl.current)) return
       if (event.key === 'Escape' && !rowDrag.busy()) {
         event.preventDefault()
         event.stopPropagation()
@@ -407,6 +420,14 @@ export function GanttModule({
     window.addEventListener('keydown', listen, true)
     return () => window.removeEventListener('keydown', listen, true)
   }, [anyPicked])
+  // Another Gantt, or this one expanded over the board, picked rows: this selection ends.
+  useEffect(() => {
+    const other = (event: Event) => {
+      if ((event as CustomEvent).detail !== token) setRowsPicked(new Set())
+    }
+    window.addEventListener(PICKED, other)
+    return () => window.removeEventListener(PICKED, other)
+  }, [token])
   // Selecting something else on the board ends the selection.
   const wasSelected = useRef(selected)
   useEffect(() => {
@@ -419,6 +440,7 @@ export function GanttModule({
   return (
     <DragStoreContext.Provider value={store}>
       <div
+        ref={rootEl}
         className={cn('flex flex-col text-[13px]', !expanded && 'h-full')}
         style={
           expanded
@@ -437,8 +459,7 @@ export function GanttModule({
         <div className="flex min-h-0 flex-1">
           <div className={cn('bg-panel flex shrink-0', expanded && 'sticky left-0 z-30')}>
             <div
-              // nokey: with Shift held the board would take the press for its selection box.
-              className="nokey relative flex shrink-0 flex-col border-r"
+              className="relative flex shrink-0 flex-col border-r"
               style={{ width: content.labelWidth }}
               // The blank band under the rows starts a lasso too.
               onPointerDown={(event) => {
@@ -446,8 +467,11 @@ export function GanttModule({
               }}
               // Shift or Cmd here picks rows; the board must not take it as a click that drops
               // the Gantt from its own selection.
+              // It still selects this Gantt, so a selection in another one ends.
               onClick={(event) => {
-                if (event.shiftKey || event.metaKey || event.ctrlKey) event.stopPropagation()
+                if (!event.shiftKey && !event.metaKey && !event.ctrlKey) return
+                event.stopPropagation()
+                if (!selected && !expanded) flowStore.getState().addSelectedNodes([id])
               }}
             >
               <ColumnResizer
@@ -484,7 +508,21 @@ export function GanttModule({
                   Time off
                 </div>
               )}
-              <div ref={rowsEl} data-gantt-rows className="relative">
+              <div
+                ref={rowsEl}
+                data-gantt-rows
+                role="listbox"
+                aria-label="Rows"
+                aria-multiselectable
+                // nokey: with Shift held the board would take a press here for its selection box.
+                className="nokey relative"
+                // A clicked button or link gives focus back, so the board hears its keys again:
+                // it ignores them while focus is inside nokey.
+                onClick={(event) => {
+                  const control = (event.target as Element).closest('button, a')
+                  if (control instanceof HTMLElement) control.blur()
+                }}
+              >
                 {visible.map(({ row, depth, hasChildren }) => (
                   <Shift key={row.id} id={row.id} label selected={selection.has(row.id)}>
                     <GanttLabel
@@ -737,6 +775,21 @@ export function GanttModule({
       </div>
     </DragStoreContext.Provider>
   )
+}
+
+/**
+ * Whether a key belongs to this Gantt's selection: not typed into a field, not already handled,
+ * and pressed with focus on nothing or inside this Gantt, never over an open view of another one.
+ */
+function ownsKey(event: KeyboardEvent, root: HTMLElement | null) {
+  const target = event.target as HTMLElement | null
+  if (!root || event.defaultPrevented) return false
+  if (target?.isContentEditable || target?.closest?.('input, textarea, select')) return false
+  const open = document.querySelector('[data-module-expanded]')
+  if (open && !open.contains(root)) return false
+  const scope = root.closest('[data-module-expanded]') ?? root.closest('.react-flow__node') ?? root
+  const active = document.activeElement
+  return !active || active === document.body || scope.contains(active)
 }
 
 /** How a bar's dates relate to the tracker's, for its look and its tooltip. */

@@ -96,6 +96,9 @@ export function Shift({
     <div
       data-shift={id}
       data-selected={picked || undefined}
+      // The label part is the row's option in the list of rows.
+      role={label ? 'option' : undefined}
+      aria-selected={label ? picked : undefined}
       className={cn(
         className,
         picked && 'bg-primary/10',
@@ -125,6 +128,7 @@ export function Placeholder() {
   return (
     <div
       data-testid="gantt-drop-place"
+      aria-hidden
       data-depth={place.depth}
       className={cn(
         'pointer-events-none absolute right-1 z-10 rounded-sm border border-dashed px-1 text-[12px]',
@@ -156,6 +160,7 @@ export const DragGhost = forwardRef<
     <div
       ref={ref}
       data-testid="gantt-drag-ghost"
+      aria-hidden
       className="bg-card pointer-events-none absolute top-0 left-0 z-20 rounded-sm shadow-md will-change-transform"
       style={{ width }}
     >
@@ -188,6 +193,7 @@ export function LassoBox() {
   return (
     <div
       data-testid="gantt-lasso"
+      aria-hidden
       className="border-primary bg-primary/10 pointer-events-none absolute inset-x-0 z-20 border border-dotted"
       style={{ top: box.top, height: box.height }}
     />

@@ -59,6 +59,10 @@ const content: GanttContent = {
 }
 
 let latest: Node[] = []
+// A second Gantt on the board, for the tests that need two; set before rendering.
+let second: GanttContent | null = null
+// Writes a Gantt's content as someone else in the room would.
+let remote: (id: string, content: GanttContent) => void = () => {}
 
 function Board({ start }: { start: GanttContent }) {
   const [nodes, , onNodesChange] = useNodesState<AppNode>([
@@ -71,8 +75,21 @@ function Board({ start }: { start: GanttContent }) {
       selected: true,
       data: { kind: 'gantt', content: start },
     },
+    ...(second
+      ? [
+          {
+            id: 'h',
+            type: 'module' as const,
+            position: { x: 0, y: 400 },
+            width: 960,
+            height: 320,
+            data: { kind: 'gantt', content: second },
+          },
+        ]
+      : []),
   ])
   const { updateNodeData } = useReactFlow()
+  remote = (id, content) => updateNodeData(id, { content })
   useLayoutEffect(() => {
     latest = nodes
   }, [nodes])
@@ -1639,7 +1656,161 @@ test('a selection dropped on the board becomes cards and notes in a column', () 
   expect(screen.getByText('2 rows to the board')).toBeTruthy()
   release(1500, 900)
   expect(host.ejectNote).toHaveBeenNthCalledWith(1, 'Row b', { x: 1500, y: 900 })
-  expect(host.ejectNote).toHaveBeenNthCalledWith(2, 'Row c', { x: 1500, y: 1020 })
+  expect(host.ejectNote).toHaveBeenNthCalledWith(2, 'Row c', { x: 1500, y: 1116 })
   expect(rows().map((r) => r.id)).toEqual(['a'])
   screenBox.mockRestore()
+})
+
+test('selected rows are options in a list of rows', () => {
+  const screenBox = placeOnScreen()
+  renderGantt({}, plan([plain('a'), plain('b')]))
+  clickRow('b', 1)
+  const list = screen.getByRole('listbox', { name: 'Rows' })
+  expect(list.getAttribute('aria-multiselectable')).toBe('true')
+  const options = within(list).getAllByRole('option')
+  expect(options.map((o) => o.getAttribute('aria-selected'))).toEqual(['false', 'true'])
+  // A row button gives focus back once clicked: the board ignores keys while focus is in the list.
+  const indent = screen.getByRole('button', { name: 'Indent Row b' })
+  indent.focus()
+  fireEvent.click(indent)
+  expect(document.activeElement).not.toBe(indent)
+  screenBox.mockRestore()
+})
+
+test('Delete and Esc are left alone while typing in a field or working in a popover', () => {
+  const screenBox = placeOnScreen()
+  renderGantt({}, plan([plain('a'), plain('b')]))
+  clickRow('a', 0)
+  const heard = vi.fn()
+  document.addEventListener('keydown', heard, true)
+  const field = document.createElement('input')
+  const popover = document.createElement('div')
+  popover.innerHTML = '<button type="button">Pick</button>'
+  document.body.append(field, popover)
+  field.focus()
+  fireEvent.keyDown(field, { key: 'Backspace' })
+  popover.querySelector('button')!.focus()
+  fireEvent.keyDown(popover.querySelector('button')!, { key: 'Backspace' })
+  fireEvent.keyDown(popover.querySelector('button')!, { key: 'Escape' })
+  expect(heard).toHaveBeenCalledTimes(3)
+  expect(rows().map((r) => r.id)).toEqual(['a', 'b'])
+  expect(picked()).toEqual(['a'])
+  field.remove()
+  popover.remove()
+  document.removeEventListener('keydown', heard, true)
+  screenBox.mockRestore()
+})
+
+test('an open expanded view keeps the keys from the Gantt behind it', () => {
+  const screenBox = placeOnScreen()
+  renderGantt({}, plan([plain('a'), plain('b')]))
+  clickRow('a', 0)
+  const view = document.createElement('div')
+  view.setAttribute('data-module-expanded', '')
+  view.tabIndex = -1
+  document.body.append(view)
+  view.focus()
+  const heard = vi.fn()
+  document.addEventListener('keydown', heard, true)
+  fireEvent.keyDown(view, { key: 'Backspace' })
+  fireEvent.keyDown(view, { key: 'Escape' })
+  // The view hears both, so its first Esc closes it; the board's copy changes nothing.
+  expect(heard).toHaveBeenCalledTimes(2)
+  expect(rows().map((r) => r.id)).toEqual(['a', 'b'])
+  view.remove()
+  document.removeEventListener('keydown', heard, true)
+  screenBox.mockRestore()
+})
+
+test('the selection ends when the Gantt is no longer selected on the board', () => {
+  const screenBox = placeOnScreen()
+  renderGantt({}, plan([plain('a'), plain('b')]))
+  clickRow('a', 0)
+  expect(picked()).toEqual(['a'])
+  fireEvent.click(document.querySelector('.react-flow__pane')!)
+  expect(latest[0].selected).toBeFalsy()
+  expect(picked()).toEqual([])
+  screenBox.mockRestore()
+})
+
+test('one selection on the board: picking rows in another Gantt ends the first', () => {
+  const screenBox = placeOnScreen()
+  second = plan([plain('m'), plain('n')])
+  try {
+    renderGantt({}, plan([plain('a'), plain('b')]))
+    clickRow('a', 0)
+    // A Cmd-click in the other Gantt, which the board has not selected yet.
+    pressRow('m', 0, { metaKey: true })
+    release(50, rowY(0), { metaKey: true })
+    fireEvent.click(label('m'), { metaKey: true })
+    expect(picked()).toEqual(['m'])
+    expect(latest.find((n) => n.id === 'h')!.selected).toBe(true)
+    fireEvent.keyDown(document.body, { key: 'Backspace' })
+    const contentOf = (id: string) =>
+      (latest.find((n) => n.id === id)!.data as { content: GanttContent }).content
+    expect(contentOf('g').rows.map((r) => r.id)).toEqual(['a', 'b'])
+    expect(contentOf('h').rows.map((r) => r.id)).toEqual(['n'])
+  } finally {
+    second = null
+    screenBox.mockRestore()
+  }
+})
+
+test('a cancelled pointer or a window losing focus puts the dragged rows back', () => {
+  const screenBox = placeOnScreen()
+  renderGantt({}, plan([plain('a'), plain('b'), plain('c')]))
+  const before = current()
+  pressRow('a', 0)
+  moveTo(50, rowY(2))
+  expect(shiftOf('b').transform).toBe('translateY(-34px)')
+  fireEvent.pointerCancel(window, { pointerId: 1 })
+  expect(shiftOf('b').transform).toBe('')
+  release(50, rowY(2))
+  pressRow('a', 0)
+  moveTo(50, rowY(2))
+  fireEvent.blur(window)
+  expect(shiftOf('b').transform).toBe('')
+  release(50, rowY(2))
+  expect(current()).toBe(before)
+  screenBox.mockRestore()
+})
+
+test('a dragged row someone else deletes ends the drag cleanly', () => {
+  const screenBox = placeOnScreen()
+  renderGantt({}, plan([plain('a'), plain('b'), plain('c')]))
+  pressRow('b', 1)
+  moveTo(50, rowY(2) + 4)
+  expect(screen.getByTestId('gantt-drag-ghost')).toBeTruthy()
+  act(() => remote('g', plan([plain('a'), plain('c')])))
+  expect(screen.queryByTestId('gantt-drag-ghost')).toBeNull()
+  release(50, rowY(2) + 4)
+  expect(rows().map((r) => r.id)).toEqual(['a', 'c'])
+  screenBox.mockRestore()
+})
+
+test('a drop lands after the ghost glides, on the plan as it is then', async () => {
+  const screenBox = placeOnScreen()
+  let finish = () => {}
+  const animate = vi.fn(() => ({
+    finished: new Promise<void>((resolve) => (finish = resolve)),
+    cancel: () => {},
+  }))
+  Element.prototype.animate = animate as unknown as Element['animate']
+  try {
+    renderGantt({}, plan([plain('a'), plain('b'), plain('c'), plain('d')]))
+    pressRow('a', 0)
+    moveTo(50, rowY(2))
+    release(50, rowY(2))
+    expect(animate).toHaveBeenCalledTimes(1)
+    // Nothing is written while the ghost glides; someone renames d meanwhile.
+    expect(rows().map((r) => r.id)).toEqual(['a', 'b', 'c', 'd'])
+    const renamed = plan([plain('a'), plain('b'), plain('c'), { ...plain('d'), title: 'Renamed' }])
+    act(() => remote('g', renamed))
+    await act(async () => finish())
+    expect(rows().map((r) => r.id)).toEqual(['b', 'c', 'a', 'd'])
+    expect(rows()[3].title).toBe('Renamed')
+  } finally {
+    delete (Element.prototype as { animate?: unknown }).animate
+    screenBox.mockRestore()
+  }
 })

@@ -87,6 +87,9 @@ export function useRowDrag({
   const drag = useRef<Drag | null>(null)
   // Removes the window listeners of the drag in progress.
   const unlisten = useRef<(() => void) | null>(null)
+  // A drop gliding into place, or rows gliding back after a cancel; ended when the Gantt goes.
+  const settle = useRef<{ animation?: Animation; timer?: ReturnType<typeof setTimeout> }>({})
+  const alive = useRef(true)
   const props = { rows, visible, rowHeight, expanded, edgeTop, onDrop, onEject, onClick, onSelect }
   const latest = useRef(props)
   useEffect(() => {
@@ -210,7 +213,8 @@ export function useRowDrag({
     if (d.mode === 'lasso') return store.setLasso(null, null)
     if (!d.dragging) return
     store.set(layoutOf(new Set(), null, true), null)
-    setTimeout(() => {
+    clearTimeout(settle.current.timer)
+    settle.current.timer = setTimeout(() => {
       if (!drag.current) store.set(null, null)
     }, SETTLE_MS)
   }
@@ -227,7 +231,7 @@ export function useRowDrag({
   }
 
   const press = (event: ReactPointerEvent, id: string, ids: string[]) => {
-    if (event.button !== 0 || drag.current) return
+    if (event.button !== 0 || drag.current || settle.current.animation) return
     const point = { x: event.clientX, y: event.clientY }
     const pressed = latest.current.visible.findIndex((t) => t.row.id === id)
     if (pressed < 0) return
@@ -305,7 +309,7 @@ export function useRowDrag({
       }
       update({ x: event.clientX, y: event.clientY })
       const { target, outside } = d
-      const { rows, onDrop, onEject } = latest.current
+      const { rows, onEject } = latest.current
       if (outside) {
         finish()
         store.set(null, null)
@@ -315,25 +319,24 @@ export function useRowDrag({
       }
       if (!target?.fits) return cancel()
       finish()
+      // Read at landing, not at release: the plan may have changed while the ghost glided.
       const land = () => {
+        settle.current.animation = undefined
+        if (!alive.current) return
         store.set(null, null)
-        onDrop(d.ids, target.aboveId, target.depth)
+        latest.current.onDrop(d.ids, target.aboveId, target.depth)
       }
       // The ghost glides into the gap first, so the rows land where it was without a jump.
       const ghost = ghostEl.current
       if (!ghost || typeof ghost.animate !== 'function' || reducedMotion()) return land()
       const y = target.slot * latest.current.rowHeight
       const x = (target.depth - d.startDepth) * INDENT
-      ghost
-        .animate(
-          [{ transform: ghost.style.transform }, { transform: `translate(${x}px, ${y}px)` }],
-          {
-            duration: SETTLE_MS,
-            easing: 'ease-out',
-            fill: 'forwards',
-          },
-        )
-        .finished.then(land, land)
+      const animation = ghost.animate(
+        [{ transform: ghost.style.transform }, { transform: `translate(${x}px, ${y}px)` }],
+        { duration: SETTLE_MS, easing: 'ease-out', fill: 'forwards' },
+      )
+      settle.current.animation = animation
+      animation.finished.then(land, land)
     }
     const key = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return
@@ -384,7 +387,16 @@ export function useRowDrag({
     }
   }
 
-  useEffect(() => () => unlisten.current?.(), [])
+  useEffect(() => {
+    alive.current = true
+    const pending = settle.current
+    return () => {
+      alive.current = false
+      unlisten.current?.()
+      pending.animation?.cancel()
+      clearTimeout(pending.timer)
+    }
+  }, [])
 
   // The Gantt renders mid-drag only when someone else changed the plan: the gap follows, and
   // rows they removed leave the drag.

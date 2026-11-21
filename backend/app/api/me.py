@@ -1,5 +1,5 @@
 import time
-from typing import Annotated, Literal
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request, Response
 from pydantic import BaseModel, Field, SecretStr
@@ -12,6 +12,7 @@ from app.domain.caldav import CalDavAccount, CalDavIn, CalDavSource, TaskList, n
 from app.domain.errors import CalDavRejected, Forbidden, TrackerUnavailable, ValidationFailed
 from app.domain.onboarding import Onboarding, OnboardingChange
 from app.domain.settings import JiraKind, SettingsService, TokenState
+from app.domain.sources import token_source
 from app.domain.workspaces import current_workspace
 
 router = APIRouter(prefix="/me", tags=["me"])
@@ -63,20 +64,18 @@ Settings = Annotated[SettingsService, Depends(deps.settings)]
 class TrackerView(BaseModel):
     provider: str
     base_url: str | None
-    token_state: TokenState
     kind: JiraKind | None = None
     # The person's own Jira Cloud e-mail, never anyone else's.
     email: str | None = None
-    # GitHub is read on every instance, whatever its own tracker is.
-    github_token_state: TokenState
-
-
-TokenSource = Literal["jira", "github"]
+    # The person's own credentials by tracker; GitHub and CalDAV are read on every instance.
+    tokens: dict[str, TokenState]
+    # Who the token just saved signs in as, said once after saving it.
+    connected_as: str | None = None
 
 
 class TokenIn(BaseModel):
     token: SecretStr
-    source: TokenSource = "jira"
+    source: str = Field(default="jira", max_length=40)
     email: str | None = Field(default=None, max_length=320)
 
 
@@ -84,10 +83,9 @@ def _tracker(person_id: str, settings: SettingsService) -> TrackerView:
     return TrackerView(
         provider=settings.provider(),
         base_url=settings.base_url(),
-        token_state=settings.token_state(person_id),
-        github_token_state=settings.github_token_state(person_id),
         kind=settings.jira_kind(),
         email=settings.email(person_id),
+        tokens=settings.token_states(person_id),
     )
 
 
@@ -95,9 +93,8 @@ def _tracker(person_id: str, settings: SettingsService) -> TrackerView:
 def get_tracker(person: CurrentPerson, settings: Settings) -> TrackerView:
     if person.demo_expires_at:
         # The instance's tracker is for people with an account; a visitor is not shown it.
-        return TrackerView(
-            provider="demo", base_url=None, token_state="none", github_token_state="none"
-        )
+        none = dict.fromkeys(settings.token_states(person.id), "none")
+        return TrackerView(provider="demo", base_url=None, tokens=none)
     return _tracker(person.id, settings)
 
 
@@ -105,23 +102,24 @@ def get_tracker(person: CurrentPerson, settings: Settings) -> TrackerView:
 def set_tracker_token(
     body: TokenIn, person: CurrentPerson, settings: Settings, request: Request
 ) -> TrackerView:
-    if body.source == "github":
-        # A token GitHub does not accept is not stored.
-        request.app.state.github_readers.login(body.token.get_secret_value().strip())
-        settings.set_github_token(person.id, body.token)
-    else:
+    if body.source == "jira":
         settings.set_token(person.id, body.token, body.email)
-    return _tracker(person.id, settings)
+        return _tracker(person.id, settings)
+    source = token_source(body.source)
+    # A token its tracker does not accept is not stored.
+    who = request.app.state.token_checks[source.id](body.token.get_secret_value().strip())
+    settings.set_source_token(person.id, source.id, body.token)
+    return _tracker(person.id, settings).model_copy(update={"connected_as": who})
 
 
 @router.delete("/tracker", status_code=204)
 def remove_tracker_token(
-    person: CurrentPerson, settings: Settings, source: TokenSource = "jira"
+    person: CurrentPerson, settings: Settings, source: str = "jira"
 ) -> Response:
-    if source == "github":
-        settings.remove_github_token(person.id)
-    else:
+    if source == "jira":
         settings.remove_token(person.id)
+    else:
+        settings.remove_source_token(person.id, source)
     return Response(status_code=204)
 
 

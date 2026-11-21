@@ -8,7 +8,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Literal
 
-from app.domain.errors import InvalidRef
+from app.domain.errors import InvalidRef, ValidationFailed
 from app.domain.ports import SnapshotRepo, TaskProvider
 from app.domain.tasks import (
     CALDAV,
@@ -49,6 +49,8 @@ class Source:
     guest_link: Callable[[str, str | None], str] = _no_link
     # The kind a person's credential for it is stored under, when it needs one.
     credential: str | None = None
+    # For a tracker read with one personal token: the only address the token is sent to.
+    token_url: str | None = None
     # Its name in usage stats; None for a tracker the stats do not count.
     usage: str | None = None
     # False when the key is an id that means nothing to people, so a preview leaves it out.
@@ -83,6 +85,7 @@ SOURCES: dict[str, Source] = {
             own_ref=github_key,
             guest_link=lambda key, _: github_url(key),
             credential=GITHUB,
+            token_url="https://api.github.com",
             usage=GITHUB,
             search=None,
         ),
@@ -108,6 +111,14 @@ def guest_link(source: str, key: str, base_url: str | None) -> str:
 
 def credential_kinds() -> list[str]:
     return [s.credential for s in SOURCES.values() if s.credential]
+
+
+def token_source(source_id: str) -> Source:
+    """A tracker a person reads with one token of their own; any other id is a mistake."""
+    found = SOURCES.get(source_id)
+    if found is None or found.token_url is None:
+        raise ValidationFailed(f"source: {source_id} takes no token here")
+    return found
 
 
 def route_ref(ref: str, providers: dict[str, TaskProvider], default_source: str) -> tuple[str, str]:

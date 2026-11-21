@@ -67,6 +67,7 @@ from app.domain.settings import (
     normalize_base_url,
 )
 from app.domain.stickers import Stickers
+from app.domain.tasks import GITHUB
 from app.domain.updates import OneClickUpdate, UpdateService
 from app.domain.upgrade import adopt_orphans, bootstrap_admin
 from app.domain.usage import Deploy, HostOs, Privacy
@@ -458,6 +459,8 @@ def create_app(
         timeout=httpx.Timeout(15.0, connect=5.0), transport=github_transport, follow_redirects=True
     )
     app.state.github_readers = GitHubReaders(github_client, github_token or None)
+    # Who a token signs in as, asked before it is stored; by tracker.
+    app.state.token_checks = {GITHUB: app.state.github_readers.login}
     # The reader of public repositories: guests and people without a token of their own.
     app.state.github = app.state.github_readers.shared
     caldav_private = settings.tiko_caldav_private_network or (

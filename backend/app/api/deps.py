@@ -15,7 +15,7 @@ from app.domain.refresh import RefreshService
 from app.domain.sessions import Sessions
 from app.domain.settings import Provider, SettingsService
 from app.domain.sources import guest_link
-from app.domain.tasks import NotConnected
+from app.domain.tasks import GITHUB, NotConnected
 from app.domain.workspaces import Memberships
 
 
@@ -87,7 +87,7 @@ def _github(request: Request) -> TaskProvider:
     repositories. A demo visitor has no token."""
     state = request.app.state
     person = current_person(request)
-    if not is_visitor(request) and (token := state.settings.github_token(person.id)):
+    if not is_visitor(request) and (token := state.settings.source_token(person.id, GITHUB)):
         return state.github_readers.of(person.id, token.get_secret_value())
     return state.github
 

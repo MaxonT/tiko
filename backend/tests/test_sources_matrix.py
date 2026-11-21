@@ -180,8 +180,8 @@ def test_my_tracker_answers_the_state_of_each_token():
     assert client.get("/api/me/tracker").json() == {
         "provider": "demo",
         "base_url": None,
-        "token_state": "none",
         "kind": None,
         "email": None,
-        "github_token_state": "none",
+        "tokens": {"jira": "none", "caldav": "none", "github": "none"},
+        "connected_as": None,
     }

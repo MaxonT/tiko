@@ -15,4 +15,4 @@ description: "Task list for predictable layout for agents"
 - [x] T003 `api_view.py`, `boards.py`: card size, filters, compact. API tests in `test_api_v1_read.py`
 - [x] T004 MCP fields and descriptions; MCP test
 - [x] T005 Contract `api-v1.md`, OpenAPI snapshot, guide `api.md`, `ai-agents.md`, CHANGELOG
-- [ ] T006 By hand against a local stack, recorded in the PR
+- [x] T006 By hand against a local stack, recorded in the PR

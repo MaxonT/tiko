@@ -160,3 +160,14 @@ def test_fit_shrinks_a_large_frame_and_grows_a_small_one():
 def test_fit_needs_a_frame():
     with pytest.raises(ValidationFailed, match="fit needs a frame"):
         arranged(cards(2), cards=list(cards(2)), fit=True)
+
+
+def test_removing_a_frame_keeps_a_free_reminder_in_place():
+    nodes = {
+        "f": frame(5000, 5000),
+        "t": timer(None) | {"place": {"x": 10, "y": 20, "parentId": "f"}},
+    }
+    for mine in (["f", "t"], ["f"]):
+        planned, _, applied = plan(nodes, {}, Batch(removes=["f"], mine=mine))
+        assert planned["t"]["place"] == {"x": 5010, "y": 5020}
+        assert applied.removed == ["f"]

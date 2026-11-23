@@ -347,10 +347,11 @@ class _Plan:
                         f"{node_id} has an arrow someone drew; remove that first."
                     )
                 self._drop_edge(edge_id)
+        node = self.nodes[node_id]
         for child_id, child in list(self.nodes.items()):
             if child["place"].get("parentId") != node_id:
                 continue
-            if child["type"] == "timer":
+            if child["type"] == "timer" and node["type"] in _HOLDERS:
                 if child_id not in self.mine:
                     raise KeepsPeopleWork(f"{node_id} has a reminder on it; remove that first.")
                 # The API's own reminder goes with its element, as its own arrow does.

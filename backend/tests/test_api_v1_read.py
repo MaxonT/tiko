@@ -295,6 +295,15 @@ FILTERED = {
             "position": {"x": 10, "y": 240},
             "data": {"key": "DEMO-6"},
         },
+        {
+            "id": "r1",
+            "type": "timer",
+            "parentId": "f1",
+            "position": {"x": 300, "y": 20},
+            "width": 40,
+            "height": 40,
+            "data": {"note": "", "dueAt": "2099-01-01T09:00:00.000Z"},
+        },
     ],
     "edges": [],
 }
@@ -322,6 +331,7 @@ def test_filters_choose_the_elements(app, admin):
     assert ids(key, board_id, "done=false") == ["c1", "c6"]
     assert ids(key, board_id, "status=in%20review") == ["c6"]
     assert ids(key, board_id, "outside_frames=true") == ["c1", "c3", "f1"]
+    assert ids(key, board_id, "frame=f1&kind=timer") == ["r1"]
     assert ids(key, board_id, "outside_frames=true&done=false") == ["c1"]
     assert ids(key, board_id, "frame=f1&kind=card") == ["c6"]
 

@@ -61,6 +61,7 @@ FIELDS: dict[str, tuple[str, ...]] = {
         "y",
         "w",
         "h",
+        "frame",
         "editable",
         "note",
         "due_at",
@@ -312,6 +313,7 @@ class BoardShape:
             return Element(
                 **base,
                 kind="timer",
+                frame=frame,
                 note=node.data.note,
                 due_at=due,
                 repeat=node.data.repeat,

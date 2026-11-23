@@ -128,7 +128,7 @@ Without parameters, an outline:
 | `shape` | `shape` (`rectangle`, `rounded`, `ellipse`, `rhombus`, `triangle`, `parallelogram`, `hexagon`, `cylinder`), `text`, `color` |
 | `frame` | `title`, `color` |
 | `arrow` | `from`, `to`: element ids, or `null` for an end that points at no element; `label`: the words on the arrow, empty for none (spec 051); no `x`, `y`, `w`, `h`, `frame` |
-| `timer` | `note`, `due_at`, `attached_to` (an element id or `null`); read-only |
+| `timer` | `note`, `due_at`, `attached_to` (an element id or `null`), `frame` for a free timer in a frame (spec 054) |
 | `image`, `module` | `title` where there is one; read-only |
 
 `editable` is true for an element the key's person added through the API, with any of their keys: only those take changes of text and colour, and removal. Elements other people added through the API are false.

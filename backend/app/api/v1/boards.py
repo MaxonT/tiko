@@ -1,16 +1,17 @@
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Query, Request
-from pydantic import BaseModel, model_serializer
+from pydantic import BaseModel, Field, model_serializer
 
 from app.api import deps
 from app.api.v1.deps import Key, KeyPerson, Viewable, board_url, read_budget
 from app.domain.api_gantt import GanttOut, Names, gantt_view
-from app.domain.api_view import BoardShape, Outline, Page, page
+from app.domain.api_view import BoardShape, Kind, Outline, Page, page
 from app.domain.boards import ModuleNode, task_refs
 from app.domain.errors import NotFound
 from app.domain.members import BoardRole, effective_role
 
+_Status = Annotated[str, Field(max_length=200)]
 router = APIRouter(prefix="/boards", tags=["boards"], dependencies=[Depends(read_budget)])
 
 
@@ -93,17 +94,27 @@ def read_board(
     frame: Annotated[str | None, Query(max_length=100)] = None,
     elements: Literal["all"] | None = None,
     after: Annotated[str | None, Query(max_length=100)] = None,
+    kind: Annotated[list[Kind] | None, Query(max_length=10)] = None,
+    status: Annotated[list[_Status] | None, Query(max_length=50)] = None,
+    done: bool | None = None,
+    outside_frames: bool = False,
+    compact: bool = False,
 ) -> BoardOutline | BoardPage:
-    """An outline of the board, or its elements a page at a time: all of them, or one frame's."""
+    """An outline of the board, or its elements a page at a time: all of them, or one frame's.
+    A filter or `compact` reads elements without `elements=all`."""
     found = boards_of(person, key, request, board_id)
     if not found:
         raise NotFound("board not found")
     board_shape = shape(board_id, request)
-    if frame is not None:
-        return BoardPage(board=found[0], **page(board_shape.in_frame(frame), after).model_dump())
-    if elements == "all":
-        return BoardPage(board=found[0], **page(board_shape.elements(), after).model_dump())
-    return BoardOutline(board=found[0], **board_shape.outline().model_dump())
+    filtered = bool(kind or status) or done is not None or outside_frames or compact
+    if frame is None and elements != "all" and not filtered:
+        return BoardOutline(board=found[0], **board_shape.outline().model_dump())
+    chosen = board_shape.in_frame(frame) if frame is not None else board_shape.elements()
+    chosen = board_shape.chosen(chosen, kind, status, done, outside_frames)
+    answer = page(chosen, after)
+    if compact:
+        answer.elements = [element.compacted() for element in answer.elements]
+    return BoardPage(board=found[0], elements=answer.elements, more=answer.more)
 
 
 @router.get("/{board_id}/modules/{module_id}")

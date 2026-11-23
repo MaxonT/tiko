@@ -67,6 +67,11 @@ class ArrangeIn(BaseModel):
     cards: list[str] = Field(min_length=1, max_length=MAX_ELEMENTS)
     layout: Literal["grid", "status"] = "grid"
     frame: FrameRef | None = None
+    # Cards a row; left out, as many as fit an existing frame's width, or 4.
+    columns: int | None = Field(default=None, ge=1, le=20)
+    order: Literal["given", "key", "status"] = "given"
+    # The frame takes the size of what it holds, smaller or larger.
+    fit: bool = False
 
 
 class Written(BaseModel):
@@ -128,7 +133,8 @@ def remove_elements(board_id: str, body: RemoveIn, _: Writable, request: Request
 @router.post("/{board_id}/arrange")
 def arrange(board_id: str, body: ArrangeIn, _: Writable, request: Request) -> Written:
     """Lays the named cards out as a grid or in columns by status, below what is on the board
-    or in a frame that grows to hold them. Nothing else moves."""
+    or in a frame that grows to hold them, or takes their size with `fit`. Nothing else
+    moves."""
     frame_id = body.frame.id if body.frame else None
     new_frame = (uuid.uuid4().hex, body.frame.title) if body.frame and body.frame.title else None
     plan = Arrange(
@@ -136,7 +142,14 @@ def arrange(board_id: str, body: ArrangeIn, _: Writable, request: Request) -> Wr
         layout=body.layout,
         frame_id=frame_id,
         new_frame=new_frame,
-        statuses=_statuses(board_id, body.cards, request) if body.layout == "status" else {},
+        columns=body.columns,
+        order=body.order,
+        fit=body.fit,
+        statuses=(
+            _statuses(board_id, body.cards, request)
+            if "status" in (body.layout, body.order)
+            else {}
+        ),
     )
     return _write(board_id, Batch(arrange=plan), request)
 

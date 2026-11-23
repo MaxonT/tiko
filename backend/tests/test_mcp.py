@@ -278,6 +278,56 @@ def test_a_write_key_lays_a_board_out(served):
     assert human.is_error and "not_api_element" in human.content[0].text
 
 
+def test_a_write_key_places_and_fits_what_it_adds(served):
+    app, url, admin = served
+    board_id = board(admin)
+    token = make_key(admin, scope="write")["token"]
+
+    async def steps(client):
+        frame = await client.call_tool(
+            "add_frame",
+            {"board": board_id, "title": "Done", "x": 2000, "y": 0, "w": 1000, "h": 900},
+        )
+        frame_id = frame.structured_content["created"][0]
+        placed = await client.call_tool(
+            "add_cards",
+            {
+                "board": board_id,
+                "cards": [
+                    {"ref": "DEMO-6", "id": "k6", "x": 3000, "y": 3000},
+                    {"ref": "DEMO-5", "id": "k5"},
+                    {"ref": "DEMO-3", "id": "k3"},
+                ],
+            },
+        )
+        laid = await client.call_tool(
+            "arrange",
+            {
+                "board": board_id,
+                "cards": ["k6", "k5", "k3"],
+                "frame": frame_id,
+                "order": "key",
+                "fit": True,
+            },
+        )
+        done = await client.call_tool(
+            "read_board", {"board": board_id, "done": True, "compact": True, "coordinates": True}
+        )
+        return frame, placed, laid, done
+
+    frame, placed, laid, done = call(url, token, steps)
+    made = frame.structured_content["elements"][0]
+    assert (made["x"], made["y"], made["w"], made["h"]) == (2000, 0, 1000, 900)
+    k6 = next(e for e in placed.structured_content["elements"] if e["id"] == "k6")
+    assert (k6["x"], k6["y"], k6["w"], k6["h"]) == (3000, 3000, 320, 50)
+    by_id = {e["id"]: e for e in laid.structured_content["elements"]}
+    assert by_id["k3"]["x"] < by_id["k5"]["x"] and by_id["k5"]["y"] < by_id["k6"]["y"]
+    fitted = by_id[made["id"]]
+    assert (fitted["w"], fitted["h"]) == (24 + 320 + 40 + 320 + 24, 56 + 50 + 40 + 50 + 24)
+    (card,) = done.structured_content["elements"]
+    assert (card["id"], card["status"], "task" in card) == ("k3", "Done", False)
+
+
 def test_a_read_key_cannot_call_a_write_tool(served):
     app, url, admin = served
     board_id = board(admin)

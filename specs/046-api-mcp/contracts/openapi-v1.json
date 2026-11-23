@@ -30,6 +30,24 @@
             "title": "Cards",
             "type": "array"
           },
+          "columns": {
+            "anyOf": [
+              {
+                "maximum": 20.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Columns"
+          },
+          "fit": {
+            "default": false,
+            "title": "Fit",
+            "type": "boolean"
+          },
           "frame": {
             "anyOf": [
               {
@@ -47,6 +65,16 @@
               "status"
             ],
             "title": "Layout",
+            "type": "string"
+          },
+          "order": {
+            "default": "given",
+            "enum": [
+              "given",
+              "key",
+              "status"
+            ],
+            "title": "Order",
             "type": "string"
           }
         },
@@ -379,6 +407,18 @@
               }
             ],
             "title": "Numbered"
+          },
+          "on": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "On"
           },
           "opacity": {
             "anyOf": [
@@ -862,6 +902,17 @@
               }
             ],
             "title": "Source"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
           },
           "stroke": {
             "anyOf": [
@@ -2822,7 +2873,7 @@
     },
     "/boards/{board_id}": {
       "get": {
-        "description": "An outline of the board, or its elements a page at a time: all of them, or one frame's.",
+        "description": "An outline of the board, or its elements a page at a time: all of them, or one frame's.\nA filter or `compact` reads elements without `elements=all`.",
         "operationId": "read_board_boards__board_id__get",
         "parameters": [
           {
@@ -2883,6 +2934,95 @@
                 }
               ],
               "title": "After"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "enum": [
+                      "card",
+                      "note",
+                      "text",
+                      "code",
+                      "shape",
+                      "frame",
+                      "arrow",
+                      "image",
+                      "module",
+                      "timer"
+                    ],
+                    "type": "string"
+                  },
+                  "maxItems": 10,
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "maxLength": 200,
+                    "type": "string"
+                  },
+                  "maxItems": 50,
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "done",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Done"
+            }
+          },
+          {
+            "in": "query",
+            "name": "outside_frames",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Outside Frames",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "compact",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Compact",
+              "type": "boolean"
             }
           }
         ],
@@ -3065,7 +3205,7 @@
     },
     "/boards/{board_id}/arrange": {
       "post": {
-        "description": "Lays the named cards out as a grid or in columns by status, below what is on the board\nor in a frame that grows to hold them. Nothing else moves.",
+        "description": "Lays the named cards out as a grid or in columns by status, below what is on the board\nor in a frame that grows to hold them, or takes their size with `fit`. Nothing else\nmoves.",
         "operationId": "arrange_boards__board_id__arrange_post",
         "parameters": [
           {

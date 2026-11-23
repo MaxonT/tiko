@@ -6,6 +6,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_serializer
 
+from app.domain import layout
 from app.domain.boards import (
     AnchorNode,
     BoardDoc,
@@ -60,6 +61,7 @@ FIELDS: dict[str, tuple[str, ...]] = {
         "y",
         "w",
         "h",
+        "frame",
         "editable",
         "note",
         "due_at",
@@ -69,6 +71,9 @@ FIELDS: dict[str, tuple[str, ...]] = {
         "attached_to",
     ),
 }
+
+
+_COMPACT_CARD = (*_PLACED, "source", "key", "title", "status")
 
 
 class TaskOut(BaseModel):
@@ -124,11 +129,25 @@ class Element(BaseModel):
     watch: dict[str, str | None] | None = None
     done: bool | None = None
     attached_to: str | None = None
+    # A compact card's task status, next to its title, in place of the nested task.
+    status: str | None = None
+    compact: bool = Field(default=False, exclude=True)
 
     @model_serializer(mode="wrap")
     def _kind_fields(self, handler):
         data = handler(self)
-        return {name: data.get(name, data.get(f"{name}_")) for name in FIELDS[self.kind]}
+        names = _COMPACT_CARD if self.compact and self.kind == "card" else FIELDS[self.kind]
+        shown = {name: data.get(name, data.get(f"{name}_")) for name in names}
+        if self.compact:
+            return {name: value for name, value in shown.items() if value is not None}
+        return shown
+
+    def compacted(self) -> "Element":
+        if self.kind != "card":
+            return self.model_copy(update={"compact": True})
+        task = self.task
+        found = {"title": task.title, "status": task.status} if task else {}
+        return self.model_copy(update={"compact": True, "task": None, **found})
 
 
 _LOOK = ("color", "bold", "size", "opacity", "rotation", "stroke", "dash")
@@ -222,12 +241,16 @@ class BoardShape:
         x, y = self._place(node)
         parent = self._nodes.get(node.parentId) if node.parentId else None
         frame = parent.id if isinstance(parent, FrameNode) else None
+        width, height = node.width, node.height
+        if isinstance(node, TaskCardNode):
+            # The browser measures a card; this is the room a layout keeps for one.
+            width, height = layout.SIZES["task_card"]
         base = {
             "id": node.id,
             "x": x,
             "y": y,
-            "w": node.width,
-            "h": node.height,
+            "w": width,
+            "h": height,
             "editable": node.id in self._editable,
         }
         if isinstance(node, TaskCardNode):
@@ -277,7 +300,7 @@ class BoardShape:
             return Element(**base, kind="image", frame=frame)
         if isinstance(node, TimerNode):
             due = node.data.dueAt.isoformat() if node.data.dueAt else None
-            attached = node.parentId if parent is not None else None
+            attached = None if parent is None or isinstance(parent, FrameNode) else node.parentId
             watch = node.data.watch
             watched = None
             if watch is not None:
@@ -290,6 +313,7 @@ class BoardShape:
             return Element(
                 **base,
                 kind="timer",
+                frame=frame,
                 note=node.data.note,
                 due_at=due,
                 repeat=node.data.repeat,
@@ -333,6 +357,34 @@ class BoardShape:
             if edge.source in inside or edge.target in inside
         ]
         return nodes + arrows
+
+    def chosen(
+        self,
+        elements: list[Element],
+        kinds: list[str] | None = None,
+        statuses: list[str] | None = None,
+        done: bool | None = None,
+        outside_frames: bool = False,
+    ) -> list[Element]:
+        """The elements that pass every filter given; a filter on tasks keeps cards only."""
+        names = {status.lower() for status in statuses or []}
+        on_tasks = bool(names) or done is not None
+        kept: list[Element] = []
+        for element in elements:
+            if kinds and element.kind not in kinds:
+                continue
+            if outside_frames and element.frame is not None:
+                continue
+            if on_tasks:
+                task = self._tasks.get(task_ref(element.source or "", element.key or ""))
+                if element.kind != "card" or task is None or task.state != "ok":
+                    continue
+                if names and task.status_name.lower() not in names:
+                    continue
+                if done is not None and (task.status_category == "done") != done:
+                    continue
+            kept.append(element)
+        return kept
 
     def outline(self) -> Outline:
         frames: list[FrameOutline] = []

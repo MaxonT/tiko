@@ -40,12 +40,14 @@ def bottom(nodes: Stored) -> float:
     return max(edges, default=0.0)
 
 
-def grid(sizes: list[tuple[float, float]], x: float, y: float) -> list[tuple[float, float]]:
-    """Top-left corners in rows of `PER_ROW`, each row as tall as its tallest element."""
+def grid(
+    sizes: list[tuple[float, float]], x: float, y: float, per_row: int = PER_ROW
+) -> list[tuple[float, float]]:
+    """Top-left corners in rows of `per_row`, each row as tall as its tallest element."""
     places: list[tuple[float, float]] = []
     widest = max((w for w, _ in sizes), default=0.0)
-    for start in range(0, len(sizes), PER_ROW):
-        row = sizes[start : start + PER_ROW]
+    for start in range(0, len(sizes), per_row):
+        row = sizes[start : start + per_row]
         places += [(x + i * (widest + GAP), y) for i in range(len(row))]
         y += max(h for _, h in row) + GAP
     return places
@@ -80,4 +82,21 @@ def grow(frame: dict[str, Any], places: list[tuple[float, float]], sizes) -> dic
     width, height = size(frame)
     for (x, y), (w, h) in zip(places, sizes, strict=True):
         width, height = max(width, x + w + FRAME_PAD), max(height, y + h + FRAME_PAD)
+    return {**frame, "size": {**frame.get("size", {}), "width": width, "height": height}}
+
+
+def fitting(frame: dict[str, Any], width: float) -> int:
+    """How many elements of this width fit side by side in the frame, at least one."""
+    room = size(frame)[0] - 2 * FRAME_PAD + GAP
+    return max(1, int(room // (width + GAP)))
+
+
+def fit(nodes: Stored, frame_id: str) -> dict[str, Any]:
+    """The frame sized to what it holds and its margins, smaller or larger."""
+    frame = nodes[frame_id]
+    held = [n for n in nodes.values() if n and n["place"].get("parentId") == frame_id]
+    if not held:
+        return frame
+    width = max(n["place"]["x"] + size(n)[0] for n in held) + FRAME_PAD
+    height = max(n["place"]["y"] + size(n)[1] for n in held) + FRAME_PAD
     return {**frame, "size": {**frame.get("size", {}), "width": width, "height": height}}

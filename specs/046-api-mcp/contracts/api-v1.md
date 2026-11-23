@@ -108,6 +108,8 @@ Without parameters, an outline:
 
 - `?frame=f1`: the frame's elements, and arrows with at least one end among them.
 - `?elements=all`: every element.
+- Filters (spec 054), combined with AND, on either: `?kind=` (repeated) element kinds; `?status=` (repeated) cards whose task is in one of these statuses, case ignored; `?done=true|false` cards whose task is or is not done; `?outside_frames=true` elements not in a frame. A filter on tasks keeps cards only. A filter without `frame` or `elements` reads all elements.
+- `?compact=true`: each card carries `title` and `status` next to its `key` instead of `task`, and null fields are left out.
 - Both come in pages of at most 500, ordered by id; `?after=<last id of the previous page>` asks for the next one. `{"elements": [...], "more": true}`; `more` is false on the last page. A page boundary stays valid while people edit.
 
 ### Element
@@ -126,12 +128,12 @@ Without parameters, an outline:
 | `shape` | `shape` (`rectangle`, `rounded`, `ellipse`, `rhombus`, `triangle`, `parallelogram`, `hexagon`, `cylinder`), `text`, `color` |
 | `frame` | `title`, `color` |
 | `arrow` | `from`, `to`: element ids, or `null` for an end that points at no element; `label`: the words on the arrow, empty for none (spec 051); no `x`, `y`, `w`, `h`, `frame` |
-| `timer` | `note`, `due_at`, `attached_to` (an element id or `null`); read-only |
+| `timer` | `note`, `due_at`, `attached_to` (an element id or `null`), `frame` for a free timer in a frame (spec 054) |
 | `image`, `module` | `title` where there is one; read-only |
 
 `editable` is true for an element the key's person added through the API, with any of their keys: only those take changes of text and colour, and removal. Elements other people added through the API are false.
 
-`w` and `h` are present when the board stores a size; a card's height is measured by the browser and may be absent.
+`w` and `h` are present when the board stores a size. A card answers 320 and 50: the room a layout keeps for one; the browser measures it, and an opened card is taller (spec 054).
 
 ## Writing (write scope)
 
@@ -163,7 +165,8 @@ Without parameters, an outline:
 ]}
 ```
 
-- On any element: `x`, `y` (together), `w`, `h` (as for adding), `frame`.
+- On any element: `x`, `y` (together), `w`, `h` (as for adding), `frame`. A timer on an element takes none of them: it moves with its element (spec 054).
+- On a timer: `on`, an element id it moves to sit on, beside its top-left corner; `null` frees it where it stands. A status timer stays on a card of its task. `on` with `x`, `y` or `frame` answers `422`.
 - On any code block: `language`, `collapsed`, `numbered`, `marked`.
 - Only on elements added through the API: `text`, `title`, `color`, `shape`.
 - On an arrow added through the API: `label` only (spec 051); an empty one removes the label, a new one keeps the label's place and look. Any other field on an arrow answers `422`; `label` on a person's arrow answers `409 not_api_element`, on any other kind `422`.
@@ -180,7 +183,10 @@ Without parameters, an outline:
 {"cards": ["c1", "c2", "c9"], "layout": "status", "frame": {"title": "Sprint 12"}}
 ```
 
-- `layout`: `grid` (4 per row) or `status` (a column per status: to do, then in progress, then done, by the tracker's status category, and by name within each).
+- `layout`: `grid` or `status` (a column per status: to do, then in progress, then done, by the tracker's status category, and by name within each).
+- `columns` (1–20, spec 054): cards a row in the grid. Absent: as many 320 px columns as fit an existing frame's width, at least one; otherwise 4.
+- `order`: `given` (default), `key` (numbers compared as numbers), `status` (category, name, then key). In the status layout it sorts each column.
+- `fit`: `true` sizes the frame to what it holds plus its margins, smaller or larger; without a frame it answers `422`.
 - `frame`: `{"id": "f1"}` for an existing frame, which grows to hold the cards; `{"title": "..."}` to make one below what is on the board; absent to lay the cards out below what is on the board.
 - Only the named cards move. Answers like adding elements: the moved cards and the frame, with a new frame in `created`.
 
@@ -208,15 +214,15 @@ Streamable HTTP, JSON answers, the same key as `Authorization: Bearer`. `/api/mc
 | Tool | Scope | Hints | Maps to |
 |---|---|---|---|
 | `list_boards` | read | read-only | `GET /boards` |
-| `read_board(board, frame?, all?, after?, coordinates?)` | read | read-only | `GET /boards/{id}`; coordinates only when `coordinates` is true |
+| `read_board(board, frame?, all?, after?, coordinates?, kinds?, status?, done?, outside_frames?, compact?)` | read | read-only | `GET /boards/{id}`; coordinates only when `coordinates` is true |
 | `search_tasks(source, query, done?, limit?)` | read | read-only | `POST /tasks/search` |
 | `create_board(name)` | write | — | `POST /boards` |
-| `add_cards(board, cards: [{ref, id?}], frame?)` | write | idempotent where ids are given | `POST /elements`, kind `card` |
-| `add_notes(board, notes: [{text, color?, kind?, id?}], frame?)` | write | idempotent where ids are given | `POST /elements`, kind `note` or `text` |
+| `add_cards(board, cards: [{ref, id?, x?, y?}], frame?)` | write | idempotent where ids are given | `POST /elements`, kind `card` |
+| `add_notes(board, notes: [{text, color?, kind?, id?, x?, y?, w?, h?}], frame?)` | write | idempotent where ids are given | `POST /elements`, kind `note` or `text` |
 | `add_frame(board, title, id?, x?, y?, w?, h?)` | write | idempotent with an id | `POST /elements`, kind `frame` |
 | `connect(board, start, end, label?, id?)` | write | idempotent with an id | `POST /elements`, kind `arrow` |
 | `update_elements(board, changes)` | write | idempotent | `PATCH /elements` |
-| `arrange(board, cards, layout, frame?, new_frame?)` | write | — (a frame by title is made anew on a retry) | `POST /arrange` |
+| `arrange(board, cards, layout, frame?, new_frame?, columns?, order?, fit?)` | write | — (a frame by title is made anew on a retry) | `POST /arrange` |
 | `remove_elements(board, ids)` | write | destructive, idempotent | `POST /elements/remove` |
 
 A `read` key lists only the first three; a write tool called with one answers `scope_required`. Every answer that names a board carries its `url`.

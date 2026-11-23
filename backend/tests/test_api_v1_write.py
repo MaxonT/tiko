@@ -440,7 +440,9 @@ def test_a_reminder_at_a_moment_sits_on_its_element_or_alone(admin, setup):
         {"kind": "timer"},
         {"kind": "timer", "at": "2030-01-01T09:00:00Z", "ref": "DEMO-1"},
         {"kind": "timer", "ref": "DEMO-1", "repeat": "daily"},
-        {"kind": "timer", "at": "2030-01-01T09:00:00Z", "x": 1, "y": 2},
+        {"kind": "timer", "at": "2030-01-01T09:00:00Z", "on": "n1", "x": 1, "y": 2},
+        {"kind": "timer", "ref": "DEMO-1", "frame": "f1"},
+        {"kind": "timer", "at": "2030-01-01T09:00:00Z", "w": 80},
         {"kind": "note", "text": "x", "at": "2030-01-01T09:00:00Z"},
     ],
 )

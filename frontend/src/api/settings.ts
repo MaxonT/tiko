@@ -20,6 +20,8 @@ const settingsSchema = z.object({
   public_links: z.boolean(),
   /** Whether people may make API keys in this workspace. */
   api_keys: z.boolean().default(false),
+  /** Whether a key may change and remove everyone's work. */
+  full_keys: z.boolean().default(false),
   /** How many keys are live; sent to an admin only. */
   api_keys_live: z.number().nullish(),
   // Set in the environment by whoever deployed tiko; the form shows them read-only.
@@ -37,6 +39,7 @@ export type SettingsChange = {
   jira_start_field?: string
   public_links?: boolean
   api_keys?: boolean
+  full_keys?: boolean
 }
 
 export function getSettings() {

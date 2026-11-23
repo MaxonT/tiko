@@ -8,6 +8,7 @@ if TYPE_CHECKING:
     from app.domain.api_keys import ApiKey, EndReason, StoredKey
     from app.domain.batch import Applied, Batch
     from app.domain.boards import BoardDoc, BoardRecord, BoardRow, TrashRow
+    from app.domain.copies import Copy, CopyInfo, Latest, Written
     from app.domain.files import Picture, Served, StoredFile
     from app.domain.folders import Folder
     from app.domain.invites import Invite
@@ -627,6 +628,28 @@ class ApiElementRepo(Protocol):
     def add(self, board_id: str, element_ids: list[str], user_id: str, now: str) -> None: ...
 
     def remove(self, board_id: str, element_ids: list[str]) -> None: ...
+
+
+class BoardCopies(Protocol):
+    """Copies of boards saved before a key with full access changed people's work (spec 055)."""
+
+    def latest(self, board_id: str) -> Latest | None: ...
+
+    def note_written(self, board_id: str, written: Written) -> None:
+        """Adds what a key just wrote over people's work to the newest copy's record."""
+        ...
+
+    def add(self, board_id: str, doc: BoardDoc, by_user_id: str | None, reason: str) -> str:
+        """Saves a copy, keeping the board's newest `copies.KEEP`; returns its id."""
+        ...
+
+    def list(self, board_id: str) -> list[CopyInfo]: ...
+
+    def get(self, board_id: str, copy_id: str) -> Copy | None: ...
+
+    def purge(self, before: str) -> int:
+        """Removes copies saved before this moment, in every workspace."""
+        ...
 
 
 class InviteRepo(Protocol):

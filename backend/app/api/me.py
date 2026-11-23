@@ -236,6 +236,8 @@ class ApiKeyList(BaseModel):
     keys: list[ApiKey]
     # Whether the workspace lets people make keys.
     enabled: bool
+    # Whether the admin lets keys change and remove everyone's work (spec 055).
+    full: bool = False
 
 
 class ApiKeyMade(BaseModel):
@@ -253,7 +255,9 @@ def _workspace() -> str:
 
 @router.get("/api-keys", dependencies=[NotDemoVisitor])
 def list_api_keys(person: CurrentPerson, keys: ApiKeysDep) -> ApiKeyList:
-    return ApiKeyList(keys=keys.list(person.id, _workspace()), enabled=keys.enabled())
+    return ApiKeyList(
+        keys=keys.list(person.id, _workspace()), enabled=keys.enabled(), full=keys.full_allowed()
+    )
 
 
 @router.post("/api-keys", status_code=201, dependencies=[NotDemoVisitor])

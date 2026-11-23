@@ -48,6 +48,19 @@ export function Sharing() {
           restores them.
           {live != null && ` ${live} ${live === 1 ? 'key' : 'keys'} in use.`}
         </p>
+        <div className="flex items-center justify-between gap-4">
+          <Label htmlFor="full-keys">Keys may change and remove everyone's work</Label>
+          <Switch
+            id="full-keys"
+            checked={settings.data?.full_keys ?? false}
+            disabled={!settings.data || !settings.data.api_keys || save.isPending}
+            onCheckedChange={(allowed) => save.mutate({ full_keys: allowed })}
+          />
+        </div>
+        <p className="text-muted-foreground text-[13px]">
+          A key with full access rewrites and removes what people made on boards its owner can edit.
+          tiko saves a copy of the board before it does, and the board can go back to it.
+        </p>
       </Group>
     </div>
   )

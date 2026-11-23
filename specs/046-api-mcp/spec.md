@@ -136,7 +136,7 @@ Principles check:
 - **FR-007**: Board reads MUST return the public shape of Decision 19 in pages (Decision 17), with cards refreshed as Decision 16 says, and MUST write nothing.
 - **FR-008**: Task search MUST take Jira, demo and CalDAV queries as Decision 18 says and use the person's own credentials; a read MUST NOT ask the tracker for a card younger than the refresh interval.
 - **FR-009**: A `write` key MUST be able to create a board and add and change elements in batches of up to 200, applied to the live board so open browsers see them without reload; a batch that breaks a board rule MUST change nothing.
-- **FR-010**: A key MUST NOT change the text of, or remove, an element not added through the API (colour and style: spec 048); a removal that would take a person's arrow or timer with it MUST be refused.
+- **FR-010**: A key MUST NOT change the text of, or remove, an element not added through the API (colour and style: spec 048); a removal that would take a person's arrow or timer with it MUST be refused. A key with full access, where the workspace allows it, may, after a saved copy of the board (spec 055).
 - **FR-011**: Retries MUST be safe as Decision 13 says.
 - **FR-012**: `arrange` MUST place only the named cards, as a grid or in columns by status, without overlapping elements already on the board.
 - **FR-013**: `/api/mcp` MUST serve the tools of Decision 15 to clients on protocol `2026-07-28` and to older ones, on an instance with several API processes, under any host name the instance is reached by.

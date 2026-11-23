@@ -8,7 +8,15 @@ from pydantic import BaseModel, Field, model_validator
 
 from app.api import deps
 from app.api.v1.boards import Board, boards_of, shape
-from app.api.v1.deps import Key, KeyPerson, Writable, search_budget, write_budget
+from app.api.v1.deps import (
+    Key,
+    KeyPerson,
+    Writable,
+    full,
+    full_budget,
+    search_budget,
+    write_budget,
+)
 from app.domain.api_view import Element
 from app.domain.batch import (
     MAX_CARDS,
@@ -22,8 +30,9 @@ from app.domain.batch import (
     Watch,
 )
 from app.domain.boards import BoardName, create_board, rename_board
+from app.domain.copies import Reason
 from app.domain.demo import board_limit
-from app.domain.errors import InvalidRef, TaskNotFound, ValidationFailed
+from app.domain.errors import InvalidRef, NotApiElement, NotFound, TaskNotFound, ValidationFailed
 from app.domain.sources import SOURCES, route_ref, valid_key
 from app.domain.tasks import task_ref
 
@@ -72,6 +81,20 @@ class ArrangeIn(BaseModel):
     order: Literal["given", "key", "status"] = "given"
     # The frame takes the size of what it holds, smaller or larger.
     fit: bool = False
+
+
+class CopyOut(BaseModel):
+    id: str
+    saved_at: str
+    # Whose call it came before: the person's name, or null once they are gone.
+    by: str | None
+    # `key`: before an API key changed people's work; `restore`: before a restore.
+    reason: Reason
+    elements: int
+
+
+class CopyList(BaseModel):
+    copies: list[CopyOut]
 
 
 class Written(BaseModel):
@@ -154,13 +177,51 @@ def arrange(board_id: str, body: ArrangeIn, _: Writable, request: Request) -> Wr
     return _write(board_id, Batch(arrange=plan), request)
 
 
+@router.get("/{board_id}/copies")
+def list_copies(board_id: str, _: Writable, request: Request) -> CopyList:
+    """Copies of the board tiko saved before a key with full access changed people's work, and
+    before each restore, newest first."""
+    found = request.app.state.copies.list(board_id)
+    return CopyList(
+        copies=[
+            CopyOut(
+                id=c.id, saved_at=c.saved_at, by=c.by_name, reason=c.reason, elements=c.elements
+            )
+            for c in found
+        ]
+    )
+
+
+@router.post(
+    "/{board_id}/copies/{copy_id}/restore",
+    status_code=204,
+    dependencies=[Depends(full_budget)],
+)
+def restore_copy(board_id: str, copy_id: str, _: Writable, request: Request) -> Response:
+    """Puts the board back as the copy has it, for everyone at once. The board as it is now is
+    saved first, so a restore can be undone the same way. Needs a key with full access."""
+    if request.app.state.copies.get(board_id, copy_id) is None:
+        raise NotFound("copy not found")
+    person = deps.current_person(request)
+    request.app.state.live.apply(board_id, Batch(restore=copy_id, by=person.id))
+    return Response(status_code=204)
+
+
 def _write(board_id: str, batch: Batch, request: Request, answer: bool = True) -> Written:
     state = request.app.state
     person = deps.current_person(request)
     elements = state.api_elements
     made = elements.of_board(board_id)
     batch.mine = [element_id for element_id, owner in made.items() if owner == person.id]
-    applied = state.live.apply(board_id, batch)
+    batch.full, batch.by = full(request), person.id
+    try:
+        applied = state.live.apply(board_id, batch)
+    except NotApiElement as error:
+        if deps_key_full(request):
+            raise NotApiElement(
+                f"{error.message} Your admin does not let keys change everyone's work now."
+            ) from error
+        raise
     # Rows only for what the board took: a row written ahead would make an element the caller's
     # for a moment, even a person's. A crash between leaves an element counted as a person's.
     now = datetime.now(UTC).isoformat(timespec="seconds")
@@ -169,6 +230,11 @@ def _write(board_id: str, batch: Batch, request: Request, answer: bool = True) -
     if not answer:
         return Written(elements=[], created=[])
     return _answer(board_id, applied, request)
+
+
+def deps_key_full(request: Request) -> bool:
+    """A key made with full access that the workspace no longer allows."""
+    return request.state.api_key.scope == "full" and not full(request)
 
 
 def _answer(board_id: str, applied: Applied, request: Request) -> Written:

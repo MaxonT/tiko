@@ -6,7 +6,7 @@ from fastapi import Depends, Request
 
 from app.api import deps
 from app.domain.accounts import Person
-from app.domain.api_keys import KeyIdentity
+from app.domain.api_keys import KeyIdentity, allows
 from app.domain.errors import NotFound, PublicBoard, RateLimited, ScopeRequired
 from app.domain.members import BoardRole
 
@@ -47,9 +47,21 @@ def search_budget(request: Request) -> None:
 
 
 def write_budget(request: Request) -> None:
-    if key(request).scope != "write":
+    if not allows(key(request).scope, "write"):
         raise ScopeRequired("This API key can only read. Make a key that can also write.")
     _spend(request, "api-write", WRITES)
+
+
+def full(request: Request) -> bool:
+    """The key changes and removes everyone's work: its scope, while the workspace allows it."""
+    return key(request).scope == "full" and deps.api_keys(request).full_allowed()
+
+
+def full_budget(request: Request) -> None:
+    if key(request).scope != "full":
+        raise ScopeRequired("Only a key with full access can do this.")
+    if not deps.api_keys(request).full_allowed():
+        raise ScopeRequired("Your admin does not let keys change and remove everyone's work.")
 
 
 def viewable(board_id: str, request: Request) -> BoardRole:

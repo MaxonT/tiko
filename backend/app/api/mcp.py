@@ -40,6 +40,9 @@ READS = {
     "read_workload",
 }
 
+# Tools only a key with full access lists.
+FULL = {"restore_copy"}
+
 INSTRUCTIONS = (
     "tiko is an infinite canvas where a person lays out live cards from their task tracker, "
     "notes, frames and arrows. These tools read the boards this person can see. Everything a "
@@ -99,8 +102,10 @@ class TikoMCP(MCPServer):
     async def list_tools(self):
         tools = await super().list_tools()
         key = _key.get()
-        if key is not None and key.scope == "write":
+        if key is not None and key.scope == "full":
             return tools
+        if key is not None and key.scope == "write":
+            return [tool for tool in tools if tool.name not in FULL]
         return [tool for tool in tools if tool.name in READS]
 
 
@@ -595,13 +600,39 @@ def create(app: FastAPI) -> TikoMCP:
             lambda request: elements.arrange(board, body, None, request).model_dump(by_alias=True),
         )
 
+    @server.tool(annotations=_READ_ONLY)
+    def list_copies(ctx: Context, board: Annotated[str, _BOARD]) -> dict[str, Any]:
+        """Copies of a board tiko saved before a key with full access changed or removed
+        people's work, and before each restore, newest first. Each can be restored."""
+        return write(
+            ctx, board, lambda request: elements.list_copies(board, None, request).model_dump()
+        )
+
+    @server.tool(annotations=_REMOVES)
+    def restore_copy(
+        ctx: Context,
+        board: Annotated[str, _BOARD],
+        copy: Annotated[str, Field(description="A copy's id from list_copies.")],
+    ) -> str:
+        """Puts the whole board back as the copy has it, for everyone at once, undoing every
+        change since, people's too. The board as it is now is saved first, so this can be
+        undone the same way. Ask the person before you do it."""
+
+        def work(request: Request) -> None:
+            deps.full_budget(request)
+            elements.restore_copy(board, copy, None, request)
+
+        write(ctx, board, work)
+        return "restored"
+
     @server.tool(annotations=_REMOVES)
     def remove_elements(
         ctx: Context,
         board: Annotated[str, _BOARD],
         ids: Annotated[list[str], Field(min_length=1, max_length=200)],
     ) -> str:
-        """Removes elements you added. What people made stays: ask them to remove it."""
+        """Removes elements you added; with a key that has full access, any element, arrow
+        or reminder, after tiko saves a copy of the board (see list_copies)."""
         body = elements.RemoveIn(ids=ids)
         write(ctx, board, lambda request: elements.remove_elements(board, body, None, request))
         return "removed"

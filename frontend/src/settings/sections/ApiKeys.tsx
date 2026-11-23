@@ -33,8 +33,11 @@ import { SectionHeader } from '@/settings/sections/Section'
 
 const API_KEYS = ['api-keys']
 
-const SCOPE_NAMES: Record<ApiKeyScope, string> = { read: 'Read', write: 'Read and write' }
-const SCOPES: ApiKeyScope[] = ['read', 'write']
+const SCOPE_NAMES: Record<ApiKeyScope, string> = {
+  read: 'Read',
+  write: 'Read and write',
+  full: 'Full access',
+}
 const EXPIRY_DAYS = [7, 30, 90, 365]
 
 const pad = (n: number) => String(n).padStart(2, '0')
@@ -105,11 +108,14 @@ function CreateDialog({
   open,
   onOpenChange,
   onCreated,
+  full,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   onCreated: (token: string) => void
+  full: boolean
 }) {
+  const scopes: ApiKeyScope[] = full ? ['read', 'write', 'full'] : ['read', 'write']
   const queryClient = useQueryClient()
   const boards = useQuery({ queryKey: ['boards'], queryFn: listBoards, enabled: open })
   const [name, setName] = useState('')
@@ -180,7 +186,7 @@ function CreateDialog({
               value={scope}
               onValueChange={(value) => setScope(value as ApiKeyScope)}
             >
-              {SCOPES.map((item) => (
+              {scopes.map((item) => (
                 <Choice
                   key={item}
                   value={item}
@@ -189,6 +195,12 @@ function CreateDialog({
                 />
               ))}
             </RadioGroup>
+            {scope === 'full' && (
+              <p className="text-muted-foreground text-[13px]">
+                Rewrites and removes anything on boards you can edit, as you could. tiko saves a
+                copy of a board before the key changes people's work.
+              </p>
+            )}
           </div>
           <div className="flex flex-col gap-2">
             <span className="text-sm font-medium">Boards</span>
@@ -381,7 +393,14 @@ export function ApiKeys() {
           )}
         </>
       )}
-      {creating && <CreateDialog open onOpenChange={setCreating} onCreated={setToken} />}
+      {creating && (
+        <CreateDialog
+          open
+          onOpenChange={setCreating}
+          onCreated={setToken}
+          full={keys.data?.full ?? false}
+        />
+      )}
       <RevokeDialog apiKey={revoking} onOpenChange={(open) => !open && setRevoking(null)} />
     </div>
   )

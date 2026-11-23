@@ -22,14 +22,16 @@ Lists every board the key reaches, newest change first, with your role, whether 
 `GET /api/v1/boards/<id>` gives an outline of one board: its frames with how many cards, notes and other elements each holds, and what lies outside them. Reference: [Read Board](../reference/operations/read-board/).
 
 - `?frame=<frame id>` gives what is in one frame, `?elements=all` everything.
+- Narrow the elements down with `kind=` (repeat it for several kinds), `status=` (cards whose task has that status), `done=true` or `done=false`, and `outside_frames=true`. Filters combine, and any of them reads elements without `elements=all`: `?done=true&outside_frames=true` gives the finished cards nobody has filed yet.
+- `compact=true` gives each card its task's title and status only and leaves out empty fields, so a big board fits in fewer pages.
 - Elements come 500 at a time; when `more` is true, ask again with `&after=<id of the last element>`.
 
 What an element looks like:
 
 - `kind` is `card`, `note`, `text`, `code`, `shape`, `frame`, `arrow`, `image`, `module` or `timer`. A `code` block has its `title`, `text`, `language`, whether it is `collapsed` and `numbered`, and its `marked` lines, counted from 1.
-- `x` and `y` are its place on the board, whatever frame it sits in; `frame` names that frame.
+- `x` and `y` are its place on the board, whatever frame it sits in; `frame` names that frame. `w` and `h` are its size; a card is 320 by 50, the room a layout keeps for it, and grows taller when someone opens it.
 - A card carries its tracker and key, and the task as the tracker shows it: title, status, assignee, due date, link and when tiko last read it. Cards are read again when the copy tiko holds is older than the board's refresh interval, with your own tracker credentials. A task you cannot see comes back as its key only.
-- An arrow names the elements it joins in `from` and `to`; an end that points at nothing is `null`.
+- An arrow names the elements it joins in `from` and `to`; an end that points at nothing is `null`. Its `label` holds the words on it, empty when it has none.
 
 What people change on the board itself, such as notes, frames and where cards sit, shows in the API within about 10 seconds. Task fields follow the refresh interval above.
 
@@ -73,11 +75,13 @@ A key with read and write access can change the boards you can edit:
 | `PATCH /api/v1/boards/<id>` with `{"name": "…"}` | Renames a board | [Rename](../reference/operations/rename/) |
 | `POST /api/v1/boards/<id>/elements` | Adds notes, text, code blocks, shapes, frames, cards (by a task key or link) and arrows | [Add Elements](../reference/operations/add-elements/) |
 | `PATCH /api/v1/boards/<id>/elements` | Moves and resizes elements, puts them in and out of frames, and changes their look | [Change Elements](../reference/operations/change-elements/) |
-| `POST /api/v1/boards/<id>/arrange` | Lays cards out as a grid or in a column per status, in a frame or below the board. Only the cards you name move. | [Arrange](../reference/operations/arrange/) |
+| `POST /api/v1/boards/<id>/arrange` | Lays cards out as a grid or in a column per status, in a frame or below the board, sorted as you ask, and can size the frame to fit them. Only the cards you name move. | [Arrange](../reference/operations/arrange/) |
 | `POST /api/v1/boards/<id>/elements/remove` | Removes elements | [Remove Elements](../reference/operations/remove-elements/) |
 
 - **Placing:** without `x` and `y`, new elements are laid out in rows below what is on the board, or inside the frame you name, which grows to hold them.
+- **Arranging:** a grid fills as many columns as fit the frame, or the number you give in `columns`. `order` sorts the cards by `key` (DEMO-9 before DEMO-10) or by `status`, and `fit: true` makes the frame just big enough for what it holds.
 - **Retries:** give each element your own `id` and a retry never adds it twice.
+- **Arrow labels:** an arrow takes a `label`, the words on it, when you add it: `{"kind": "arrow", "from": "<id>", "to": "<id>", "label": "blocks"}`. `PATCH …/elements` with `{"id": "<arrow>", "label": "…"}` changes the label of an arrow you drew, and an empty one removes it. Where the label sits and how it looks stay in the web app. An arrow's ends never change: remove it and draw another.
 - **Look:** `color`, `bold`, `size` (`small`, `medium`, `large`), `opacity` (10 to 100 in steps of 5), `rotation` (degrees), and a shape's `stroke` (1, 1.5, 3) and `dash`. A code block's `language`, `collapsed`, `numbered` and `marked` lines count as its look too, so a key may fix the language of a block a person made. New elements take the same fields; a code block holds up to 10,000 characters of `text`. A field an element does not have in the web app, such as bold on a frame, is refused.
 
 ```bash
@@ -86,7 +90,7 @@ curl -H "Authorization: Bearer tiko_…" -H "Content-Type: application/json" \
   https://tiko.example.com/api/v1/boards/<id>/elements
 ```
 
-What people made stays theirs: a key moves and restyles any element, but changes the text of, and removes, only what was added through the API by you. Text people wrote never changes behind their back, and nothing they made disappears. During a vote, the elements in it keep their words and look.
+What people made stays theirs: a key moves and restyles any element, but changes the text of, and removes, only what was added through the API by you, unless it has full access (below). Text people wrote never changes behind their back, and nothing they made disappears. During a vote, the elements in it keep their words and look.
 
 ### Reminders
 
@@ -98,6 +102,15 @@ A reminder is an element of kind `timer`. It rings in tiko for whoever has the b
 - **Limit:** a board holds at most 50 reminders that have not gone off and been marked done; one more is refused with `409 timer_limit`.
 - **Past moments** are refused.
 - **Changes:** `PATCH …/elements` changes the `note`, `at` and `repeat` of reminders you added; removing an element you added takes your reminders on it along.
+- **Moving:** a reminder on an element goes wherever the element goes and takes no place of its own. `{"id": "<reminder>", "on": "<element>"}` hangs it on another element, `"on": null` sets it free where it is. A free reminder takes `x`, `y` and a `frame`, as when you add it.
+
+### Full access and saved copies
+
+A key with full access changes the text of, and removes, anything on boards you can edit, once an admin allows it in **Settings → Sharing**. Before a call changes people's work, tiko saves a copy of the board; one tidying session makes one copy, and work someone does in between gets a copy of its own.
+
+- `GET /api/v1/boards/<id>/copies` lists the copies, newest first: when, by whom, and whether it came before a key's change or a restore.
+- `POST /api/v1/boards/<id>/copies/<copy>/restore` puts the board back as that copy has it, for everyone at once. It needs a key with full access. The board as it is now is saved first, so a restore can be undone the same way. During a vote it is refused.
+- A board keeps its newest 20 copies, for up to 14 days.
 
 ### How writes behave
 

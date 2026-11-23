@@ -1,12 +1,12 @@
 from dataclasses import dataclass, field
-from typing import NoReturn, Protocol
+from typing import Protocol
 from urllib.parse import urlsplit, urlunsplit
 
 from pydantic import BaseModel, Field, SecretStr
 
 from app.domain.errors import ValidationFailed
 from app.domain.ports import TaskProvider
-from app.domain.tasks import CALDAV, Task, now_iso
+from app.domain.tasks import CALDAV, NotConnected, Task, now_iso
 
 # The most tasks one search sends, as many as the card tool adds at once for other trackers.
 MAX_LIST_TASKS = 50
@@ -83,21 +83,17 @@ def no_account(key: str) -> Task:
     return Task(source=CALDAV, key=key, state="no_token", url="", fetched_at=now_iso())
 
 
-class NoCalDav:
+class NoCalDav(NotConnected):
     """Stands in for CalDAV while the person has no account: cards say how to connect."""
 
-    source_id = CALDAV
-    source_name = "CalDAV"
-    source_note = None
-    base_host = ""
-
-    def poll(self, keys: list[str]) -> list[Task]:
-        return [no_account(key) for key in keys]
+    def __init__(self) -> None:
+        super().__init__(
+            CALDAV,
+            "CalDAV",
+            ValidationFailed("Connect your CalDAV account in Settings → My tracker."),
+        )
 
     def lists(self) -> list[TaskList]:
         return []
 
-    def _refuse(self, *_: object) -> NoReturn:
-        raise ValidationFailed("Connect your CalDAV account in Settings → My tracker.")
-
-    resolve = check = search = jql_vocabulary = jql_values = find_tasks = _refuse
+    find_tasks = NotConnected._refuse

@@ -81,7 +81,7 @@ check(status == 204, "revoke invite")
 status, _ = call("GET", f"{API}/api/invites/{token}")
 check(status == 410, "revoked invite is gone")
 
-TRACKER_FIELDS = {"provider", "base_url", "token_state", "github_token_state", "kind", "email"}
+TRACKER_FIELDS = {"provider", "base_url", "kind", "email", "tokens", "connected_as"}
 # The scenario runs on demo tasks; a connected Jira is switched back afterwards.
 status, settings = call("GET", f"{API}/api/settings")
 check(status == 200, "read settings")
@@ -123,6 +123,16 @@ try:
     )
     routed = status == 200 or body["error"]["code"] != "invalid_ref"
     check(routed, "a GitHub key reaches the GitHub source")
+
+    # A Linear link goes to Linear on any instance: without a key it asks for one, with a key
+    # of another workspace it is not found there. Never "not a key".
+    status, body = call(
+        "POST",
+        f"{API}/api/tasks/resolve",
+        {"ref": "https://linear.app/acme/issue/ENG-1/fix-the-thing"},
+    )
+    routed = status in (404, 422) and "Linear" in body["error"]["message"]
+    check(routed, "a Linear link reaches Linear")
 
     doc = {
         "nodes": [
@@ -185,6 +195,7 @@ try:
                 "target": "b",
                 "sourceHandle": "l",
                 "targetHandle": "r",
+                "data": {"label": {"text": "waits for", "at": 0.3, "color": "blue", "size": "large"}},
             }
         ],
         "viewport": {"x": 0, "y": 0, "zoom": 1},
@@ -196,7 +207,7 @@ try:
 
     status, body = call("GET", f"{API}/api/boards/{board['id']}")
     check(
-        body["doc"] == doc, "board with styled frame, sticky, text, shape, code and arrow reopens unchanged"
+        body["doc"] == doc, "board with styled frame, sticky, text, shape, code and labelled arrow reopens unchanged"
     )
     check(
         set(body["tasks"]) == {"demo:DEMO-1", "demo:DEMO-2"},

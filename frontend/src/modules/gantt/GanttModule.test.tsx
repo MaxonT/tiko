@@ -1,11 +1,12 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { ReactFlow, ReactFlowProvider, useNodesState, useReactFlow, type Node } from '@xyflow/react'
 import { useLayoutEffect } from 'react'
 import { beforeAll, expect, test, vi } from 'vitest'
 import type { Task } from '@/api/tasks'
 import { moduleControls } from '@/canvas/module-controls'
 import { ReadOnlyContext } from '@/canvas/readonly'
+import { trackInputModality } from '@/lib/input-modality'
 import { ModuleNode } from '@/canvas/nodes/ModuleNode'
 import { TasksContext } from '@/canvas/tasks-context'
 import type { AppNode, ModuleNode as ModuleNodeType } from '@/canvas/types'
@@ -59,6 +60,10 @@ const content: GanttContent = {
 }
 
 let latest: Node[] = []
+// A second Gantt on the board, for the tests that need two; set before rendering.
+let second: GanttContent | null = null
+// Writes a Gantt's content as someone else in the room would.
+let remote: (id: string, content: GanttContent) => void = () => {}
 
 function Board({ start }: { start: GanttContent }) {
   const [nodes, , onNodesChange] = useNodesState<AppNode>([
@@ -71,8 +76,21 @@ function Board({ start }: { start: GanttContent }) {
       selected: true,
       data: { kind: 'gantt', content: start },
     },
+    ...(second
+      ? [
+          {
+            id: 'h',
+            type: 'module' as const,
+            position: { x: 0, y: 400 },
+            width: 960,
+            height: 320,
+            data: { kind: 'gantt', content: second },
+          },
+        ]
+      : []),
   ])
   const { updateNodeData } = useReactFlow()
+  remote = (id, content) => updateNodeData(id, { content })
   useLayoutEffect(() => {
     latest = nodes
   }, [nodes])
@@ -84,7 +102,13 @@ function Board({ start }: { start: GanttContent }) {
         (content) => updateNodeData('g', { content }),
         'top',
       )}
-      <ReactFlow nodes={nodes} nodeTypes={nodeTypes} onNodesChange={onNodesChange} />
+      {/* Shift adds to the selection, as on the board. */}
+      <ReactFlow
+        nodes={nodes}
+        nodeTypes={nodeTypes}
+        onNodesChange={onNodesChange}
+        multiSelectionKeyCode="Shift"
+      />
     </>
   )
 }
@@ -356,7 +380,7 @@ test('with Planning off nothing about stages shows', () => {
 
 test('with Planning on a bare bar becomes a stage when it gets a type', () => {
   renderGantt({}, content, PLANNING)
-  press(screen.getByRole('slider', { name: 'No stage stage of Design review' }), 400)
+  press(screen.getByRole('button', { name: 'No stage stage of Design review' }), 400)
   fireEvent.click(screen.getByRole('button', { name: 'Build' }))
   expect(rows()[1].stages).toEqual([
     expect.objectContaining({ type: 't3', start: '2026-10-12', end: '2026-10-14' }),
@@ -393,7 +417,7 @@ test('a stage dragged into its neighbour stops at it', () => {
     ],
   }
   renderGantt({}, start, PLANNING)
-  press(screen.getByRole('slider', { name: 'Build stage of Payment API' }), 500, 0)
+  press(screen.getByRole('button', { name: 'Build stage of Payment API' }), 500, 0)
   expect(rows()[0].stages![1]).toMatchObject({ start: '2026-10-08', end: '2026-10-12' })
   expect(rows()[0].end).toBe('2026-10-12')
 })
@@ -418,7 +442,7 @@ const starts = () => rows()[0].stages!.map((s) => parseDay(s.start))
 
 test('a stage dragged right with Alt pushes the later ones; without Alt it stops at the next', () => {
   renderGantt({}, pushable, PLANNING)
-  const bar = screen.getAllByRole('slider', { name: 'Discovery stage of Payment API' })[0]
+  const bar = screen.getAllByRole('button', { name: 'Discovery stage of Payment API' })[0]
   const before = starts()
   fireEvent.pointerDown(bar, { clientX: 100, pointerId: 1, button: 0 })
   fireEvent.pointerMove(bar, { clientX: 150, pointerId: 1, altKey: true })
@@ -481,7 +505,7 @@ test('each stage has a tooltip of its own', () => {
     ],
   }
   renderGantt({}, start, PLANNING)
-  const bars = screen.getAllByRole('slider', { name: /stage of Payment API/ })
+  const bars = screen.getAllByRole('button', { name: /stage of Payment API/ })
   // `peer-hover` reaches only siblings, so each bar and its tip share a box of their own.
   expect(bars[0].parentElement).not.toBe(bars[1].parentElement)
   expect(bars[0].parentElement!.querySelectorAll('[role=tooltip]')).toHaveLength(1)
@@ -529,15 +553,36 @@ const staged = (people: string[], extra: Partial<GanttContent> = {}): GanttConte
 
 test('people show after the stage type, an archived one muted', () => {
   renderGantt({}, staged(['p1', 'p2']), PEOPLE)
-  const bar = screen.getByRole('slider', { name: 'Build stage of Payment API' })
+  const bar = screen.getByRole('button', { name: 'Build stage of Payment API' })
   expect(bar.textContent).toBe('Build · Ivan, Anna')
   expect(within(bar).getByText('Anna').className).toContain('opacity-60')
   expect(within(bar).getByText('Ivan').className).not.toContain('opacity-60')
 })
 
+test('a stage bar takes the focus and opens its popover with Enter or Space', async () => {
+  trackInputModality()
+  renderGantt({}, staged(['p1']), PEOPLE)
+  const bar = screen.getByRole('button', { name: 'Build stage of Payment API' })
+  expect(bar.tabIndex).toBe(0)
+  expect(bar.getAttribute('aria-expanded')).toBe('false')
+  // A key on something inside the bar is not the bar's own.
+  fireEvent.keyDown(within(bar).getByText('Ivan'), { key: 'Enter' })
+  expect(screen.queryByLabelText('Add a person')).toBeNull()
+  fireEvent.keyDown(document.body, { key: 'Tab' })
+  bar.focus()
+  fireEvent.keyDown(bar, { key: 'Enter' })
+  expect(screen.getByLabelText('Add a person')).toBeTruthy()
+  expect(bar.getAttribute('aria-expanded')).toBe('true')
+  fireEvent.keyDown(document.activeElement!, { key: 'Escape' })
+  expect(screen.queryByLabelText('Add a person')).toBeNull()
+  await waitFor(() => expect(document.activeElement).toBe(bar))
+  fireEvent.keyDown(bar, { key: ' ' })
+  expect(screen.getByLabelText('Add a person')).toBeTruthy()
+})
+
 test('names below the bars make the rows taller', () => {
   renderGantt({}, staged(['p1'], { people: 'below' }), PEOPLE)
-  const bar = screen.getByRole('slider', { name: 'Build stage of Payment API' })
+  const bar = screen.getByRole('button', { name: 'Build stage of Payment API' })
   expect(bar.textContent).toBe('Build')
   const row = bar.closest('[data-gantt-row]') as HTMLElement
   expect(row.style.height).toBe('50px')
@@ -554,7 +599,7 @@ test('names below are ignored with Planning off', () => {
 
 test('the popover adds someone from the list and removes them again', () => {
   renderGantt({}, staged([]), PEOPLE)
-  press(screen.getByRole('slider', { name: 'Build stage of Payment API' }), 500)
+  press(screen.getByRole('button', { name: 'Build stage of Payment API' }), 500)
   const field = screen.getByLabelText('Add a person')
   fireEvent.change(field, { target: { value: 'iv' } })
   // Anna is archived: she is not offered again.
@@ -579,7 +624,7 @@ test('an unknown name is added to the people on the fly', async () => {
   vi.stubGlobal('fetch', fetchMock)
   try {
     renderGantt({}, staged([]), PEOPLE)
-    press(screen.getByRole('slider', { name: 'Build stage of Payment API' }), 500)
+    press(screen.getByRole('button', { name: 'Build stage of Payment API' }), 500)
     fireEvent.change(screen.getByLabelText('Add a person'), { target: { value: 'Petra' } })
     fireEvent.click(screen.getByRole('option', { name: '+ Add “Petra” to people' }))
     await vi.waitFor(() => expect(rows()[0].stages![0].people).toEqual(['p9']))
@@ -597,9 +642,10 @@ test('names that do not fit turn into a count that lists them', () => {
   const width = vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(500)
   try {
     renderGantt({}, staged(['p1', 'p2']), PEOPLE)
-    const bar = screen.getByRole('slider', { name: 'Build stage of Payment API' })
+    const bar = screen.getByRole('button', { name: 'Build stage of Payment API' })
     expect(bar.textContent).toBe('Build2')
-    const count = within(bar).getByRole('button', { name: '2 people on Build' })
+    // Pointer only: the stage popover gives keyboard and screen readers the same list.
+    const count = within(bar).getByLabelText('2 people on Build')
     fireEvent.pointerDown(count, { pointerId: 1, button: 0 })
     fireEvent.pointerUp(count, { pointerId: 1 })
     fireEvent.click(count)
@@ -615,7 +661,7 @@ test('names that do not fit turn into a count that lists them', () => {
 
 test('a second click on a stage closes its popover', async () => {
   renderGantt({}, staged(['p1']), PEOPLE)
-  const bar = screen.getByRole('slider', { name: 'Build stage of Payment API' })
+  const bar = screen.getByRole('button', { name: 'Build stage of Payment API' })
   // The popover listens for clicks outside it from the next tick on.
   const tick = () => act(() => new Promise((done) => setTimeout(done, 0)))
   press(bar, 500)
@@ -656,7 +702,7 @@ test('an assignee of a task in this Gantt is added from the tracker when picked'
     const start = staged([])
     start.rows[0] = { ...start.rows[0], key: 'DEMO-1', source: 'demo' }
     renderGantt({}, start, PEOPLE, { 'demo:DEMO-1': { ...task, assignee_name: 'Oleg' } })
-    press(screen.getByRole('slider', { name: 'Build stage of Payment API' }), 500)
+    press(screen.getByRole('button', { name: 'Build stage of Payment API' }), 500)
     fireEvent.focus(screen.getByLabelText('Add a person'))
     // Nobody is added until picked.
     expect(fetchMock).not.toHaveBeenCalled()
@@ -698,7 +744,7 @@ test('time off shows on the lane and marks the stage it falls on', () => {
   expect(document.querySelector('[data-gantt-timeoff]')).toBeTruthy()
   expect(screen.getByText('Time off')).toBeTruthy()
   expect(screen.getByRole('button', { name: /^Ivan is away Wed Oct 14 – Tue Oct 20/ })).toBeTruthy()
-  const bar = screen.getByRole('slider', { name: 'Build stage of Payment API' })
+  const bar = screen.getByRole('button', { name: 'Build stage of Payment API' })
   expect(within(bar).getByLabelText('Someone is away')).toBeTruthy()
   expect(bar.style.boxShadow).toContain('var(--destructive)')
   const tip = within(bar.parentElement!).getByRole('tooltip', { hidden: true })
@@ -713,7 +759,7 @@ test('a stage clear of the time off has no mark', () => {
   start.rows[0].stages![0] = { ...start.rows[0].stages![0], end: '2026-10-13' }
   start.rows[0].end = '2026-10-13'
   renderGantt({}, start, AWAY)
-  const bar = screen.getByRole('slider', { name: 'Build stage of Payment API' })
+  const bar = screen.getByRole('button', { name: 'Build stage of Payment API' })
   expect(within(bar).queryByLabelText('Someone is away')).toBeNull()
   expect(bar.style.boxShadow).not.toContain('destructive')
 })
@@ -979,8 +1025,8 @@ test('with working days only weekends vanish and a day off is shaded and not cou
   expect(within(body as HTMLElement).queryByText('10')).toBeNull()
   expect(within(body as HTMLElement).getByText('12')).toBeTruthy()
   expect(document.querySelectorAll('[data-gantt-day-off]')).toHaveLength(1)
-  const stage = screen.getByRole('slider', { name: 'Build stage of Payment API' })
-  expect(stage.getAttribute('aria-valuetext')).toBe('Mon Oct 12 – Fri Oct 16 · 4 days')
+  const stage = screen.getByRole('button', { name: 'Build stage of Payment API' })
+  expect(stage.getAttribute('aria-description')).toBe('Mon Oct 12 – Fri Oct 16 · 4 days')
 })
 
 test('a click with working days only adds five working days', () => {
@@ -1113,8 +1159,8 @@ test('a guest who cannot write leaves the board as it is', () => {
 
 test('with Planning on a following bar marks its guessed side as with Planning off', () => {
   renderGantt({}, following, PLANNING, { 'DEMO-1': { ...task, due: '2026-10-30' } })
-  const bar = screen.getByRole('slider', { name: /stage of DEMO-1/ })
-  expect(bar.getAttribute('aria-valuetext')).toBe('Sat Oct 24 – Fri Oct 30 · 7 days')
+  const bar = screen.getByRole('button', { name: /stage of DEMO-1/ })
+  expect(bar.getAttribute('aria-description')).toBe('Sat Oct 24 – Fri Oct 30 · 7 days')
   expect(bar.getAttribute('data-guess')).toBe('start')
   expect(screen.getByText('Start is a guess: the tracker has only a due date')).toBeTruthy()
 })
@@ -1237,18 +1283,18 @@ const twoStages: GanttContent = {
 
 test('stages are ticked one by one; the row is done when all are', () => {
   renderGantt({}, twoStages, PLANNING)
-  press(screen.getByRole('slider', { name: 'Discovery stage of Payment API' }), 300)
+  press(screen.getByRole('button', { name: 'Discovery stage of Payment API' }), 300)
   fireEvent.click(screen.getByRole('checkbox', { name: 'Done' }))
   expect(rows()[0].stages![0].done).toBe(true)
   expect(rows()[0].done).toBeUndefined()
   expect(
-    screen.getByRole('slider', { name: 'Discovery stage of Payment API' }).className,
+    screen.getByRole('button', { name: 'Discovery stage of Payment API' }).className,
   ).toContain('done-hatch')
   expect(
-    screen.getByRole('slider', { name: 'Build stage of Payment API' }).className,
+    screen.getByRole('button', { name: 'Build stage of Payment API' }).className,
   ).not.toContain('done-hatch')
 
-  press(screen.getByRole('slider', { name: 'Build stage of Payment API' }), 500)
+  press(screen.getByRole('button', { name: 'Build stage of Payment API' }), 500)
   fireEvent.click(screen.getAllByRole('checkbox', { name: 'Done' }).at(-1)!)
   expect(rows()[0].done).toBe(true)
 
@@ -1289,4 +1335,649 @@ test('a done stage raises no time off warning', () => {
   document.body.innerHTML = ''
   renderGantt({}, staffed(true), away)
   expect(screen.queryByLabelText('Someone is away')).toBeNull()
+})
+
+// Rows start 200px down the screen; the module covers 1200 by 800 from the top left.
+const ROWS_TOP = 200
+function placeOnScreen() {
+  return vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (
+    this: Element,
+  ) {
+    const box = (left: number, top: number, width: number, height: number) =>
+      ({
+        left,
+        top,
+        width,
+        height,
+        right: left + width,
+        bottom: top + height,
+        x: left,
+        y: top,
+      }) as DOMRect
+    if (this.matches('.react-flow__node')) return box(0, 0, 1200, 800)
+    if (this.matches('[data-gantt-rows]')) return box(0, ROWS_TOP, 160, 400)
+    return box(0, 0, 0, 0)
+  })
+}
+
+type PlanRow = GanttContent['rows'][number]
+const plain = (id: string, parent?: string, extra: Partial<PlanRow> = {}): PlanRow => ({
+  id,
+  title: `Row ${id}`,
+  start: '2026-10-05',
+  end: '2026-10-09',
+  ...(parent && { parent }),
+  ...extra,
+})
+const plan = (list: PlanRow[]): GanttContent => ({ ...content, rows: list })
+// The title in the task column, not the bar's label or the ghost.
+const label = (id: string) =>
+  screen.getAllByText(`Row ${id}`).find((el) => el.closest('.group\\/label'))!
+const shiftOf = (id: string) => (label(id).closest('[data-shift]') as HTMLElement).style
+// The middle of the row at index `i` on screen.
+const rowY = (i: number) => ROWS_TOP + i * 34 + 17
+
+function pressRow(id: string, i: number, keys: { metaKey?: boolean; shiftKey?: boolean } = {}) {
+  fireEvent.pointerDown(label(id), {
+    clientX: 50,
+    clientY: rowY(i),
+    pointerId: 1,
+    button: 0,
+    // A primary pointer, which the board's Shift selection box would take for its own.
+    isPrimary: true,
+    ...keys,
+  })
+}
+const moveTo = (x: number, y: number) =>
+  fireEvent.pointerMove(window, { clientX: x, clientY: y, pointerId: 1 })
+const release = (x: number, y: number, keys: { metaKey?: boolean; shiftKey?: boolean } = {}) =>
+  fireEvent.pointerUp(window, { clientX: x, clientY: y, pointerId: 1, ...keys })
+
+test('a dragged row opens a gap where it will land, and lands there', () => {
+  const screenBox = placeOnScreen()
+  renderGantt({}, plan([plain('a'), plain('b'), plain('c'), plain('d')]))
+  pressRow('a', 0)
+  moveTo(50, rowY(2))
+  // a is lifted out, b and c close up, the gap opens before d.
+  expect(shiftOf('a').visibility).toBe('hidden')
+  expect(shiftOf('b').transform).toBe('translateY(-34px)')
+  expect(shiftOf('c').transform).toBe('translateY(-34px)')
+  expect(shiftOf('d').transform).toBe('')
+  // The timeline part of the row moves with its label.
+  const bar = document.querySelector('[data-gantt-row="b"]')!.closest('[data-shift]') as HTMLElement
+  expect(bar.style.transform).toBe('translateY(-34px)')
+  const place = screen.getByTestId('gantt-drop-place')
+  expect(place.style.top).toBe(`${2 * 34 + 2}px`)
+  expect(place.getAttribute('data-depth')).toBe('0')
+  release(50, rowY(2))
+  expect(rows().map((r) => r.id)).toEqual(['b', 'c', 'a', 'd'])
+  expect(screen.queryByTestId('gantt-drop-place')).toBeNull()
+  screenBox.mockRestore()
+})
+
+test('a row dragged sideways shows and takes the level it will nest at', () => {
+  const screenBox = placeOnScreen()
+  renderGantt({}, plan([plain('a'), plain('b'), plain('c')]))
+  pressRow('c', 2)
+  moveTo(50 + 16, rowY(2))
+  const place = screen.getByTestId('gantt-drop-place')
+  expect(place.getAttribute('data-depth')).toBe('1')
+  // b will be its parent: it gets the bar.
+  expect((label('b').closest('[data-shift]') as HTMLElement).className).toContain(
+    'before:bg-primary',
+  )
+  release(50 + 16, rowY(2))
+  expect(rows().map((r) => [r.id, r.parent])).toEqual([
+    ['a', undefined],
+    ['b', undefined],
+    ['c', 'b'],
+  ])
+  screenBox.mockRestore()
+})
+
+test('a dragged parent lifts its children, and the distance counts what is on screen', () => {
+  const screenBox = placeOnScreen()
+  renderGantt({}, plan([plain('p'), plain('c1', 'p'), plain('c2', 'p'), plain('x'), plain('y')]))
+  pressRow('p', 0)
+  moveTo(50, rowY(0) + 10)
+  // The whole branch rides in the ghost.
+  expect(within(screen.getByTestId('gantt-drag-ghost')).getAllByText(/Row /)).toHaveLength(3)
+  expect(shiftOf('c1').visibility).toBe('hidden')
+  expect(shiftOf('x').transform).toBe('')
+  // One row down on screen: x closes up under the ghost, and the branch lands past it.
+  moveTo(50, rowY(1))
+  expect(shiftOf('x').transform).toBe('translateY(-102px)')
+  release(50, rowY(1))
+  expect(rows().map((r) => r.id)).toEqual(['x', 'p', 'c1', 'c2', 'y'])
+  screenBox.mockRestore()
+})
+
+test('a row dropped into a collapsed row opens it and stays in view', () => {
+  const screenBox = placeOnScreen()
+  renderGantt({}, plan([plain('a', undefined, { collapsed: true }), plain('a1', 'a'), plain('b')]))
+  pressRow('b', 1)
+  moveTo(50 + 16, rowY(1))
+  release(50 + 16, rowY(1))
+  expect(rows().map((r) => [r.id, r.parent])).toEqual([
+    ['a', undefined],
+    ['a1', 'a'],
+    ['b', 'a'],
+  ])
+  expect(rows()[0].collapsed).toBe(false)
+  expect(label('b')).toBeTruthy()
+  screenBox.mockRestore()
+})
+
+test('the level is clamped to five in all, and a place with no level says so', () => {
+  const screenBox = placeOnScreen()
+  const deep = plan([
+    plain('1'),
+    plain('2', '1'),
+    plain('3', '2'),
+    plain('4', '3'),
+    plain('5'),
+    plain('6', '5'),
+  ])
+  renderGantt({}, deep)
+  pressRow('5', 4)
+  moveTo(50 + 999, rowY(4))
+  // Under 4 at most level 3: its child 6 is then the fifth level.
+  expect(screen.getByTestId('gantt-drop-place').getAttribute('data-depth')).toBe('3')
+  release(50 + 999, rowY(4))
+  expect(rows().map((r) => r.parent)).toEqual([undefined, '1', '2', '3', '3', '5'])
+  screenBox.mockRestore()
+})
+
+test('Esc ends a drag with nothing written, before the expanded view or the board hears it', () => {
+  const screenBox = placeOnScreen()
+  renderGantt({}, plan([plain('a'), plain('b'), plain('c')]))
+  const before = current()
+  const heard = vi.fn()
+  document.addEventListener('keydown', heard, true)
+  pressRow('a', 0)
+  moveTo(50, rowY(2))
+  fireEvent.keyDown(window, { key: 'Escape' })
+  expect(heard).not.toHaveBeenCalled()
+  expect(shiftOf('b').transform).toBe('')
+  release(50, rowY(2))
+  expect(current()).toBe(before)
+  // With no drag Esc goes on as before.
+  fireEvent.keyDown(document, { key: 'Escape' })
+  expect(heard).toHaveBeenCalledTimes(1)
+  document.removeEventListener('keydown', heard, true)
+  screenBox.mockRestore()
+})
+
+test('a row dragged out of the module says it goes to the board', () => {
+  const screenBox = placeOnScreen()
+  const host = renderGantt({}, plan([plain('a'), plain('b')]))
+  pressRow('a', 0)
+  moveTo(1500, 900)
+  expect(screen.getByText('Drop on the board')).toBeTruthy()
+  expect(screen.queryByTestId('gantt-drop-place')).toBeNull()
+  release(1500, 900)
+  expect(host.ejectNote).toHaveBeenCalledWith('Row a', { x: 1500, y: 900 })
+  expect(rows().map((r) => r.id)).toEqual(['b'])
+  screenBox.mockRestore()
+})
+
+const picked = () =>
+  [...document.querySelectorAll('[data-gantt-rows] [data-selected]')].map((el) =>
+    el.getAttribute('data-shift'),
+  )
+function clickRow(id: string, i: number, keys: { metaKey?: boolean; shiftKey?: boolean } = {}) {
+  pressRow(id, i, keys)
+  release(50, rowY(i), keys)
+}
+// The row's own background, right of its title: a drag there draws a lasso, a click picks the row.
+const blank = (id: string) => label(id).closest('.group\\/label') as HTMLElement
+
+test('rows are selected by click, Cmd-click and Shift-click, in every part of the row', () => {
+  const screenBox = placeOnScreen()
+  renderGantt({}, plan([plain('a'), plain('b'), plain('c'), plain('d'), plain('e')]))
+  clickRow('b', 1)
+  expect(picked()).toEqual(['b'])
+  clickRow('d', 3, { shiftKey: true })
+  expect(picked()).toEqual(['b', 'c', 'd'])
+  clickRow('c', 2, { metaKey: true })
+  expect(picked()).toEqual(['b', 'd'])
+  clickRow('e', 4)
+  expect(picked()).toEqual(['e'])
+  // The board does not read a Shift-click on a row as one that drops the Gantt from its selection.
+  fireEvent.keyDown(document, { key: 'Shift' })
+  clickRow('d', 3, { shiftKey: true })
+  fireEvent.click(label('d'), { shiftKey: true })
+  fireEvent.keyUp(document, { key: 'Shift' })
+  expect(latest[0].selected).toBe(true)
+  expect(picked()).toEqual(['d', 'e'])
+  clickRow('e', 4)
+  // The timeline part of the row is tinted too.
+  const bar = document.querySelector('[data-gantt-row="e"]')!.closest('[data-shift]')!
+  expect(bar.getAttribute('data-selected')).toBe('true')
+  expect(bar.className).toContain('bg-primary/10')
+  // Esc clears it and goes no further.
+  const heard = vi.fn()
+  document.addEventListener('keydown', heard, true)
+  fireEvent.keyDown(document.body, { key: 'Escape' })
+  expect(picked()).toEqual([])
+  expect(heard).not.toHaveBeenCalled()
+  document.removeEventListener('keydown', heard, true)
+  screenBox.mockRestore()
+})
+
+test('a lasso from blank space selects the rows it touches and never reaches the board', () => {
+  const screenBox = placeOnScreen()
+  renderGantt({}, plan([plain('a'), plain('b'), plain('c'), plain('d')]))
+  const board = vi.fn()
+  document.body.addEventListener('pointerdown', board)
+  fireEvent.pointerDown(blank('b'), { clientX: 150, clientY: rowY(1), pointerId: 1, button: 0 })
+  expect(board).not.toHaveBeenCalled()
+  moveTo(150, rowY(2) + 4)
+  expect(screen.getByTestId('gantt-lasso')).toBeTruthy()
+  expect(picked()).toEqual(['b', 'c'])
+  release(150, rowY(2) + 4)
+  expect(screen.queryByTestId('gantt-lasso')).toBeNull()
+  expect(picked()).toEqual(['b', 'c'])
+  // With Shift a second lasso adds to it.
+  fireEvent.pointerDown(blank('d'), {
+    clientX: 150,
+    clientY: rowY(3),
+    pointerId: 1,
+    button: 0,
+    shiftKey: true,
+  })
+  moveTo(150, rowY(3) + 8)
+  release(150, rowY(3) + 8)
+  expect(picked()).toEqual(['b', 'c', 'd'])
+  // A click on a row's blank space picks that row, as a click on its title does.
+  fireEvent.pointerDown(blank('a'), { clientX: 150, clientY: rowY(0), pointerId: 1, button: 0 })
+  release(150, rowY(0))
+  expect(picked()).toEqual(['a'])
+  fireEvent.pointerDown(blank('c'), {
+    clientX: 150,
+    clientY: rowY(2),
+    pointerId: 1,
+    button: 0,
+    metaKey: true,
+  })
+  release(150, rowY(2), { metaKey: true })
+  expect(picked()).toEqual(['a', 'c'])
+  // A click on the band under the rows clears the selection.
+  const column = document.querySelector('[data-gantt-rows]')!.parentElement!
+  fireEvent.pointerDown(column, { clientX: 150, clientY: rowY(4) + 10, pointerId: 1, button: 0 })
+  release(150, rowY(4) + 10)
+  expect(picked()).toEqual([])
+  document.body.removeEventListener('pointerdown', board)
+  screenBox.mockRestore()
+})
+
+test('a selection moves as one: branches in plan order, siblings at the shown level', () => {
+  const screenBox = placeOnScreen()
+  // p with children p1 and p2, then q, r with child r1, then s.
+  renderGantt(
+    {},
+    plan([
+      plain('p'),
+      plain('p1', 'p'),
+      plain('p2', 'p'),
+      plain('q'),
+      plain('r'),
+      plain('r1', 'r'),
+      plain('s'),
+    ]),
+  )
+  // p with its own child p2, and r1 without its parent: a gap and two levels.
+  clickRow('p', 0)
+  clickRow('p2', 2, { metaKey: true })
+  clickRow('r1', 5, { metaKey: true })
+  pressRow('p', 0)
+  // Down to the end, past s.
+  moveTo(50, rowY(4) + 20)
+  expect(within(screen.getByTestId('gantt-drag-ghost')).getAllByText(/Row /)).toHaveLength(4)
+  release(50, rowY(4) + 20)
+  expect(rows().map((r) => [r.id, r.parent])).toEqual([
+    ['q', undefined],
+    ['r', undefined],
+    ['s', undefined],
+    ['p', undefined],
+    ['p1', 'p'],
+    ['p2', 'p'],
+    ['r1', undefined],
+  ])
+  // The moved rows stay selected.
+  expect(picked()).toEqual(['p', 'p2', 'r1'])
+  screenBox.mockRestore()
+})
+
+test('a drag from a row outside the selection moves that row alone', () => {
+  const screenBox = placeOnScreen()
+  renderGantt({}, plan([plain('a'), plain('b'), plain('c'), plain('d')]))
+  clickRow('a', 0)
+  pressRow('c', 2)
+  moveTo(50, rowY(3) + 4)
+  release(50, rowY(3) + 4)
+  expect(rows().map((r) => r.id)).toEqual(['a', 'b', 'd', 'c'])
+  expect(picked()).toEqual(['c'])
+  screenBox.mockRestore()
+})
+
+test('Delete removes the selected rows and never the Gantt', () => {
+  const screenBox = placeOnScreen()
+  renderGantt({}, plan([plain('a'), plain('b', 'a'), plain('c')]))
+  clickRow('a', 0)
+  clickRow('c', 2, { metaKey: true })
+  const heard = vi.fn()
+  document.addEventListener('keydown', heard, true)
+  fireEvent.keyDown(document.body, { key: 'Backspace' })
+  expect(heard).not.toHaveBeenCalled()
+  // a's child stays, one level up; the module is still on the board.
+  expect(rows().map((r) => [r.id, r.parent])).toEqual([['b', undefined]])
+  expect(latest).toHaveLength(1)
+  // With nothing selected Backspace goes on to the board as before.
+  fireEvent.keyDown(document.body, { key: 'Backspace' })
+  expect(heard).toHaveBeenCalledTimes(1)
+  document.removeEventListener('keydown', heard, true)
+  screenBox.mockRestore()
+})
+
+test('a selection dropped on the board becomes cards and notes in a column', () => {
+  const screenBox = placeOnScreen()
+  const host = renderGantt(
+    {},
+    plan([{ ...plain('a'), key: 'DEMO-1', title: '' }, plain('b'), plain('c')]),
+  )
+  clickRow('b', 1)
+  clickRow('c', 2, { metaKey: true })
+  pressRow('b', 1)
+  moveTo(1500, 900)
+  expect(screen.getByText('2 rows to the board')).toBeTruthy()
+  release(1500, 900)
+  expect(host.ejectNote).toHaveBeenNthCalledWith(1, 'Row b', { x: 1500, y: 900 })
+  expect(host.ejectNote).toHaveBeenNthCalledWith(2, 'Row c', { x: 1500, y: 1116 })
+  expect(rows().map((r) => r.id)).toEqual(['a'])
+  screenBox.mockRestore()
+})
+
+test('selected rows are options in a list of rows', () => {
+  const screenBox = placeOnScreen()
+  renderGantt({}, plan([plain('a'), plain('b')]))
+  clickRow('b', 1)
+  const list = screen.getByRole('listbox', { name: 'Rows' })
+  expect(list.getAttribute('aria-multiselectable')).toBe('true')
+  const options = within(list).getAllByRole('option')
+  expect(options.map((o) => o.getAttribute('aria-selected'))).toEqual(['false', 'true'])
+  // A row button gives focus back once clicked: the board ignores keys while focus is in the list.
+  const indent = screen.getByRole('button', { name: 'Indent Row b' })
+  indent.focus()
+  fireEvent.click(indent)
+  expect(document.activeElement).not.toBe(indent)
+  screenBox.mockRestore()
+})
+
+test('Delete and Esc are left alone while typing in a field or working in a popover', () => {
+  const screenBox = placeOnScreen()
+  renderGantt({}, plan([plain('a'), plain('b')]))
+  clickRow('a', 0)
+  const heard = vi.fn()
+  document.addEventListener('keydown', heard, true)
+  const field = document.createElement('input')
+  const popover = document.createElement('div')
+  popover.innerHTML = '<button type="button">Pick</button>'
+  document.body.append(field, popover)
+  field.focus()
+  fireEvent.keyDown(field, { key: 'Backspace' })
+  popover.querySelector('button')!.focus()
+  fireEvent.keyDown(popover.querySelector('button')!, { key: 'Backspace' })
+  fireEvent.keyDown(popover.querySelector('button')!, { key: 'Escape' })
+  expect(heard).toHaveBeenCalledTimes(3)
+  expect(rows().map((r) => r.id)).toEqual(['a', 'b'])
+  expect(picked()).toEqual(['a'])
+  field.remove()
+  popover.remove()
+  document.removeEventListener('keydown', heard, true)
+  screenBox.mockRestore()
+})
+
+// Regression: ISSUE-001 — Esc in the filter popover dropped the Gantt from the board's selection
+// and its rows with it; an arrow key there moved the Gantt.
+// Found by /qa on 2026-11-21
+// Report: .gstack/qa-reports/qa-report-localhost-3391-2026-11-21.md
+test('keys in a filter popover leave the Gantt selected and in place', () => {
+  const screenBox = placeOnScreen()
+  renderGantt({}, plan([plain('a'), plain('b')]), VIEWS)
+  clickRow('a', 0)
+  const start = latest[0].position
+  fireEvent.click(screen.getByRole('button', { name: 'Filter' }))
+  const field = screen.getByRole('button', { name: 'Quarter' })
+  fireEvent.keyDown(field, { key: 'ArrowDown' })
+  fireEvent.keyDown(field, { key: 'Escape' })
+  expect(latest[0].selected).toBe(true)
+  expect(latest[0].position).toEqual(start)
+  expect(picked()).toEqual(['a'])
+  screenBox.mockRestore()
+})
+
+test('an open expanded view keeps the keys from the Gantt behind it', () => {
+  const screenBox = placeOnScreen()
+  renderGantt({}, plan([plain('a'), plain('b')]))
+  clickRow('a', 0)
+  const view = document.createElement('div')
+  view.setAttribute('data-module-expanded', '')
+  view.tabIndex = -1
+  document.body.append(view)
+  view.focus()
+  const heard = vi.fn()
+  document.addEventListener('keydown', heard, true)
+  fireEvent.keyDown(view, { key: 'Backspace' })
+  fireEvent.keyDown(view, { key: 'Escape' })
+  // The view hears both, so its first Esc closes it; the board's copy changes nothing.
+  expect(heard).toHaveBeenCalledTimes(2)
+  expect(rows().map((r) => r.id)).toEqual(['a', 'b'])
+  view.remove()
+  document.removeEventListener('keydown', heard, true)
+  screenBox.mockRestore()
+})
+
+test('the selection ends when the Gantt is no longer selected on the board', () => {
+  const screenBox = placeOnScreen()
+  renderGantt({}, plan([plain('a'), plain('b')]))
+  clickRow('a', 0)
+  expect(picked()).toEqual(['a'])
+  fireEvent.click(document.querySelector('.react-flow__pane')!)
+  expect(latest[0].selected).toBeFalsy()
+  expect(picked()).toEqual([])
+  screenBox.mockRestore()
+})
+
+test('one selection on the board: picking rows in another Gantt ends the first', () => {
+  const screenBox = placeOnScreen()
+  second = plan([plain('m'), plain('n')])
+  try {
+    renderGantt({}, plan([plain('a'), plain('b')]))
+    clickRow('a', 0)
+    // A Cmd-click in the other Gantt, which the board has not selected yet.
+    pressRow('m', 0, { metaKey: true })
+    release(50, rowY(0), { metaKey: true })
+    fireEvent.click(label('m'), { metaKey: true })
+    expect(picked()).toEqual(['m'])
+    expect(latest.find((n) => n.id === 'h')!.selected).toBe(true)
+    fireEvent.keyDown(document.body, { key: 'Backspace' })
+    const contentOf = (id: string) =>
+      (latest.find((n) => n.id === id)!.data as { content: GanttContent }).content
+    expect(contentOf('g').rows.map((r) => r.id)).toEqual(['a', 'b'])
+    expect(contentOf('h').rows.map((r) => r.id)).toEqual(['n'])
+  } finally {
+    second = null
+    screenBox.mockRestore()
+  }
+})
+
+test('a cancelled pointer or a window losing focus puts the dragged rows back', () => {
+  const screenBox = placeOnScreen()
+  renderGantt({}, plan([plain('a'), plain('b'), plain('c')]))
+  const before = current()
+  pressRow('a', 0)
+  moveTo(50, rowY(2))
+  expect(shiftOf('b').transform).toBe('translateY(-34px)')
+  fireEvent.pointerCancel(window, { pointerId: 1 })
+  expect(shiftOf('b').transform).toBe('')
+  release(50, rowY(2))
+  pressRow('a', 0)
+  moveTo(50, rowY(2))
+  fireEvent.blur(window)
+  expect(shiftOf('b').transform).toBe('')
+  release(50, rowY(2))
+  expect(current()).toBe(before)
+  screenBox.mockRestore()
+})
+
+test('a dragged row someone else deletes ends the drag cleanly', () => {
+  const screenBox = placeOnScreen()
+  renderGantt({}, plan([plain('a'), plain('b'), plain('c')]))
+  pressRow('b', 1)
+  moveTo(50, rowY(2) + 4)
+  expect(screen.getByTestId('gantt-drag-ghost')).toBeTruthy()
+  act(() => remote('g', plan([plain('a'), plain('c')])))
+  expect(screen.queryByTestId('gantt-drag-ghost')).toBeNull()
+  release(50, rowY(2) + 4)
+  expect(rows().map((r) => r.id)).toEqual(['a', 'c'])
+  screenBox.mockRestore()
+})
+
+test('a drop lands after the ghost glides, on the plan as it is then', async () => {
+  const screenBox = placeOnScreen()
+  let finish = () => {}
+  const animate = vi.fn(() => ({
+    finished: new Promise<void>((resolve) => (finish = resolve)),
+    cancel: () => {},
+  }))
+  Element.prototype.animate = animate as unknown as Element['animate']
+  try {
+    renderGantt({}, plan([plain('a'), plain('b'), plain('c'), plain('d')]))
+    pressRow('a', 0)
+    moveTo(50, rowY(2))
+    release(50, rowY(2))
+    expect(animate).toHaveBeenCalledTimes(1)
+    // Nothing is written while the ghost glides; someone renames d meanwhile.
+    expect(rows().map((r) => r.id)).toEqual(['a', 'b', 'c', 'd'])
+    const renamed = plan([plain('a'), plain('b'), plain('c'), { ...plain('d'), title: 'Renamed' }])
+    act(() => remote('g', renamed))
+    await act(async () => finish())
+    expect(rows().map((r) => r.id)).toEqual(['b', 'c', 'a', 'd'])
+    expect(rows()[3].title).toBe('Renamed')
+  } finally {
+    delete (Element.prototype as { animate?: unknown }).animate
+    screenBox.mockRestore()
+  }
+})
+
+test('a Shift-lasso from the band under the rows adds rows, not a board selection box', () => {
+  const screenBox = placeOnScreen()
+  renderGantt({}, plan([plain('a'), plain('b'), plain('c')]))
+  clickRow('a', 0)
+  const column = document.querySelector('[data-gantt-rows]')!.parentElement!
+  expect(column.className).toContain('nokey')
+  // The board's Shift box would take this primary press; nokey keeps it in the Gantt.
+  fireEvent.keyDown(document, { key: 'Shift' })
+  fireEvent.pointerDown(column, {
+    clientX: 150,
+    clientY: rowY(3) + 10,
+    pointerId: 1,
+    button: 0,
+    isPrimary: true,
+    shiftKey: true,
+  })
+  moveTo(150, rowY(1))
+  release(150, rowY(1), { shiftKey: true })
+  fireEvent.keyUp(document, { key: 'Shift' })
+  expect(picked()).toEqual(['a', 'b', 'c'])
+  screenBox.mockRestore()
+})
+
+test('rows folded away leave the selection and do not come back with the fold', () => {
+  const screenBox = placeOnScreen()
+  renderGantt({}, plan([plain('a'), plain('b', 'a'), plain('c')]))
+  clickRow('b', 1)
+  expect(picked()).toEqual(['b'])
+  fireEvent.click(screen.getByRole('button', { name: 'Collapse Row a' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Expand Row a' }))
+  expect(picked()).toEqual([])
+  fireEvent.keyDown(document.body, { key: 'Backspace' })
+  expect(rows().map((r) => r.id)).toEqual(['a', 'b', 'c'])
+  // The anchor went with it: a Shift-click starts afresh.
+  clickRow('c', 2, { shiftKey: true })
+  expect(picked()).toEqual(['c'])
+  screenBox.mockRestore()
+})
+
+test('a row someone else adds mid-drag gets its place in the moved-aside rows', () => {
+  const screenBox = placeOnScreen()
+  renderGantt({}, plan([plain('a'), plain('b'), plain('c'), plain('d')]))
+  pressRow('d', 3)
+  moveTo(50, rowY(0))
+  expect(shiftOf('c').transform).toBe('translateY(34px)')
+  act(() => remote('g', plan([plain('a'), plain('b'), plain('x'), plain('c'), plain('d')])))
+  // The gap is still at the top; a, b, x and c all sit one row down, x over nobody.
+  expect(shiftOf('x').transform).toBe('translateY(34px)')
+  expect(shiftOf('c').transform).toBe('translateY(34px)')
+  release(50, rowY(0))
+  expect(rows().map((r) => r.id)).toEqual(['d', 'a', 'b', 'x', 'c'])
+  screenBox.mockRestore()
+})
+
+test('a drop place folded away by someone else while the ghost glides keeps the rows put', async () => {
+  const screenBox = placeOnScreen()
+  let finish = () => {}
+  Element.prototype.animate = vi.fn(() => ({
+    finished: new Promise<void>((resolve) => (finish = resolve)),
+    cancel: () => {},
+  })) as unknown as Element['animate']
+  try {
+    // p holds a; x goes under a as its child.
+    renderGantt({}, plan([plain('p'), plain('a', 'p'), plain('x')]))
+    pressRow('x', 2)
+    moveTo(50 + 16, rowY(2))
+    release(50 + 16, rowY(2))
+    const folded = plan([plain('p', undefined, { collapsed: true }), plain('a', 'p'), plain('x')])
+    act(() => remote('g', folded))
+    await act(async () => finish())
+    expect(rows().map((r) => [r.id, r.parent])).toEqual([
+      ['p', undefined],
+      ['a', 'p'],
+      ['x', undefined],
+    ])
+    expect(screen.queryByTestId('gantt-drag-ghost')).toBeNull()
+  } finally {
+    delete (Element.prototype as { animate?: unknown }).animate
+    screenBox.mockRestore()
+  }
+})
+
+test('a lifted row someone else deletes keeps the pressed row under the pointer', () => {
+  const screenBox = placeOnScreen()
+  renderGantt({}, plan([plain('a'), plain('b'), plain('c'), plain('d')]))
+  clickRow('a', 0)
+  clickRow('b', 1, { metaKey: true })
+  pressRow('b', 1)
+  moveTo(50, rowY(1) + 6)
+  act(() => remote('g', plan([plain('b'), plain('c'), plain('d')])))
+  // b is now the only lifted row: the ghost's top is b's own top, so it lands past d.
+  moveTo(50, rowY(2) + 4)
+  release(50, rowY(2) + 4)
+  expect(rows().map((r) => r.id)).toEqual(['c', 'd', 'b'])
+  screenBox.mockRestore()
+})
+
+test('a drag ends when someone else removes the pressed row', () => {
+  const screenBox = placeOnScreen()
+  renderGantt({}, plan([plain('a'), plain('b'), plain('c')]))
+  clickRow('a', 0)
+  clickRow('b', 1, { metaKey: true })
+  pressRow('b', 1)
+  moveTo(50, rowY(2))
+  act(() => remote('g', plan([plain('a'), plain('c')])))
+  expect(screen.queryByTestId('gantt-drag-ghost')).toBeNull()
+  release(50, rowY(2))
+  expect(rows().map((r) => r.id)).toEqual(['a', 'c'])
+  screenBox.mockRestore()
 })

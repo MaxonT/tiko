@@ -13,7 +13,7 @@ tiko reads tasks from your tracker and never changes them. Each person connects 
 | GitHub Issues and pull requests, public repositories | Available, see [GitHub Issues](../github-issues/) |
 | GitHub private repositories | Available with [your own token](../github-issues/#your-own-token) |
 | CalDAV servers such as Nextcloud and Radicale | Available, see [CalDAV tasks](../caldav/) |
-| Linear | Planned |
+| Linear | Available, see [Linear](../linear/) |
 | Plane | Planned |
 | Todoist | Planned |
 | TickTick | Planned |

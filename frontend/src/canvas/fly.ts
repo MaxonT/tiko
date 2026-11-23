@@ -1,4 +1,4 @@
-import type { InternalNode, SetCenter, Viewport } from '@xyflow/react'
+import type { InternalNode, SetCenter, Viewport, XYPosition } from '@xyflow/react'
 import { useSyncExternalStore } from 'react'
 
 const FLASH_MS = 1200
@@ -35,6 +35,7 @@ export function useFlashing(id: string) {
 
 type Flow = {
   getInternalNode: (id: string) => InternalNode | undefined
+  getEdge: (id: string) => { source: string; target: string } | undefined
   getZoom: () => number
   setCenter: SetCenter
 }
@@ -51,20 +52,56 @@ export function zoomFor(width: number, height: number, current: number, min = MI
   return Math.min(Math.max(current, min), fit)
 }
 
+// Where each drawn arrow label sits on the board, kept by the arrow that draws it.
+const labelPoints = new Map<string, XYPosition>()
+
+/** Notes where an arrow's label is drawn, or that it is gone. */
+export function placeLabel(edgeId: string, at: XYPosition | null) {
+  if (at) labelPoints.set(edgeId, at)
+  else labelPoints.delete(edgeId)
+}
+
+// A node's box; an arrow's is its label's point when drawn, else the middle between its ends.
+function boxOf(flow: Flow, id: string) {
+  const edge = flow.getEdge(id)
+  const label = edge && labelPoints.get(id)
+  if (label) return { ...label, width: 0, height: 0 }
+  const ids = edge ? [edge.source, edge.target] : [id]
+  const boxes = ids.flatMap((one) => {
+    const node = flow.getInternalNode(one)
+    if (!node) return []
+    const { x, y } = node.internals.positionAbsolute
+    return [
+      {
+        x,
+        y,
+        width: node.measured.width ?? node.width ?? 0,
+        height: node.measured.height ?? node.height ?? 0,
+      },
+    ]
+  })
+  if (boxes.length === 0) return null
+  const left = Math.min(...boxes.map((b) => b.x))
+  const top = Math.min(...boxes.map((b) => b.y))
+  const right = Math.max(...boxes.map((b) => b.x + b.width))
+  const bottom = Math.max(...boxes.map((b) => b.y + b.height))
+  return edge
+    ? { x: (left + right) / 2, y: (top + bottom) / 2, width: 0, height: 0 }
+    : { x: left, y: top, width: right - left, height: bottom - top }
+}
+
 /**
- * Moves the board to a node and flashes it; `flash: false` only looks.
- * `offsetY` puts the node that many screen pixels below the window center.
+ * Moves the board to a node or an arrow's label and flashes it; `flash: false` only looks.
+ * `offsetY` puts it that many screen pixels below the window center.
  */
 export function flyTo(
   flow: Flow,
   id: string,
   { flash = true, minZoom = MIN_ZOOM, offsetY = 0 } = {},
 ) {
-  const node = flow.getInternalNode(id)
-  if (!node) return
-  const { x, y } = node.internals.positionAbsolute
-  const width = node.measured.width ?? node.width ?? 0
-  const height = node.measured.height ?? node.height ?? 0
+  const box = boxOf(flow, id)
+  if (!box) return
+  const { x, y, width, height } = box
   const zoom = zoomFor(width, height, flow.getZoom(), minZoom)
   void flow.setCenter(x + width / 2, y + height / 2 - offsetY / zoom, {
     zoom,

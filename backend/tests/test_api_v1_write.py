@@ -440,7 +440,9 @@ def test_a_reminder_at_a_moment_sits_on_its_element_or_alone(admin, setup):
         {"kind": "timer"},
         {"kind": "timer", "at": "2030-01-01T09:00:00Z", "ref": "DEMO-1"},
         {"kind": "timer", "ref": "DEMO-1", "repeat": "daily"},
-        {"kind": "timer", "at": "2030-01-01T09:00:00Z", "x": 1, "y": 2},
+        {"kind": "timer", "at": "2030-01-01T09:00:00Z", "on": "n1", "x": 1, "y": 2},
+        {"kind": "timer", "ref": "DEMO-1", "frame": "f1"},
+        {"kind": "timer", "at": "2030-01-01T09:00:00Z", "w": 80},
         {"kind": "note", "text": "x", "at": "2030-01-01T09:00:00Z"},
     ],
 )
@@ -645,3 +647,66 @@ def test_a_note_takes_no_code_change(setup):
         f"/api/v1/boards/{board_id}/elements", json={"changes": [{"id": "n1", "marked": [1]}]}
     )
     assert (refused.status_code, code(refused)) == (422, "validation_failed")
+
+
+def test_an_arrow_takes_a_label_when_added_and_changed(setup):
+    board_id, key = setup
+    made = add(
+        key,
+        board_id,
+        {"id": "agent-n1", "kind": "note", "text": "API"},
+        {"id": "agent-a1", "kind": "arrow", "from": "agent-n1", "to": "n1", "label": "blocks"},
+        {"id": "agent-a2", "kind": "arrow", "from": "n1", "to": "agent-n1"},
+    )
+    assert made.status_code == 200, made.json()
+    now = elements(key, board_id)
+    assert (now["agent-a1"]["label"], now["agent-a2"]["label"]) == ("blocks", "")
+    url = f"/api/v1/boards/{board_id}/elements"
+    changed = key.patch(url, json={"changes": [{"id": "agent-a2", "label": "waits for"}]})
+    assert changed.status_code == 200, changed.json()
+    assert changed.json()["elements"][0]["label"] == "waits for"
+    cleared = key.patch(url, json={"changes": [{"id": "agent-a1", "label": ""}]})
+    assert cleared.json()["elements"][0]["label"] == ""
+
+
+def test_a_label_change_keeps_where_and_how_the_label_sits(app, admin, setup):
+    board_id, key = setup
+    add(
+        key,
+        board_id,
+        {"id": "agent-n1", "kind": "note", "text": "API"},
+        {"id": "agent-a1", "kind": "arrow", "from": "agent-n1", "to": "n1", "label": "old"},
+    )
+    current = admin.get(f"/api/boards/{board_id}").json()
+    for edge in current["doc"]["edges"]:
+        edge["data"]["label"] |= {"at": 0.2, "color": "pink"}
+    admin.put(
+        f"/api/boards/{board_id}", json={"version": current["version"], "doc": current["doc"]}
+    )
+    key.patch(
+        f"/api/v1/boards/{board_id}/elements",
+        json={"changes": [{"id": "agent-a1", "label": "new"}]},
+    )
+    (edge,) = admin.get(f"/api/boards/{board_id}").json()["doc"]["edges"]
+    assert edge["data"]["label"] == {"text": "new", "at": 0.2, "color": "pink"}
+
+
+def test_a_persons_arrow_keeps_its_label_and_an_arrow_keeps_its_ends(app, admin, setup):
+    board_id, key = setup
+    add(key, board_id, {"id": "agent-n1", "kind": "note", "text": "API"})
+    current = admin.get(f"/api/boards/{board_id}").json()
+    doc = current["doc"] | {"edges": [{"id": "e1", "source": "n1", "target": "agent-n1"}]}
+    admin.put(f"/api/boards/{board_id}", json={"version": current["version"], "doc": doc})
+    url = f"/api/v1/boards/{board_id}/elements"
+    person = key.patch(url, json={"changes": [{"id": "e1", "label": "mine"}]})
+    assert (person.status_code, code(person)) == (409, "not_api_element")
+    add(key, board_id, {"id": "agent-a1", "kind": "arrow", "from": "agent-n1", "to": "n1"})
+    ends = key.patch(url, json={"changes": [{"id": "agent-a1", "label": "x", "x": 1, "y": 2}]})
+    assert ends.status_code == 422 and "only its label" in ends.json()["error"]["message"]
+    note = key.patch(url, json={"changes": [{"id": "agent-n1", "label": "x"}]})
+    assert note.status_code == 422
+    other = add(key, board_id, {"kind": "note", "text": "x", "label": "no"})
+    too_long = add(
+        key, board_id, {"kind": "arrow", "from": "agent-n1", "to": "n1", "label": "x" * 501}
+    )
+    assert (other.status_code, too_long.status_code) == (422, 422)

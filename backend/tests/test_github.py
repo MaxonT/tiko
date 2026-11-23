@@ -13,7 +13,8 @@ from app.domain.errors import (
     TrackerUnavailable,
     TrackerUnreachable,
 )
-from app.domain.tasks import github_key, valid_key
+from app.domain.sources import valid_key
+from app.domain.tasks import github_key
 from app.main import create_app
 from tests.conftest import signed_in
 from tests.github_fake import REPO, T_ANN, T_BOB, TOKEN, FakeGitHub, issue
@@ -573,25 +574,26 @@ def team(private):
 
 def test_my_github_token(team, private):
     ann = team["ann"]
-    assert ann.get("/api/me/tracker").json()["github_token_state"] == "none"
+    assert ann.get("/api/me/tracker").json()["tokens"]["github"] == "none"
     private.revoked.add("made-up")
     refused = ann.put("/api/me/tracker", json={"token": "made-up", "source": "github"})
     assert (refused.status_code, refused.json()["error"]["code"]) == (422, "validation_failed")
-    assert ann.get("/api/me/tracker").json()["github_token_state"] == "none"
+    assert ann.get("/api/me/tracker").json()["tokens"]["github"] == "none"
     saved = ann.put("/api/me/tracker", json={"token": f" {T_ANN}\n", "source": "github"})
     assert saved.json() == {
         "provider": "demo",
         "base_url": None,
-        "token_state": "none",
-        "github_token_state": "set",
         "kind": None,
         "email": None,
+        "tokens": {"jira": "none", "caldav": "none", "github": "set", "linear": "none"},
+        "connected_as": saved.json()["connected_as"],
     }
+    assert saved.json()["connected_as"]
     assert T_ANN not in ann.get("/api/me/tracker").text + ann.get("/api/settings").text
     assert ann.delete("/api/me/tracker").status_code == 204
-    assert ann.get("/api/me/tracker").json()["github_token_state"] == "set"
+    assert ann.get("/api/me/tracker").json()["tokens"]["github"] == "set"
     assert ann.delete("/api/me/tracker", params={"source": "github"}).status_code == 204
-    assert ann.get("/api/me/tracker").json()["github_token_state"] == "none"
+    assert ann.get("/api/me/tracker").json()["tokens"]["github"] == "none"
 
 
 def test_a_private_task_is_seen_by_its_tokens_owner_only(team, private):
@@ -637,7 +639,7 @@ def test_a_demo_visitor_cannot_keep_a_token(private):
     assert visitor.post("/api/auth/demo").is_success
     refused = visitor.put("/api/me/tracker", json={"token": T_ANN, "source": "github"})
     assert refused.status_code == 403
-    assert visitor.get("/api/me/tracker").json()["github_token_state"] == "none"
+    assert visitor.get("/api/me/tracker").json()["tokens"]["github"] == "none"
 
 
 def test_access_given_back_brings_the_cards_back(private, clock):

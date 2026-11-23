@@ -16,7 +16,7 @@ Around the cards from your tracker, a board holds frames, notes, shapes, text, c
 | **Shape** | `S` | Rectangle, rounded rectangle, ellipse, rhombus, triangle, parallelogram, hexagon or cylinder, for a flowchart next to the tasks. Holds a short text and takes a fill color. |
 | **Text** | `T` | Text anywhere on the board. |
 | **Code** | `K` | A piece of code with its colors, see [Code](#code). |
-| **Arrow** | | Joins any two elements, or points at an empty spot. |
+| **Arrow** | | Joins any two elements, or points at an empty spot. Takes a label, see [Arrow labels](#arrow-labels). |
 | **Picture** | `I` | A screenshot or a photo, see [Pictures](#pictures). |
 | **Sticker** | `E` | An animated emoji or your team's own, see [Stickers](#stickers). |
 
@@ -36,6 +36,16 @@ A code block holds up to 10,000 characters of code in a monospaced font, colored
 - **Turn into code:** select a text or a sticky and pick **Turn into code** in the bar above it; a code block turns back with **Turn into text**. Arrows and reminders stay on it, and the language is picked the same way as on paste. A sticky loses its color; a title becomes the first line of the text.
 
 Long lines wrap; drag a side of the block to make it wider.
+
+## Arrow labels
+
+Say what an arrow means: "blocks", "waits for API", "then". The label rides on the arrow, so it stays readable however you move the board around.
+
+- **Add:** double-click an arrow, or select it and press `Enter` or **Add label** in the bar above it, and type. `Enter` finishes, `Shift+Enter` starts a new line, `Esc` finishes and keeps the text.
+- **Edit:** double-click the label. Clear its text to remove it.
+- **Move:** drag the label along the arrow, toward either end. It stays on the line, stops short of the arrowhead and the elements at the ends, and snaps back to the middle when you bring it close.
+- **Look:** select the arrow and pick a fill and a text size in the bar above it. With no fill, the line breaks around the words.
+- The text stays level on any bend, wraps after a few words and goes up to 500 characters. Search finds it.
 
 ## Pictures
 

@@ -18,6 +18,7 @@ def test_defaults(client):
         "public_links": True,
         "api_keys": True,
         "api_keys_live": 0,
+        "full_keys": False,
         "locked": [],
     }
 

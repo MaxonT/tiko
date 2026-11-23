@@ -27,7 +27,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      pull-requests: read
+      # Commenting on a pull request needs this as well as issues write, or the bot gets a 403.
+      pull-requests: write
       issues: write
       statuses: write
     steps:

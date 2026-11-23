@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { fetchJson } from '@/api/client'
 
-const scopeSchema = z.enum(['read', 'write'])
+const scopeSchema = z.enum(['read', 'write', 'full'])
 export type ApiKeyScope = z.infer<typeof scopeSchema>
 
 export const apiKeySchema = z.object({
@@ -23,6 +23,8 @@ const listSchema = z.object({
   keys: z.array(apiKeySchema),
   /** Whether the workspace's admin lets people make keys. */
   enabled: z.boolean(),
+  /** Whether the admin lets keys change and remove everyone's work. */
+  full: z.boolean().default(false),
 })
 const createdSchema = z.object({ key: apiKeySchema, token: z.string() })
 

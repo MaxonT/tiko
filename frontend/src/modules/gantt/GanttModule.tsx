@@ -1,4 +1,4 @@
-import type { XYPosition } from '@xyflow/react'
+import { useStoreApi, type XYPosition } from '@xyflow/react'
 import {
   CalendarRange,
   ChevronDown,
@@ -12,6 +12,7 @@ import {
 import {
   useContext,
   useEffect,
+  useId,
   useRef,
   useState,
   type FormEvent,
@@ -43,6 +44,17 @@ import { GanttColumns } from '@/modules/gantt/GanttColumns'
 import { GanttFilters } from '@/modules/gantt/GanttFilters'
 import { GanttLabel } from '@/modules/gantt/GanttLabel'
 import { GanttStages } from '@/modules/gantt/GanttStages'
+import {
+  DragGhost,
+  DragStore,
+  DragStoreContext,
+  FadeWhileDragging,
+  LassoBox,
+  Placeholder,
+  Shift,
+} from '@/modules/gantt/drag-store'
+import { useRowDrag } from '@/modules/gantt/useRowDrag'
+import { select } from '@/modules/gantt/drag'
 import { activeFilters, FILTER_BAR, shownRows } from '@/modules/gantt/filters'
 import { ConnectHandle, Links, type BarPlace, type Point } from '@/modules/gantt/Links'
 import { Milestone } from '@/modules/gantt/Milestone'
@@ -92,10 +104,9 @@ import {
   indent,
   liftRemove,
   foldAll,
-  moveSubtree,
+  moveRows,
   outdent,
   shiftBranch,
-  subtreeEnd,
   branchSpan,
   resizeParent,
 } from '@/modules/gantt/tree'
@@ -124,6 +135,11 @@ import { shortKey } from '@/sources/registry'
 
 type Props = ModuleViewProps<GanttContent>
 
+// Rows dropped on the board together go in a column, each this far below the one before, in
+// board pixels: a card at its usual height and a sticky note at the board's size, plus a gap.
+const EJECTED = { card: 96, note: 200, gap: 16 }
+// Tells every Gantt in the tab that one of them has picked rows, so only one selection is live.
+const PICKED = 'tiko:gantt-rows-picked'
 // A label narrower than this would be clipped to nonsense, so the cell stays blank.
 const MIN_LABEL_PX = 40
 const SCALES: { scale: Scale; label: string }[] = [
@@ -215,7 +231,17 @@ export function GanttModule({
     )
   }
   const [fresh, setFresh] = useState<string | null>(null)
+  const [store] = useState(() => new DragStore())
+  const rootEl = useRef<HTMLDivElement>(null)
+  const token = useId()
+  const flowStore = useStoreApi()
+  const rowsEl = useRef<HTMLDivElement>(null)
+  const ghostEl = useRef<HTMLDivElement>(null)
+  const getZoom = useZoom()
   const [picked, setPicked] = useState<string | null>(null)
+  // Rows picked in the task column: this tab's own, never stored or sent.
+  const [rowsPicked, setRowsPicked] = useState<ReadonlySet<string>>(() => new Set())
+  const anchor = useRef<string | null>(null)
   const [wire, setWire] = useState<{ from: Point; to: Point } | null>(null)
   const todayLine = useRef<HTMLDivElement>(null)
   const opened = useRef(false)
@@ -286,11 +312,25 @@ export function GanttModule({
       ),
     )
   }
-  const eject = (row: Row, screen: XYPosition) => {
-    const task = rowTask(row)
-    if (task) host.ejectCard(task, screen)
-    else host.ejectNote(row.title, screen)
-    onChange(liftRemove(content, row.id))
+  // Rows dropped on the board go in a column from the drop point, in plan order.
+  const eject = (ids: string[], screen: XYPosition) => {
+    const zoom = getZoom()
+    let next = content
+    // Where the next one starts; a card hangs from its point, a note is centred on it.
+    let top: number | null = null
+    ids.forEach((id) => {
+      const row = content.rows.find((r) => r.id === id)
+      if (!row) return
+      const task = rowTask(row)
+      const half = (EJECTED.note / 2) * zoom
+      const y = top === null ? screen.y : task ? top : top + half
+      const at = { x: screen.x, y }
+      if (task) host.ejectCard(task, at)
+      else host.ejectNote(row.title, at)
+      top = (task ? y + EJECTED.card * zoom : y + half) + EJECTED.gap * zoom
+      next = liftRemove(next, id)
+    })
+    onChange(next)
   }
   const addChildRow = (parentId: string) => {
     if (full) return
@@ -298,7 +338,6 @@ export function GanttModule({
     setFresh(row.id)
     onChange(addChild(content, parentId, row))
   }
-  // Rows dropped among the others: the dragged subtree is left out when counting places.
   const extenders = (
     <>
       <ExtendButton
@@ -320,293 +359,459 @@ export function GanttModule({
   // Expanded, the headers and the title column stay in view while the plan scrolls under them.
   const stickTop = planning.enabled ? FILTER_BAR : 0
   const stuck = expanded ? 'sticky z-20' : undefined
-  const drop = (id: string, depth: number, rowsDown: number, levels: number) => {
-    const at = visible.findIndex((t) => t.row.id === id)
-    const end = subtreeEnd(content.rows, indexOf.get(id)!)
-    const moving = new Set(content.rows.slice(indexOf.get(id)!, end).map((r) => r.id))
-    const rest = visible.filter((t) => !moving.has(t.row.id))
-    const slot = Math.min(Math.max(at + rowsDown, 0), rest.length)
-    onChange(moveSubtree(content, id, rest[slot]?.row.id ?? null, depth + levels))
+  // Only rows in view count as selected: a filter, a fold or someone else's delete drops the rest.
+  const selection = new Set(visible.filter((t) => rowsPicked.has(t.row.id)).map((t) => t.row.id))
+  const pickRows = (ids: ReadonlySet<string>) => {
+    if (ids.size === 0) anchor.current = null
+    else window.dispatchEvent(new CustomEvent(PICKED, { detail: token }))
+    setRowsPicked(ids)
   }
+  const rowDrag = useRowDrag({
+    store,
+    rowsEl,
+    ghostEl,
+    rows: content.rows,
+    visible,
+    rowHeight: height,
+    expanded,
+    edgeTop: stickTop + HEADER,
+    onDrop: (ids, aboveId, depth) => {
+      pickRows(new Set(ids))
+      onChange(moveRows(content, ids, aboveId, depth))
+    },
+    onEject: (ids, screen) => {
+      pickRows(new Set())
+      eject(ids, screen)
+    },
+    onClick: (id, event) => {
+      const order = visible.map((t) => t.row.id)
+      const toggle = event.metaKey || event.ctrlKey
+      const next = select(selection, anchor.current, id, order, { shift: event.shiftKey, toggle })
+      pickRows(next.selected)
+      anchor.current = next.anchor
+    },
+    onSelect: pickRows,
+  })
+  const lassoFrom = (event: PointerEvent, id?: string) =>
+    rowDrag.lasso(
+      event,
+      event.shiftKey || event.metaKey || event.ctrlKey ? selection : new Set(),
+      id,
+    )
+  // Esc clears the selection and Delete removes its rows, before the board or the expanded view
+  // hears either: the module itself is never deleted from here.
+  const keys = useRef<(event: KeyboardEvent) => void>(() => {})
+  useEffect(() => {
+    keys.current = (event) => {
+      if (!ownsKey(event, rootEl.current)) return
+      if (event.key === 'Escape' && !rowDrag.busy()) {
+        event.preventDefault()
+        event.stopPropagation()
+        pickRows(new Set())
+      }
+      if (event.key === 'Delete' || event.key === 'Backspace') {
+        event.preventDefault()
+        event.stopPropagation()
+        pickRows(new Set())
+        onChange([...selection].reduce((next, id) => liftRemove(next, id), content))
+      }
+    }
+  })
+  // Rows that leave the view leave the selection for good: folding a parent and opening it again
+  // must not pick its children again without a new click.
+  const shownKey = visible.map((t) => t.row.id).join(' ')
+  useEffect(() => {
+    const shown = new Set(shownKey.split(' '))
+    if (anchor.current !== null && !shown.has(anchor.current)) anchor.current = null
+    setRowsPicked((current) =>
+      [...current].every((id) => shown.has(id))
+        ? current
+        : new Set([...current].filter((id) => shown.has(id))),
+    )
+  }, [shownKey])
+  const anyPicked = selection.size > 0
+  useEffect(() => {
+    if (!anyPicked) return
+    const listen = (event: KeyboardEvent) => keys.current(event)
+    window.addEventListener('keydown', listen, true)
+    return () => window.removeEventListener('keydown', listen, true)
+  }, [anyPicked])
+  // Another Gantt, or this one expanded over the board, picked rows: this selection ends.
+  useEffect(() => {
+    const other = (event: Event) => {
+      if ((event as CustomEvent).detail !== token) setRowsPicked(new Set())
+    }
+    window.addEventListener(PICKED, other)
+    return () => window.removeEventListener(PICKED, other)
+  }, [token])
+  // Selecting something else on the board ends the selection.
+  const wasSelected = useRef(selected)
+  useEffect(() => {
+    if (wasSelected.current && !selected) setRowsPicked(new Set())
+    wasSelected.current = selected
+  }, [selected])
+  const labelOf = (row: Row) =>
+    row.key ? `${keyOf(row, taskOf(row))} ${taskOf(row)?.summary ?? ''}` : row.title || 'Untitled'
 
   return (
-    <div
-      className={cn('flex flex-col text-[13px]', !expanded && 'h-full')}
-      style={
-        expanded ? { width: Math.max(width, left + axis.width), minHeight: viewHeight } : undefined
-      }
-    >
-      {planning.enabled && (
-        <div
-          className={cn('shrink-0', expanded && 'bg-card sticky top-0 left-0 z-40')}
-          style={expanded ? { width } : undefined}
-        >
-          <GanttFilters content={content} planning={planning} onChange={onChange} />
-        </div>
-      )}
-      <div className="flex min-h-0 flex-1">
-        <div className={cn('bg-panel flex shrink-0', expanded && 'sticky left-0 z-30')}>
+    <DragStoreContext.Provider value={store}>
+      <div
+        ref={rootEl}
+        // A popover's keys bubble through React to the board's node, whose Esc deselects the Gantt
+        // and whose arrows move it; they belong to the popover.
+        onKeyDown={(event) => {
+          if (!event.currentTarget.contains(event.target as Node)) event.stopPropagation()
+        }}
+        className={cn('flex flex-col text-[13px]', !expanded && 'h-full')}
+        style={
+          expanded
+            ? { width: Math.max(width, left + axis.width), minHeight: viewHeight }
+            : undefined
+        }
+      >
+        {planning.enabled && (
           <div
-            className="relative flex shrink-0 flex-col border-r"
-            style={{ width: content.labelWidth }}
+            className={cn('shrink-0', expanded && 'bg-card sticky top-0 left-0 z-40')}
+            style={expanded ? { width } : undefined}
           >
-            <ColumnResizer
-              width={content.labelWidth}
-              max={Math.min(LABEL_WIDTH.max, width - LABEL_WIDTH.min)}
-              onWidth={(labelWidth) => onChange({ ...content, labelWidth })}
-            />
+            <GanttFilters content={content} planning={planning} onChange={onChange} />
+          </div>
+        )}
+        <div className="flex min-h-0 flex-1">
+          <div className={cn('bg-panel flex shrink-0', expanded && 'sticky left-0 z-30')}>
             <div
-              className={cn(
-                'text-muted-foreground bg-panel flex shrink-0 items-center border-b px-3',
-                stuck,
-              )}
-              style={{ height: HEADER, top: stickTop }}
+              // nokey: with Shift held the board would take a press here, on the rows or the band
+              // under them, for its own selection box.
+              className="nokey relative flex shrink-0 flex-col border-r"
+              style={{ width: content.labelWidth }}
+              // The blank band under the rows starts a lasso too.
+              onPointerDown={(event) => {
+                if (event.target === event.currentTarget && !readOnly) lassoFrom(event)
+              }}
+              // Shift or Cmd here picks rows; the board must not take it as a click that drops
+              // the Gantt from its own selection.
+              // It still selects this Gantt, so a selection in another one ends.
+              onClick={(event) => {
+                // A clicked button or link gives focus back, so the board hears its keys again:
+                // it ignores them while focus is inside nokey.
+                const control = (event.target as Element).closest('button, a')
+                if (control instanceof HTMLElement) control.blur()
+                if (!event.shiftKey && !event.metaKey && !event.ctrlKey) return
+                event.stopPropagation()
+                if (!selected && !expanded) flowStore.getState().addSelectedNodes([id])
+              }}
             >
-              <span className="min-w-0 flex-1 truncate">
-                {formatRange(content.start, content.end)}
-              </span>
-              {nested && (
-                <>
-                  <FoldAll label="Expand all" onClick={() => onChange(foldAll(content, false))}>
-                    <ChevronsUpDown className="size-3.5" />
-                  </FoldAll>
-                  <FoldAll label="Collapse all" onClick={() => onChange(foldAll(content, true))}>
-                    <ChevronsDownUp className="size-3.5" />
-                  </FoldAll>
-                </>
-              )}
-            </div>
-            {lane > 0 && (
-              <div
-                className="text-muted-foreground bg-muted shrink-0 border-b px-3 leading-8 font-medium"
-                style={{ height: lane }}
-              >
-                Time off
-              </div>
-            )}
-            {visible.map(({ row, depth, hasChildren }) => (
-              <GanttLabel
-                key={row.id}
-                row={row}
-                depth={depth}
-                hasChildren={hasChildren}
-                height={height}
-                task={taskOf(row)}
-                url={taskOf(row)?.url}
-                fresh={row.id === fresh}
-                onTitle={(title) => onChange(updateRow(content, row.id, (r) => ({ ...r, title })))}
-                onRemove={() => onChange(liftRemove(content, row.id))}
-                onToggle={() =>
-                  onChange(updateRow(content, row.id, (r) => ({ ...r, collapsed: !r.collapsed })))
-                }
-                onIndent={() => onChange(indent(content, row.id))}
-                onOutdent={() => onChange(outdent(content, row.id))}
-                onAddChild={() => addChildRow(row.id)}
-                onMove={(rowsDown, levels) => drop(row.id, depth, rowsDown, levels)}
-                onEject={(screen) => eject(row, screen)}
-                follow={
-                  row.key && !hasChildren && !row.stages?.length ? Boolean(row.follow) : undefined
-                }
-                onFollow={(follow) => setFollow([row.id], follow)}
-                done={!hasChildren && leafDone(row, taskOf(row))}
-                onDone={
-                  readOnly || row.key
-                    ? undefined
-                    : (done) => onChange(tickRow(content, row.id, done))
-                }
-                progress={
-                  hasChildren ? progress(content.rows, indexOf.get(row.id)!, taskOf) : undefined
-                }
+              <ColumnResizer
+                width={content.labelWidth}
+                max={Math.min(LABEL_WIDTH.max, width - LABEL_WIDTH.min)}
+                onWidth={(labelWidth) => onChange({ ...content, labelWidth })}
               />
-            ))}
-            <div
-              className="mt-auto flex shrink-0 items-center gap-1 px-1"
-              style={{ height: FOOTER }}
-            >
-              <GanttAdd
-                disabled={full}
-                onTasks={addTasks}
-                onPlain={(title) => {
-                  didOnboarding('gantt_task')
-                  onChange(addRows(content, [makeRow(content, { title })]))
+              <div
+                className={cn(
+                  'text-muted-foreground bg-panel flex shrink-0 items-center border-b px-3',
+                  stuck,
+                )}
+                style={{ height: HEADER, top: stickTop }}
+              >
+                <span className="min-w-0 flex-1 truncate">
+                  {formatRange(content.start, content.end)}
+                </span>
+                {nested && (
+                  <>
+                    <FoldAll label="Expand all" onClick={() => onChange(foldAll(content, false))}>
+                      <ChevronsUpDown className="size-3.5" />
+                    </FoldAll>
+                    <FoldAll label="Collapse all" onClick={() => onChange(foldAll(content, true))}>
+                      <ChevronsDownUp className="size-3.5" />
+                    </FoldAll>
+                  </>
+                )}
+              </div>
+              {lane > 0 && (
+                <div
+                  className="text-muted-foreground bg-muted shrink-0 border-b px-3 leading-8 font-medium"
+                  style={{ height: lane }}
+                >
+                  Time off
+                </div>
+              )}
+              <div
+                ref={rowsEl}
+                data-gantt-rows
+                role="listbox"
+                aria-label="Rows"
+                aria-multiselectable
+                className="relative"
+              >
+                {visible.map(({ row, depth, hasChildren }) => (
+                  <Shift key={row.id} id={row.id} label selected={selection.has(row.id)}>
+                    <GanttLabel
+                      row={row}
+                      depth={depth}
+                      hasChildren={hasChildren}
+                      height={height}
+                      task={taskOf(row)}
+                      url={taskOf(row)?.url}
+                      fresh={row.id === fresh}
+                      onTitle={(title) =>
+                        onChange(updateRow(content, row.id, (r) => ({ ...r, title })))
+                      }
+                      onRemove={() => onChange(liftRemove(content, row.id))}
+                      onToggle={() =>
+                        onChange(
+                          updateRow(content, row.id, (r) => ({ ...r, collapsed: !r.collapsed })),
+                        )
+                      }
+                      onIndent={() => onChange(indent(content, row.id))}
+                      onOutdent={() => onChange(outdent(content, row.id))}
+                      onAddChild={() => addChildRow(row.id)}
+                      onPress={(event) =>
+                        rowDrag.press(
+                          event,
+                          row.id,
+                          selection.has(row.id) ? [...selection] : [row.id],
+                        )
+                      }
+                      onLasso={(event) => lassoFrom(event, row.id)}
+                      follow={
+                        row.key && !hasChildren && !row.stages?.length
+                          ? Boolean(row.follow)
+                          : undefined
+                      }
+                      onFollow={(follow) => setFollow([row.id], follow)}
+                      done={!hasChildren && leafDone(row, taskOf(row))}
+                      onDone={
+                        readOnly || row.key
+                          ? undefined
+                          : (done) => onChange(tickRow(content, row.id, done))
+                      }
+                      progress={
+                        hasChildren
+                          ? progress(content.rows, indexOf.get(row.id)!, taskOf)
+                          : undefined
+                      }
+                    />
+                  </Shift>
+                ))}
+                <Placeholder />
+                <LassoBox />
+                <DragGhost
+                  ref={ghostEl}
+                  labelOf={labelOf}
+                  height={height}
+                  width={content.labelWidth}
+                />
+              </div>
+              <div
+                className="mt-auto flex shrink-0 items-center gap-1 px-1"
+                style={{ height: FOOTER }}
+              >
+                <GanttAdd
+                  disabled={full}
+                  onTasks={addTasks}
+                  onPlain={(title) => {
+                    didOnboarding('gantt_task')
+                    onChange(addRows(content, [makeRow(content, { title })]))
+                  }}
+                />
+              </div>
+            </div>
+            {planning.enabled && (
+              <GanttColumns
+                content={content}
+                visible={visible.map(({ row }) => row)}
+                selected={selection}
+                fields={planning.fields}
+                rowHeight={height}
+                lane={lane}
+                stickTop={expanded ? stickTop : undefined}
+                onChange={onChange}
+                onRow={(next) => onChange(updateRow(content, next.id, () => next))}
+              />
+            )}
+          </div>
+          <div data-gantt-body className="relative min-w-0 flex-1">
+            <div className={cn('border-b', stuck, expanded && 'bg-card')} style={{ top: stickTop }}>
+              <HeaderRow cells={top} top />
+              <HeaderRow cells={bottom} top={false} />
+              {/* Expanded, the buttons ride in the header so they stay in view. */}
+              {selected && expanded && extenders}
+            </div>
+            <div className="absolute inset-x-0 bottom-0" style={{ top: HEADER }}>
+              {/* Under the week lines, so the Time off lane keeps the grid. */}
+              {lane > 0 && (
+                <div className="bg-muted absolute inset-x-0 top-0" style={{ height: lane }} />
+              )}
+              {bottom.map((cell) => (
+                <div
+                  key={cell.from}
+                  className={cn(
+                    'absolute inset-y-0 border-l border-border/60',
+                    cell.weekend && 'bg-muted/60',
+                  )}
+                  style={{ left: cell.left, width: cell.width }}
+                />
+              ))}
+              {daysOff.map((day) => (
+                <div
+                  key={day}
+                  data-gantt-day-off
+                  title="Day off"
+                  className="bg-muted/60 absolute inset-y-0"
+                  style={{ left: xOf(axis, day), width: axis.px }}
+                />
+              ))}
+            </div>
+            {/* After the grid: the lane is in the flow above the rows, the grid must not cover it. */}
+            {lane > 0 && (
+              <TimeOffLane items={away.items} height={lane} axis={axis} people={planning.people} />
+            )}
+            {now >= start && now <= end && (
+              <div
+                ref={todayLine}
+                data-testid="gantt-today"
+                title="Today"
+                className="bg-primary pointer-events-none absolute bottom-0 z-10 w-px"
+                style={{
+                  left: xOf(axis, now) + (axis.working && isWeekend(now) ? 0 : axis.px / 2),
+                  top: HEADER,
                 }}
               />
-            </div>
-          </div>
-          {planning.enabled && (
-            <GanttColumns
-              content={content}
-              visible={visible.map(({ row }) => row)}
-              fields={planning.fields}
-              rowHeight={height}
-              lane={lane}
-              stickTop={expanded ? stickTop : undefined}
-              onChange={onChange}
-              onRow={(next) => onChange(updateRow(content, next.id, () => next))}
-            />
-          )}
-        </div>
-        <div data-gantt-body className="relative min-w-0 flex-1">
-          <div className={cn('border-b', stuck, expanded && 'bg-card')} style={{ top: stickTop }}>
-            <HeaderRow cells={top} top />
-            <HeaderRow cells={bottom} top={false} />
-            {/* Expanded, the buttons ride in the header so they stay in view. */}
-            {selected && expanded && extenders}
-          </div>
-          <div className="absolute inset-x-0 bottom-0" style={{ top: HEADER }}>
-            {/* Under the week lines, so the Time off lane keeps the grid. */}
-            {lane > 0 && (
-              <div className="bg-muted absolute inset-x-0 top-0" style={{ height: lane }} />
             )}
-            {bottom.map((cell) => (
-              <div
-                key={cell.from}
-                className={cn(
-                  'absolute inset-y-0 border-l border-border/60',
-                  cell.weekend && 'bg-muted/60',
-                )}
-                style={{ left: cell.left, width: cell.width }}
+            {visible.map(({ row, hasChildren }) => {
+              const task = taskOf(row)
+              // Rows with their own dates show the tracker's beside them where the two differ.
+              const off = row.key && !follows(row, hasChildren) ? drift(task, barSpan(row)) : null
+              const ghost = off && (
+                <DriftGhost
+                  tracked={off}
+                  axis={axis}
+                  bar={bars.get(row.id)}
+                  onSpread={
+                    readOnly || hasChildren || !row.stages?.length
+                      ? undefined
+                      : () => {
+                          const next = spreadStages(row, off.span, axis)
+                          if (next) onChange(updateRow(content, row.id, () => next))
+                        }
+                  }
+                  canSpread={spreadStages(row, off.span, axis) !== null}
+                  parent={hasChildren}
+                  onFollow={
+                    readOnly || hasChildren || row.stages?.length
+                      ? undefined
+                      : () => setFollow([row.id], true)
+                  }
+                />
+              )
+              return (
+                <Shift key={row.id} id={row.id} selected={selection.has(row.id)}>
+                  <div
+                    data-gantt-row={row.id}
+                    className="group/row relative border-b border-border/60"
+                    style={{ height }}
+                  >
+                    {planning.enabled && !hasChildren ? (
+                      <GanttStages
+                        row={row}
+                        axis={axis}
+                        types={planning.types}
+                        people={planning.people}
+                        assignees={assignees}
+                        below={content.people === 'below'}
+                        label={stagesLabel(row, taskOf(row))}
+                        done={leafDone(row, task)}
+                        {...trackerNotes(row, hasChildren, task, off)}
+                        onRow={(next) => onChange(updateRow(content, row.id, () => next))}
+                      />
+                    ) : (
+                      <GanttBar
+                        span={barSpan(row)}
+                        summary={hasChildren}
+                        axis={axis}
+                        label={
+                          row.key
+                            ? `${keyOf(row, taskOf(row))} ${taskOf(row)?.summary ?? ''}`
+                            : row.title
+                        }
+                        task={task}
+                        done={!hasChildren && leafDone(row, task)}
+                        {...trackerNotes(row, hasChildren, task, off)}
+                        onSpan={(next) =>
+                          hasChildren
+                            ? onParentSpan(row, next)
+                            : onChange(updateRow(content, row.id, (r) => fitStages(r, next)))
+                        }
+                      />
+                    )}
+                    {ghost}
+                    {bars.has(row.id) && (
+                      <ConnectHandle
+                        bar={bars.get(row.id)!}
+                        onWire={setWire}
+                        onDrop={(target) => link(row.id, target)}
+                      />
+                    )}
+                  </div>
+                </Shift>
+              )
+            })}
+            <FadeWhileDragging>
+              <Links
+                links={content.links}
+                bars={bars}
+                wire={wire}
+                picked={selected ? picked : null}
+                onPick={setPicked}
+                rowHeight={height}
+                onRemove={(id) => {
+                  setPicked(null)
+                  onChange(removeLink(content, id))
+                }}
               />
-            ))}
-            {daysOff.map((day) => (
-              <div
-                key={day}
-                data-gantt-day-off
-                title="Day off"
-                className="bg-muted/60 absolute inset-y-0"
-                style={{ left: xOf(axis, day), width: axis.px }}
-              />
-            ))}
-          </div>
-          {/* After the grid: the lane is in the flow above the rows, the grid must not cover it. */}
-          {lane > 0 && (
-            <TimeOffLane items={away.items} height={lane} axis={axis} people={planning.people} />
-          )}
-          {now >= start && now <= end && (
-            <div
-              ref={todayLine}
-              data-testid="gantt-today"
-              title="Today"
-              className="bg-primary pointer-events-none absolute bottom-0 z-10 w-px"
-              style={{
-                left: xOf(axis, now) + (axis.working && isWeekend(now) ? 0 : axis.px / 2),
-                top: HEADER,
-              }}
-            />
-          )}
-          {visible.map(({ row, hasChildren }) => {
-            const task = taskOf(row)
-            // Rows with their own dates show the tracker's beside them where the two differ.
-            const off = row.key && !follows(row, hasChildren) ? drift(task, barSpan(row)) : null
-            const ghost = off && (
-              <DriftGhost
-                tracked={off}
+            </FadeWhileDragging>
+            {content.milestones.map((milestone) => (
+              <Milestone
+                key={milestone.id}
+                milestone={milestone}
                 axis={axis}
-                bar={bars.get(row.id)}
-                onSpread={
-                  readOnly || hasChildren || !row.stages?.length
-                    ? undefined
-                    : () => {
-                        const next = spreadStages(row, off.span, axis)
-                        if (next) onChange(updateRow(content, row.id, () => next))
-                      }
-                }
-                canSpread={spreadStages(row, off.span, axis) !== null}
-                parent={hasChildren}
-                onFollow={
-                  readOnly || hasChildren || row.stages?.length
-                    ? undefined
-                    : () => setFollow([row.id], true)
-                }
+                onChange={(change) => onChange(updateMilestone(content, milestone.id, change))}
+                onRemove={() => onChange(removeMilestone(content, milestone.id))}
               />
-            )
-            return (
-              <div
-                key={row.id}
-                data-gantt-row={row.id}
-                className="group/row relative border-b border-border/60"
-                style={{ height }}
+            ))}
+            {visible.length === 0 && (
+              <p
+                className="text-muted-foreground pointer-events-none relative px-3 leading-8"
+                style={{ height: ROW_HEIGHT }}
               >
-                {planning.enabled && !hasChildren ? (
-                  <GanttStages
-                    row={row}
-                    axis={axis}
-                    types={planning.types}
-                    people={planning.people}
-                    assignees={assignees}
-                    below={content.people === 'below'}
-                    label={stagesLabel(row, taskOf(row))}
-                    done={leafDone(row, task)}
-                    {...trackerNotes(row, hasChildren, task, off)}
-                    onRow={(next) => onChange(updateRow(content, row.id, () => next))}
-                  />
-                ) : (
-                  <GanttBar
-                    span={barSpan(row)}
-                    summary={hasChildren}
-                    axis={axis}
-                    label={
-                      row.key
-                        ? `${keyOf(row, taskOf(row))} ${taskOf(row)?.summary ?? ''}`
-                        : row.title
-                    }
-                    task={task}
-                    done={!hasChildren && leafDone(row, task)}
-                    {...trackerNotes(row, hasChildren, task, off)}
-                    onSpan={(next) =>
-                      hasChildren
-                        ? onParentSpan(row, next)
-                        : onChange(updateRow(content, row.id, (r) => fitStages(r, next)))
-                    }
-                  />
-                )}
-                {ghost}
-                {bars.has(row.id) && (
-                  <ConnectHandle
-                    bar={bars.get(row.id)!}
-                    onWire={setWire}
-                    onDrop={(target) => link(row.id, target)}
-                  />
-                )}
-              </div>
-            )
-          })}
-          <Links
-            links={content.links}
-            bars={bars}
-            wire={wire}
-            picked={selected ? picked : null}
-            onPick={setPicked}
-            rowHeight={height}
-            onRemove={(id) => {
-              setPicked(null)
-              onChange(removeLink(content, id))
-            }}
-          />
-          {content.milestones.map((milestone) => (
-            <Milestone
-              key={milestone.id}
-              milestone={milestone}
-              axis={axis}
-              onChange={(change) => onChange(updateMilestone(content, milestone.id, change))}
-              onRemove={() => onChange(removeMilestone(content, milestone.id))}
-            />
-          ))}
-          {visible.length === 0 && (
-            <p
-              className="text-muted-foreground pointer-events-none relative px-3 leading-8"
-              style={{ height: ROW_HEIGHT }}
-            >
-              {filtered && content.rows.length > 0
-                ? 'No tasks match these filters.'
-                : 'Drop cards here, or add a task or a row.'}
-            </p>
-          )}
-          {selected && !expanded && extenders}
+                {filtered && content.rows.length > 0
+                  ? 'No tasks match these filters.'
+                  : 'Drop cards here, or add a task or a row.'}
+              </p>
+            )}
+            {selected && !expanded && extenders}
+          </div>
         </div>
       </div>
-    </div>
+    </DragStoreContext.Provider>
   )
+}
+
+/**
+ * Whether a key belongs to this Gantt's selection: not typed into a field, not already handled,
+ * and pressed with focus on nothing or inside this Gantt, never over an open view of another one.
+ */
+function ownsKey(event: KeyboardEvent, root: HTMLElement | null) {
+  const target = event.target as HTMLElement | null
+  if (!root || event.defaultPrevented) return false
+  if (target?.isContentEditable || target?.closest?.('input, textarea, select')) return false
+  const open = document.querySelector('[data-module-expanded]')
+  if (open && !open.contains(root)) return false
+  const scope = root.closest('[data-module-expanded]') ?? root.closest('.react-flow__node') ?? root
+  // A key sent to something outside, even after focus left it (a pointer user's key blurs a button).
+  if (target instanceof Node && target !== document.body && !scope.contains(target)) return false
+  const active = document.activeElement
+  return !active || active === document.body || scope.contains(active)
 }
 
 /** How a bar's dates relate to the tracker's, for its look and its tooltip. */

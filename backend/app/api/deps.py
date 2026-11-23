@@ -1,3 +1,4 @@
+from collections.abc import Callable, Mapping
 from typing import Annotated
 
 from fastapi import Depends, Request
@@ -5,7 +6,7 @@ from fastapi import Depends, Request
 from app.domain.accounts import Accounts, Person
 from app.domain.api_keys import ApiKeys
 from app.domain.caldav import CalDavSource, NoCalDav
-from app.domain.errors import Forbidden, JiraNotConfigured
+from app.domain.errors import Forbidden, JiraNotConfigured, ValidationFailed
 from app.domain.invites import Invites
 from app.domain.members import BoardRole, Members
 from app.domain.ports import BoardRepo, DemoTasks, LiveBoards, SnapshotRepo, TaskProvider
@@ -13,7 +14,8 @@ from app.domain.public import PublicLinks
 from app.domain.refresh import RefreshService
 from app.domain.sessions import Sessions
 from app.domain.settings import Provider, SettingsService
-from app.domain.tasks import NoTokenProvider
+from app.domain.sources import SOURCES, jira_not_connected
+from app.domain.tasks import GITHUB, LINEAR, NotConnected, linear_url
 from app.domain.workspaces import Memberships
 
 
@@ -60,27 +62,48 @@ def token_stamps(request: Request) -> dict[str, str | None]:
 
 
 def providers(request: Request) -> dict[str, TaskProvider]:
-    """Every tracker this request can read, by source id: the demo tasks and GitHub always,
-    and Jira with the signed-in person's own token when the instance is set to it. GitHub is
-    read with the person's own token when they have one, and by the shared reader of public
-    repositories otherwise. A demo visitor has no token."""
-    state = request.app.state
-    settings: SettingsService = state.settings
-    person = current_person(request)
-    demo_tasks: TaskProvider = state.demo.scoped(_statuses_owner(request))
-    github: TaskProvider = state.github
-    if not is_visitor(request) and (token := settings.github_token(person.id)):
-        github = state.github_readers.of(person.id, token.get_secret_value())
-    found = {demo_tasks.source_id: demo_tasks, github.source_id: github}
-    caldav = caldav_source(request)
-    found[caldav.source_id] = caldav
+    """Every tracker this request can read, by source id: the demo tasks, GitHub, CalDAV and
+    Linear always, and Jira with the signed-in person's own token when the instance is set to it."""
+    builders = (demo, _github, caldav_source, _linear)
+    found = {p.source_id: p for p in (build(request) for build in builders)}
     if tracker(request) == "jira":
+        settings: SettingsService = request.app.state.settings
         try:
-            jira = state.jira(settings.jira_credentials(person.id))
+            jira = request.app.state.jira(settings.jira_credentials(current_person(request).id))
         except JiraNotConfigured as exc:
-            jira = NoTokenProvider(settings.base_url(), exc)
+            jira = jira_not_connected(settings.base_url(), exc)
         found[jira.source_id] = jira
     return found
+
+
+def token_checks(request: Request) -> Mapping[str, Callable[[str], str]]:
+    """Who a token signs in as, asked of its tracker before the token is stored; by tracker."""
+    return request.app.state.token_checks
+
+
+def _linear(request: Request) -> TaskProvider:
+    """Linear with the person's own key; without one, cards say how to connect it."""
+    state = request.app.state
+    person = current_person(request)
+    if not is_visitor(request) and (key := state.settings.source_token(person.id, LINEAR)):
+        return state.linear_readers.of(person.id, key.get_secret_value())
+    name = SOURCES[LINEAR].name
+    return NotConnected(
+        LINEAR,
+        name,
+        ValidationFailed(f"Connect your {name} key in Settings → My tracker."),
+        linear_url,
+    )
+
+
+def _github(request: Request) -> TaskProvider:
+    """GitHub with the person's own token when they have one, else the shared reader of public
+    repositories. A demo visitor has no token."""
+    state = request.app.state
+    person = current_person(request)
+    if not is_visitor(request) and (token := state.settings.source_token(person.id, GITHUB)):
+        return state.github_readers.of(person.id, token.get_secret_value())
+    return state.github
 
 
 def caldav_source(request: Request) -> CalDavSource:

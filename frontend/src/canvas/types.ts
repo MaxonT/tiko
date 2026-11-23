@@ -104,4 +104,12 @@ export type AppNode =
   | ModuleNode
   | AnchorNode
   | TimerNode
-export type AppEdge = Edge
+/** Words on an arrow; `at` is a share of the arrow's length from its start, absent is 0.5. */
+export type EdgeLabel = {
+  text: string
+  at?: number
+  color?: Exclude<(typeof SHAPE_COLORS)[number], 'none'>
+  size?: TextSize
+}
+export type EdgeData = { label?: EdgeLabel }
+export type AppEdge = Edge<EdgeData>

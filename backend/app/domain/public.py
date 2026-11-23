@@ -15,7 +15,8 @@ from app.domain.live import room_key
 from app.domain.members import Members
 from app.domain.planning import BoardPlanning, Planning
 from app.domain.ports import Attempts, BoardRepo, LiveBoards, TaskProvider
-from app.domain.tasks import GITHUB, Task, github_url, now_iso, split_ref, task_ref
+from app.domain.sources import guest_link
+from app.domain.tasks import Task, now_iso, split_ref, task_ref
 
 # Guests of one link share this budget, so one link going viral cannot starve the instance.
 # The API sits behind proxies and cannot tell guests apart by address.
@@ -134,7 +135,6 @@ def guest_tasks(
     # Tasks of the open sources (the demo, public GitHub) belong to no person and show in
     # full; a task read with a person's token, or one an open source cannot read right now,
     # is its key and its link, nothing else.
-    url = f"{base_url}/browse/" if base_url else ""
     keys: dict[str, list[str]] = {}
     for ref in refs:
         source, key = split_ref(ref)
@@ -152,9 +152,7 @@ def guest_tasks(
         for key in source_keys:
             ref = task_ref(source, key)
             if ref not in tasks:
-                link = f"{url}{key}" if url and provider is None else ""
-                if source == GITHUB:
-                    link = github_url(key)
+                link = guest_link(source, key, base_url)
                 tasks[ref] = Task(
                     source=source, key=key, state="private", url=link, fetched_at=now_iso()
                 )

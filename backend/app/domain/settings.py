@@ -1,6 +1,6 @@
 import json
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Literal
 from urllib.parse import urlparse
@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field, SecretStr, field_validator
 from app.domain.caldav import CalDavAccount
 from app.domain.errors import JiraNotConfigured, SecretUnreadable, ValidationFailed
 from app.domain.ports import CredentialRepo, SecretBox, SettingsRepo
+from app.domain.sources import credential_kinds, token_source
 from app.domain.tasks import CALDAV
 
 Provider = Literal["demo", "jira"]
@@ -19,8 +20,6 @@ JiraKind = Literal["dc", "cloud"]
 DEFAULT_INTERVAL_S = 30
 # A kind guessed while the site was unreachable is asked again after this long.
 KIND_RETRY_S = 60
-# A person's GitHub token is stored for this address and is only ever sent there.
-GITHUB_API_URL = "https://api.github.com"
 
 
 def normalize_base_url(value: str) -> str:
@@ -76,6 +75,7 @@ class SettingsIn(BaseModel):
     jira_start_field: str | None = Field(default=None, max_length=100, pattern=r"^[\w.]*$")
     public_links: bool | None = None
     api_keys: bool | None = None
+    full_keys: bool | None = None
 
 
 class JiraView(BaseModel):
@@ -97,6 +97,8 @@ class SettingsView(BaseModel):
     public_links: bool
     # Whether people may make API keys (spec 046); absent means off.
     api_keys: bool = False
+    # Whether a key may change and remove everyone's work (spec 055); absent means off.
+    full_keys: bool = False
     # Live keys in the workspace, for an admin only.
     api_keys_live: int | None = None
     # Fields set in the environment, which the API does not change.
@@ -215,6 +217,9 @@ class SettingsService:
     def api_keys(self) -> bool:
         return self._values().get("api_keys") == "1"
 
+    def full_keys(self) -> bool:
+        return self._values().get("full_keys") == "1"
+
     def set_api_keys(self, on: bool) -> None:
         self._repo.set_many({"api_keys": "1" if on else None})
 
@@ -235,6 +240,7 @@ class SettingsService:
             ),
             public_links=values.get("public_links") != "0",
             api_keys=values.get("api_keys") == "1",
+            full_keys=values.get("full_keys") == "1",
             locked=sorted(self._env),
         )
 
@@ -270,6 +276,8 @@ class SettingsService:
             values["public_links"] = "1" if change.public_links else "0"
         if change.api_keys is not None:
             values["api_keys"] = "1" if change.api_keys else None
+        if change.full_keys is not None:
+            values["full_keys"] = "1" if change.full_keys else None
         self._repo.set_many(values)
         if change.jira is not None and (plain := _clean(change.jira.token)) is not None:
             self.set_token(user_id, SecretStr(plain), change.jira.email)
@@ -302,29 +310,62 @@ class SettingsService:
         # Encryption is salted, so even the same token entered again stores a new value.
         return {
             kind: stored[0] if (stored := self._credentials.get(user_id, kind)) else None
-            for kind in ("jira", "github", CALDAV)
+            for kind in credential_kinds()
         }
 
-    def github_token_state(self, user_id: str) -> TokenState:
-        return self._token(user_id, GITHUB_API_URL, "github")[0]
+    def token_states(self, user_id: str) -> dict[str, TokenState]:
+        """The state of every credential the person may store, by tracker."""
+        states: dict[str, TokenState] = {}
+        for kind in credential_kinds():
+            if kind == "jira":
+                states[kind] = self.token_state(user_id)
+            elif kind == CALDAV:
+                states[kind] = self.caldav_account(user_id)[0]
+            else:
+                states[kind] = self.source_token_state(user_id, kind)
+        return states
 
-    def github_token(self, user_id: str) -> SecretStr | None:
-        """The person's own GitHub token, or None when they have none that can be read."""
-        return self._token(user_id, GITHUB_API_URL, "github")[1]
+    def source_token_state(self, user_id: str, source: str) -> TokenState:
+        found = token_source(source)
+        return self._token(user_id, found.token_url, source)[0]
 
-    def set_github_token(self, user_id: str, token: SecretStr) -> TokenState:
+    def source_token(self, user_id: str, source: str) -> SecretStr | None:
+        """The person's own token for the tracker, or None when they have none that can be read."""
+        found = token_source(source)
+        return self._token(user_id, found.token_url, source)[1]
+
+    def set_source_token(self, user_id: str, source: str, token: SecretStr) -> TokenState:
+        found = token_source(source)
         plain = _clean(token)
         if plain is None:
             raise ValidationFailed("token: enter your personal access token")
-        self._credentials.set(user_id, "github", self._box.encrypt(plain), GITHUB_API_URL)
-        self._on_token_change(user_id, "github")
+        self._credentials.set(user_id, source, self._box.encrypt(plain), found.token_url)
+        self._on_token_change(user_id, source)
         self._on_token(plain)
         self._on_change()
-        return self.github_token_state(user_id)
+        return self.source_token_state(user_id, source)
 
-    def remove_github_token(self, user_id: str) -> None:
-        self._credentials.delete(user_id, "github")
-        self._on_token_change(user_id, "github")
+    def connect_source_token(
+        self,
+        user_id: str,
+        source: str,
+        token: SecretStr,
+        checks: Mapping[str, Callable[[str], str]],
+    ) -> str:
+        """Stores the token once its tracker accepts it; answers who the token signs in as."""
+        found = token_source(source)
+        plain = _clean(token)
+        if plain is None:
+            raise ValidationFailed("token: enter your personal access token")
+        # A token its tracker does not accept is not stored.
+        who = checks[found.id](plain)
+        self.set_source_token(user_id, found.id, SecretStr(plain))
+        return who
+
+    def remove_source_token(self, user_id: str, source: str) -> None:
+        token_source(source)
+        self._credentials.delete(user_id, source)
+        self._on_token_change(user_id, source)
         self._on_change()
 
     def _require_https_for_cloud(self, url: str) -> None:

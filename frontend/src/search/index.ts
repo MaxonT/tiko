@@ -1,7 +1,7 @@
 import { shortKey } from '@/sources/registry'
 import type { Task } from '@/api/tasks'
 import { taskRef } from '@/canvas/tasks-context'
-import type { AppNode, FrameData, ModuleData } from '@/canvas/types'
+import type { AppEdge, AppNode, FrameData, ModuleData } from '@/canvas/types'
 import { findModule } from '@/modules/registry'
 import { holderLabel } from '@/timers/attach'
 import { normalize, rank, type Searchable } from './match'
@@ -13,13 +13,23 @@ function cardLabel(source: string | undefined, key: string, task: Task | undefin
 }
 
 export type EntryKind =
-  'card' | 'sticky' | 'shape' | 'text' | 'code' | 'frame' | 'timer' | 'module' | 'row' | 'milestone'
+  | 'card'
+  | 'sticky'
+  | 'shape'
+  | 'text'
+  | 'code'
+  | 'frame'
+  | 'timer'
+  | 'module'
+  | 'row'
+  | 'milestone'
+  | 'arrow'
 
 export type Entry = Searchable & {
   /** Unique per entry; a module's rows share the module's node. */
   id: string
   kind: EntryKind
-  /** The node the board moves to. */
+  /** The node the board moves to, or the arrow for a label. */
   target: string
   /** Task key shown in monospace before the text. */
   label?: string
@@ -63,7 +73,11 @@ function taskFacets(task: Task | undefined) {
 }
 
 /** Every searchable text of the board, in board order. */
-export function buildIndex(nodes: AppNode[], tasks: Record<string, Task>): Entry[] {
+export function buildIndex(
+  nodes: AppNode[],
+  tasks: Record<string, Task>,
+  edges: AppEdge[] = [],
+): Entry[] {
   const byId = new Map(nodes.map((n) => [n.id, n]))
   const frameOf = (node: AppNode): string | undefined => {
     for (
@@ -137,6 +151,10 @@ export function buildIndex(nodes: AppNode[], tasks: Record<string, Task>): Entry
         pushModule(node.id, node.data, frameOf(node), tasks, push)
         break
     }
+  }
+  for (const edge of edges) {
+    const text = edge.data?.label?.text
+    if (text?.trim()) push({ id: edge.id, target: edge.id, kind: 'arrow', text, context: 'Arrow' })
   }
   return entries
 }

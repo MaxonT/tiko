@@ -44,7 +44,7 @@ After a good update tiko removes images older than the previous release. The dis
 | A new container does not start within 2 minutes | Goes back on its own: starts the previous containers again and restores the database from the dump. About says the update failed and shows its log. |
 | The disk is too full for the dump | Does not start the update; About tells you how much space it needs. |
 | The disk fills up during the download | The download fails before any container is touched; the running version stays as it was. |
-| Your own Postgres server in `DATABASE_URL` | The update still runs, but its dump is of the local `db` container, not your server. Turn one-click updates off, back your server up yourself and run the installer; see [Your own Postgres server](../data-and-upgrades/#your-own-postgres-server). |
+| Your own Postgres server in `DATABASE_URL` | Update now stops before it touches anything, because it cannot back up your server; About shows why. Back your server up yourself and run the installer; see [Your own Postgres server](../data-and-upgrades/#your-own-postgres-server). |
 
 :::note[One more restart after a one-click update]
 The first `docker compose up -d` you run by hand after a one-click update recreates `api` and `web` once more, so tiko is down for about 10 seconds. Compose recognizes its containers by a hash of the whole service config, and the updater cannot compute that hash for the new version. Data is not affected, and the next `up` leaves the containers alone. Restarts of the host or of Docker do not trigger it.

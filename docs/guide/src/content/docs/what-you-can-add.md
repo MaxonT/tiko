@@ -38,6 +38,15 @@ A link must point at the Jira tiko is connected to. Setup: [Jira Data Center](..
 
 There are no queries for GitHub. Setup: [GitHub Issues](../github-issues/).
 
+## Linear
+
+| What | Example |
+|---|---|
+| A link to an issue | `https://linear.app/your-workspace/issue/ENG-12/fix-the-thing` |
+| The workspace and the identifier | `your-workspace/ENG-12` |
+
+Bare identifiers and queries for Linear come later. Setup: [Linear](../linear/).
+
 ## CalDAV
 
 CalDAV tasks are found by their title: switch the card tool to **CalDAV** once you have [connected an account](../caldav/) and type a few words. A task's id is long and nobody types it, so there are no keys or queries for CalDAV.

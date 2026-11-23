@@ -78,6 +78,12 @@ class CalDavRejected(TrackerUnavailable):
     code = "caldav_rejected"
 
 
+class LinearRejected(TrackerUnavailable):
+    """Linear did not accept the person's API key; cards keep what they last showed."""
+
+    code = "linear_rejected"
+
+
 class CalDavAddressRefused(ValidationFailed):
     code = "caldav_address_refused"
 

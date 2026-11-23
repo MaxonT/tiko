@@ -18,20 +18,20 @@ tiko itself runs no AI model and sends nothing to any AI provider. What the agen
 
 With any key, the agent can:
 
-- **List your boards** and **read one:** an outline of its frames, one frame, or every element.
+- **List your boards** and **read one:** an outline of its frames, one frame, or every element, narrowed down to what it needs, such as the done cards outside frames.
 - **Read a Gantt plan** with its live tasks, stages and people: "what is late on the release plan?". A big plan comes as its top rows first, and the agent reads on by branch or by dates.
 - **See how busy someone is:** "is Mira overloaded in December?".
 - **Search your tasks** in Jira or CalDAV.
 
 With a key that can also write, it can:
 
-- **Make and rename boards**, add cards, notes and frames, and draw arrows.
+- **Make and rename boards**, add cards, notes and frames, and draw arrows with words on them.
 - **Put code next to the plan:** "add the config you changed next to DEMO-7, mark the line with the port". The block comes colored in its language, with the lines that matter marked.
-- **Lay cards out** in rows or a column per status: "put the open tasks of the release on a new board, by status".
+- **Lay cards out** in rows or a column per status, sorted by key or status, in as many columns as fit a frame: "put DEMO-1 to DEMO-12 in the narrow frame, by key, and fit the frame". New cards, notes and frames can land exactly where the agent puts them.
 - **Tidy what is there:** colours, bold, text size, opacity, rotation: "make the headings bold and colour the blocked frame pink".
 - **Set reminders,** at a time or for when a task on the board moves: "remind me at 3 pm to call about DEMO-4", "tell me when DEMO-2 leaves In progress". A reminder rings in tiko while the board is open in a tab; the agent cannot reach you anywhere else.
 
-What people made stays theirs: the agent may move and restyle your elements, but it changes the words of, and removes, only what was added through the API with your keys. Notes people made by hand keep their text whatever it is told.
+What people made stays theirs: the agent may move and restyle your elements, but it changes the words of, and removes, only what was added through the API with your keys. Notes people made by hand keep their text whatever it is told. A key with full access, if your admin allows it, may also rename your frames and clear old elements; tiko saves a copy of the board first, and the agent or the API can put the board back.
 
 :::tip[Start with a key that only reads]
 Give one that writes when you want the agent to arrange things.

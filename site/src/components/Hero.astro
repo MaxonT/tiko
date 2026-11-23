@@ -9,19 +9,20 @@ import Install from './Install.astro'
 import Logo from './Logo.astro'
 import Waitlist from './Waitlist.astro'
 
-const facts = ['Open source, AGPL-3.0', 'Self-hosted', 'Your tracker stays the source of truth', 'No ads, no analytics trackers']
+// The Cloud waitlist badge is off until the hosted plan is closer; flip to show it again.
+const showCloud = false
 ---
 
 <section class="hero">
   <div class="wrap copy">
-    <Waitlist source="hero" />
+    {showCloud && <Waitlist source="hero" />}
     <h1>
-      A <span class="w-select">whiteboard<i class="h tl"></i><i class="h tr"></i><i class="h bl"></i><i class="h br"></i></span>
-      where your <span class="w-card" data-word><span class="w-type"><Icon name="check" size={12} /></span>tasks</span>
-      never go <span class="w-live">stale<i></i></span>
+      A&nbsp;<span class="w-select">whiteboard<i class="h tl"></i><i class="h tr"></i><i class="h bl"></i><i class="h br"></i></span>
+      where your <br class="br-wide" />
+      tasks never go <span class="w-live">stale<i></i></span>
     </h1>
     <p class="sub">
-      <b class="tiko">tiko</b> puts the tasks from
+      <b class="tiko">tiko</b> puts tasks from
       <span class="rot" data-rot>
         <span class="sr-only">your tracker</span>
         <span class="rot-box" aria-hidden="true">
@@ -36,16 +37,12 @@ const facts = ['Open source, AGPL-3.0', 'Self-hosted', 'Your tracker stays the s
           }
         </span>
       </span>
-      on an infinite canvas as cards. Lay them out, link what blocks what, see them on a
-      timeline. Their statuses update on their own, so nobody keeps the board in sync by hand.
+      on an infinite canvas as live cards.
     </p>
     <div class="actions">
       <a class="btn btn-primary" href={DEMO}>Try the demo <Icon name="arrow-right" /></a>
       <Install />
     </div>
-    <ul class="facts">
-      {facts.map((fact) => <li><Icon name="check" size={14} />{fact}</li>)}
-    </ul>
   </div>
 
   <div class="track">
@@ -74,8 +71,8 @@ const facts = ['Open source, AGPL-3.0', 'Self-hosted', 'Your tracker stays the s
           <div class="sat s-gh" aria-hidden="true">
             <span class="sat-title">Other teams</span>
             <span class="fc"><Logo id="github" size={22} /><span class="ty"><Icon name="bookmark" size={22} /></span><b>web#14</b>Dark theme for docs<span class="lz progress">In review</span></span>
-            <span class="fc"><Logo id="linear" size={22} /><span class="ty"><Icon name="bug" size={22} /></span><b>MOB-19</b>Crash on login<span class="lz done">Done</span></span>
-            <span class="fc"><Logo id="gitlab" size={22} /><span class="ty"><Icon name="square-check" size={22} /></span><b>ops!7</b>Rotate the certs<span class="lz">To do</span></span>
+            <span class="fc"><Logo id="jira" size={22} /><span class="ty"><Icon name="bug" size={22} /></span><b>MOB-19</b>Crash on login<span class="lz done">Done</span></span>
+            <span class="fc"><Logo id="github" size={22} /><span class="ty"><Icon name="square-check" size={22} /></span><b>ops#7</b>Rotate the certs<span class="lz">To do</span></span>
           </div>
 
           <i class="sat st yellow s-note" aria-hidden="true">
@@ -99,9 +96,16 @@ const facts = ['Open source, AGPL-3.0', 'Self-hosted', 'Your tracker stays the s
 <script>
   // The tracker name in the subtitle rolls up to the next one every few seconds.
   const box = document.querySelector<HTMLElement>('[data-rot] .rot-box')
+  const items = box ? ([...box.children] as HTMLElement[]) : []
+  let at = 0
+  // The slot follows the shown name's width, so short names leave no gaps around them.
+  const fit = () => box?.style.setProperty('width', `${items[at].offsetWidth}px`)
+  if (box) {
+    fit()
+    document.fonts.ready.then(fit)
+    addEventListener('resize', fit)
+  }
   if (box && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    const items = [...box.children] as HTMLElement[]
-    let at = 0
     setInterval(() => {
       if (document.hidden) return
       const current = items[at]
@@ -110,37 +114,16 @@ const facts = ['Open source, AGPL-3.0', 'Self-hosted', 'Your tracker stays the s
       current.classList.replace('on', 'off')
       at = (at + 1) % items.length
       items[at].classList.add('on')
+      fit()
     }, 2200)
   }
 
-  // The task word in the headline drags like a card and springs back.
-  const word = document.querySelector<HTMLElement>('[data-word]')
-  word?.addEventListener('pointerdown', (down) => {
-    if (!down.isPrimary || down.button !== 0) return
-    word.setPointerCapture(down.pointerId)
-    word.classList.add('held')
-    const move = (e: PointerEvent) =>
-      word.style.setProperty('translate', `${e.clientX - down.clientX}px ${e.clientY - down.clientY}px`)
-    // A cancelled or lost pointer ends the drag the same way a release does.
-    const up = () => {
-      word.classList.remove('held')
-      word.style.removeProperty('translate')
-      word.removeEventListener('pointermove', move)
-      word.removeEventListener('pointerup', up)
-      word.removeEventListener('pointercancel', up)
-      word.removeEventListener('lostpointercapture', up)
-    }
-    word.addEventListener('pointermove', move)
-    word.addEventListener('pointerup', up)
-    word.addEventListener('pointercancel', up)
-    word.addEventListener('lostpointercapture', up)
-  })
 </script>
 
 <style>
   .hero {
     position: relative;
-    padding-top: clamp(2rem, 4.5vw, 3.5rem);
+    padding-top: clamp(3rem, 7vw, 5.5rem);
     overflow-x: clip;
   }
   /* The page grid fades out behind the headline, so the text sits on a calm field. */
@@ -156,8 +139,17 @@ const facts = ['Open source, AGPL-3.0', 'Self-hosted', 'Your tracker stays the s
     position: relative;
     display: grid;
     justify-items: center;
-    margin-bottom: clamp(2rem, 4vw, 2.75rem);
+    margin-bottom: clamp(3rem, 6vw, 4.5rem);
     text-align: center;
+  }
+  /* Two lines on wide screens; narrow ones wrap on their own. */
+  .br-wide {
+    display: none;
+  }
+  @media (min-width: 861px) {
+    .br-wide {
+      display: inline;
+    }
   }
   h1 {
     max-width: 18ch;
@@ -166,6 +158,11 @@ const facts = ['Open source, AGPL-3.0', 'Self-hosted', 'Your tracker stays the s
     line-height: 1.12;
     letter-spacing: -0.035em;
     text-wrap: balance;
+  }
+  @media (min-width: 861px) {
+    h1 {
+      max-width: none;
+    }
   }
 
   /* "whiteboard" is selected, as on the canvas. */
@@ -202,43 +199,6 @@ const facts = ['Open source, AGPL-3.0', 'Self-hosted', 'Your tracker stays the s
     bottom: -6px;
   }
 
-  /* "tasks" is a task card you can pick up. */
-  .w-card {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.18em;
-    padding: 0 0.22em 0.04em 0.14em;
-    border: 1px solid var(--border);
-    border-radius: 0.14em;
-    background: var(--card);
-    box-shadow: var(--shadow);
-    cursor: grab;
-    touch-action: none;
-    rotate: -2deg;
-    transition:
-      translate 0.5s cubic-bezier(0.3, 1.6, 0.4, 1),
-      rotate 0.2s;
-  }
-  .w-card.held {
-    rotate: 2deg;
-    cursor: grabbing;
-    transition: rotate 0.2s;
-  }
-  .w-type {
-    display: grid;
-    place-items: center;
-    width: 0.42em;
-    height: 0.42em;
-    border-radius: 0.07em;
-    background: var(--type-task);
-    color: white;
-  }
-  .w-type :global(svg) {
-    width: 0.3em;
-    height: 0.3em;
-    stroke-width: 3.5;
-  }
-
   /* "live" carries the sync dot. */
   .w-live {
     position: relative;
@@ -263,11 +223,11 @@ const facts = ['Open source, AGPL-3.0', 'Self-hosted', 'Your tracker stays the s
     }
   }
 
-  /* The tracker name rolls through the list. All names share one grid cell, so the slot is
-     as wide as the longest one and the text around it never moves. */
+  /* The tracker name rolls through the list. All names share one grid cell; the script sizes
+     the slot to the shown name. */
   .rot {
     display: inline-block;
-    margin-inline: 0.1em;
+    margin-inline: 0.5em;
     vertical-align: bottom;
   }
   /* On a narrow screen the name gets its own line, so its length never rewraps the rest. */
@@ -278,7 +238,8 @@ const facts = ['Open source, AGPL-3.0', 'Self-hosted', 'Your tracker stays the s
   }
   .rot-box {
     display: inline-grid;
-    justify-items: center;
+    justify-items: start;
+    transition: width 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
     height: 1.55em;
     overflow: hidden;
     vertical-align: bottom;
@@ -317,8 +278,8 @@ const facts = ['Open source, AGPL-3.0', 'Self-hosted', 'Your tracker stays the s
     text-transform: uppercase;
   }
   .sub {
-    max-width: 44rem;
-    margin-top: 1.25rem;
+    max-width: 58rem;
+    margin-top: 1.75rem;
     font-size: clamp(1.0625rem, 1.6vw, 1.25rem);
     color: var(--muted-foreground);
     text-wrap: balance;
@@ -328,24 +289,30 @@ const facts = ['Open source, AGPL-3.0', 'Self-hosted', 'Your tracker stays the s
     flex-wrap: wrap;
     justify-content: center;
     gap: 0.75rem;
-    margin-top: 2rem;
+    margin-top: 2.5rem;
   }
-  .facts {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 0.375rem 1.25rem;
-    margin-top: 1.5rem;
-    font-size: 0.875rem;
-    color: var(--muted-foreground);
-  }
-  .facts li {
-    display: flex;
-    align-items: center;
-    gap: 0.375rem;
-  }
-  .facts :global(svg) {
-    color: var(--sync-ok);
+
+  /* Phones: one left edge instead of a centred stack of uneven lines. */
+  @media (max-width: 640px) {
+    .copy {
+      justify-items: start;
+      text-align: left;
+    }
+    .rot-box {
+      justify-items: start;
+    }
+    .rot {
+      margin-inline: 0;
+    }
+    .actions {
+      flex-direction: column;
+      align-self: stretch;
+      justify-self: stretch;
+      align-items: stretch;
+    }
+    .actions .btn {
+      justify-content: center;
+    }
   }
 
   .track {

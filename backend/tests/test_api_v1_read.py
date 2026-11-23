@@ -42,7 +42,12 @@ DOC = {
     ],
     "edges": [
         {"id": "e1", "source": "n1", "target": "c1"},
-        {"id": "e2", "source": "c1", "target": "a1"},
+        {
+            "id": "e2",
+            "source": "c1",
+            "target": "a1",
+            "data": {"label": {"text": "then", "at": 0.3, "color": "pink"}},
+        },
     ],
 }
 
@@ -103,8 +108,15 @@ def test_elements_come_in_the_public_shape(app, admin):
     card = by_id["c1"]
     assert (card["kind"], card["source"], card["key"]) == ("card", "demo", "DEMO-1")
     assert card["task"]["title"] and card["task"]["fetched_at"]
-    assert by_id["e1"] == {"id": "e1", "kind": "arrow", "from": "n1", "to": "c1", "editable": False}
-    assert by_id["e2"]["to"] is None
+    assert by_id["e1"] == {
+        "id": "e1",
+        "kind": "arrow",
+        "from": "n1",
+        "to": "c1",
+        "label": "",
+        "editable": False,
+    }
+    assert (by_id["e2"]["to"], by_id["e2"]["label"]) == (None, "then")
 
 
 def test_one_frame_comes_with_its_arrows(app, admin):
@@ -259,3 +271,98 @@ def test_a_code_block_reads_as_code(app, admin):
         "numbered": False,
         "marked": [],
     }
+
+
+FILTERED = {
+    "nodes": [
+        *DOC["nodes"][:2],
+        {
+            "id": "c1",
+            "type": "task_card",
+            "position": {"x": 900, "y": 0},
+            "data": {"key": "DEMO-1"},
+        },
+        {
+            "id": "c3",
+            "type": "task_card",
+            "position": {"x": 900, "y": 80},
+            "data": {"key": "DEMO-3"},
+        },
+        {
+            "id": "c6",
+            "type": "task_card",
+            "parentId": "f1",
+            "position": {"x": 10, "y": 240},
+            "data": {"key": "DEMO-6"},
+        },
+        {
+            "id": "r1",
+            "type": "timer",
+            "parentId": "f1",
+            "position": {"x": 300, "y": 20},
+            "width": 40,
+            "height": 40,
+            "data": {"note": "", "dueAt": "2099-01-01T09:00:00.000Z"},
+        },
+    ],
+    "edges": [],
+}
+
+
+def ids(key: TestClient, board_id: str, query: str) -> list[str]:
+    answer = key.get(f"/api/v1/boards/{board_id}?{query}")
+    assert answer.status_code == 200, answer.json()
+    return [e["id"] for e in answer.json()["elements"]]
+
+
+def test_cards_answer_with_the_room_they_take(app, admin):
+    board_id = board(admin)
+    key = with_key(app, make_key(admin)["token"])
+    elements = key.get(f"/api/v1/boards/{board_id}?elements=all").json()["elements"]
+    card = next(e for e in elements if e["id"] == "c1")
+    assert (card["w"], card["h"]) == (320, 50)
+
+
+def test_filters_choose_the_elements(app, admin):
+    board_id = board(admin, doc=FILTERED)
+    key = with_key(app, make_key(admin)["token"])
+    assert ids(key, board_id, "kind=note&kind=frame") == ["f1", "n1"]
+    assert ids(key, board_id, "done=true") == ["c3"]
+    assert ids(key, board_id, "done=false") == ["c1", "c6"]
+    assert ids(key, board_id, "status=in%20review") == ["c6"]
+    assert ids(key, board_id, "outside_frames=true") == ["c1", "c3", "f1"]
+    assert ids(key, board_id, "frame=f1&kind=timer") == ["r1"]
+    (timer,) = key.get(f"/api/v1/boards/{board_id}?kind=timer").json()["elements"]
+    assert (timer["frame"], timer["attached_to"]) == ("f1", None)
+    assert ids(key, board_id, "outside_frames=true&done=false") == ["c1"]
+    assert ids(key, board_id, "frame=f1&kind=card") == ["c6"]
+
+
+def test_paging_runs_over_the_filtered_list(app, admin, monkeypatch):
+    monkeypatch.setattr(api_view, "PAGE", 1)
+    board_id = board(admin, doc=FILTERED)
+    key = with_key(app, make_key(admin)["token"])
+    first = key.get(f"/api/v1/boards/{board_id}?kind=card").json()
+    assert ([e["id"] for e in first["elements"]], first["more"]) == (["c1"], True)
+    assert ids(key, board_id, "kind=card&after=c1") == ["c3"]
+
+
+def test_compact_cards_carry_title_and_status_only(app, admin):
+    board_id = board(admin, doc=FILTERED)
+    key = with_key(app, make_key(admin)["token"])
+    elements = key.get(f"/api/v1/boards/{board_id}?compact=true").json()["elements"]
+    by_id = {e["id"]: e for e in elements}
+    assert by_id["c3"] == {
+        "id": "c3",
+        "kind": "card",
+        "x": 900,
+        "y": 80,
+        "w": 320,
+        "h": 50,
+        "editable": False,
+        "source": "demo",
+        "key": "DEMO-3",
+        "title": "Rotate service account credentials",
+        "status": "Done",
+    }
+    assert "frame" in by_id["n1"] and "bold" not in by_id["n1"]

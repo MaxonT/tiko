@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import {
-  formatDate,
   formatDue,
   formatLeft,
   formatLeftLong,
@@ -82,10 +81,7 @@ describe('formatting', () => {
     expect(formatDue(local(10, 8, 9, 5), NOW)).toBe('Thu, Oct 8, 09:05')
   })
 
-  it('writes the day in words and adds the year outside the current one', () => {
-    expect(formatDate(local(11, 16, 9), NOW)).toBe('Nov 16')
-    expect(formatDate(local(11, 16, 9, 0, 2027), NOW)).toBe('Nov 16, 2027')
-    expect(formatDate(local(11, 16, 9, 0, 2025), NOW)).toBe('Nov 16, 2025')
+  it('writes the due moment with the day in words, and the year outside the current one', () => {
     expect(formatDue(local(1, 3, 9, 5, 2027), NOW)).toBe('Sun, Jan 3, 2027, 09:05')
   })
 })

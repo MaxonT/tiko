@@ -111,7 +111,7 @@ def test_without_a_token_nothing_is_fetched_for_you(team):
     carl = people["carl"]
     response = carl.post("/api/tasks/resolve", json={"ref": "DEV-1"})
     assert (response.status_code, response.json()["error"]["code"]) == (400, "jira_not_configured")
-    assert carl.get("/api/me/tracker").json()["token_state"] == "none"
+    assert carl.get("/api/me/tracker").json()["tokens"]["jira"] == "none"
     assert fake.requests == []
 
 
@@ -122,10 +122,10 @@ def test_my_tracker_token(team):
     assert body == {
         "provider": "jira",
         "base_url": "https://jira.example.com",
-        "token_state": "set",
-        "github_token_state": "none",
         "kind": "dc",
         "email": None,
+        "tokens": {"jira": "set", "caldav": "none", "github": "none", "linear": "none"},
+        "connected_as": None,
     }
     assert carl.post("/api/settings/jira/test", json={}).json()["user"] == "Alex Rivera"
     assert T_BOB not in carl.get("/api/settings").text

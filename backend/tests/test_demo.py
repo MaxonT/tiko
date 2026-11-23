@@ -138,10 +138,10 @@ def test_a_visitor_works_on_the_demo_tasks_next_to_a_tracker(jira_app):
     assert ann.get("/api/me/tracker").json() == {
         "provider": "demo",
         "base_url": None,
-        "token_state": "none",
-        "github_token_state": "none",
         "kind": None,
         "email": None,
+        "tokens": {"jira": "none", "caldav": "none", "github": "none", "linear": "none"},
+        "connected_as": None,
     }
     assert JIRA_URL not in ann.get("/api/settings").text
     assert resolve(ann, "DEMO-1").json()["task"]["source"] == "demo"
@@ -164,7 +164,7 @@ def test_after_sign_up_the_person_connects_their_tracker(jira_app):
     board_id = welcome(ann)
     sign_up(ann)
     assert ann.get("/api/settings").json()["jira"]["base_url"] == JIRA_URL
-    assert ann.put("/api/me/tracker", json={"token": T_ANN}).json()["token_state"] == "set"
+    assert ann.put("/api/me/tracker", json={"token": T_ANN}).json()["tokens"]["jira"] == "set"
     assert resolve(ann, "DEV-1").json()["task"]["source"] == "jira"
     # The cards of the demo days name their tracker, so they stay what they were.
     assert ann.get(f"/api/boards/{board_id}").json()["default_source"] == "jira"

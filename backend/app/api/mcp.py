@@ -21,9 +21,11 @@ from app.api.v1.planning import PlanningOut
 from app.api.v1.tasks import SearchIn, SearchOut
 from app.domain.api_gantt import narrow
 from app.domain.api_keys import KeyIdentity
+from app.domain.api_view import Kind
 from app.domain.batch import Change, NewElement
 from app.domain.boards import CodeLanguage
 from app.domain.errors import DomainError, NotFound
+from app.domain.sources import SOURCES
 from app.domain.workspaces import in_workspace
 
 # The key of the request a tool runs for; the SDK lists tools without a request at hand.
@@ -37,6 +39,9 @@ READS = {
     "read_planning",
     "read_workload",
 }
+
+# Tools only a key with full access lists.
+FULL = {"restore_copy"}
 
 INSTRUCTIONS = (
     "tiko is an infinite canvas where a person lays out live cards from their task tracker, "
@@ -53,9 +58,15 @@ _FRAME = Field(description="A frame's id to put them in; it grows to hold them."
 _ID = Field(description="Your own id for it, so a retry does not add it twice.")
 
 
+_X = Field(default=None, description="Left edge on the board, also inside a frame; with y.")
+_Y = Field(default=None, description="Top edge on the board, also inside a frame; with x.")
+
+
 class CardIn(BaseModel):
     ref: str = Field(description="A task key such as PROJ-12, a link to the task, or caldav:<uid>.")
     id: str | None = Field(default=None, description="Your own id for the card.")
+    x: float | None = _X
+    y: float | None = _Y
 
 
 class NoteIn(BaseModel):
@@ -73,6 +84,10 @@ class NoteIn(BaseModel):
     opacity: int | None = Field(default=None, description="Percent, 10 to 100 in steps of 5.")
     rotation: float | None = Field(default=None, description="Degrees clockwise.")
     id: str | None = Field(default=None, description="Your own id for it.")
+    x: float | None = _X
+    y: float | None = _Y
+    w: float | None = Field(default=None, description="Width; a note 200 when left out.")
+    h: float | None = Field(default=None, description="Height; a note only, 200 when left out.")
 
     @model_validator(mode="after")
     def _fits(self) -> "NoteIn":
@@ -87,8 +102,10 @@ class TikoMCP(MCPServer):
     async def list_tools(self):
         tools = await super().list_tools()
         key = _key.get()
-        if key is not None and key.scope == "write":
+        if key is not None and key.scope == "full":
             return tools
+        if key is not None and key.scope == "write":
+            return [tool for tool in tools if tool.name not in FULL]
         return [tool for tool in tools if tool.name in READS]
 
 
@@ -146,10 +163,27 @@ def create(app: FastAPI) -> TikoMCP:
         coordinates: Annotated[
             bool, Field(description="Include each element's place and size.")
         ] = False,
+        kinds: Annotated[
+            list[Kind] | None, Field(description="Only elements of these kinds.")
+        ] = None,
+        status: Annotated[
+            list[str] | None, Field(description="Only cards whose task is in these statuses.")
+        ] = None,
+        done: Annotated[
+            bool | None,
+            Field(description="Only cards whose task is done (true) or not done (false)."),
+        ] = None,
+        outside_frames: Annotated[
+            bool, Field(description="Only elements that are not in a frame.")
+        ] = False,
+        compact: Annotated[
+            bool,
+            Field(description="Cards with their task's title and status only; no empty fields."),
+        ] = False,
     ) -> dict[str, Any]:
         """A board as an outline of its frames and what they hold, or its elements: one
-        frame's or all, 500 at a time. Cards carry their task's title, status, assignee and due
-        date as the tracker shows them."""
+        frame's or all, 500 at a time. A filter or compact reads elements. Cards carry their
+        task's title, status, assignee and due date as the tracker shows them."""
         request = _request(ctx, app)
 
         def work() -> dict[str, Any]:
@@ -164,6 +198,11 @@ def create(app: FastAPI) -> TikoMCP:
                 frame=frame,
                 elements="all" if all else None,
                 after=after,
+                kind=kinds,
+                status=status,
+                done=done,
+                outside_frames=outside_frames,
+                compact=compact,
             )
             return _answer(found, coordinates)
 
@@ -173,7 +212,7 @@ def create(app: FastAPI) -> TikoMCP:
     def search_tasks(
         ctx: Context,
         source: Annotated[
-            Literal["jira", "caldav", "demo"],
+            Literal[tuple(s.id for s in SOURCES.values() if s.search)],
             Field(description="The tracker: jira takes JQL, caldav words of the title."),
         ],
         query: Annotated[str, Field(description="The search in that tracker's terms.")],
@@ -341,9 +380,12 @@ def create(app: FastAPI) -> TikoMCP:
         cards: Annotated[list[CardIn], Field(min_length=1, max_length=50)],
         frame: Annotated[str | None, _FRAME] = None,
     ) -> dict[str, Any]:
-        """Puts live task cards on a board, laid out in rows below what is there or in a
-        frame. Each card shows its task as the tracker does."""
-        items = [NewElement(kind="card", ref=c.ref, id=c.id, frame=frame) for c in cards]
+        """Puts live task cards on a board where given, else laid out in rows below what is
+        there or in a frame. Each card shows its task as the tracker does and takes about
+        320 x 50; it grows taller when opened."""
+        items = [
+            NewElement(kind="card", ref=c.ref, id=c.id, frame=frame, x=c.x, y=c.y) for c in cards
+        ]
         return write(ctx, board, lambda request: adds(board, items, request))
 
     @server.tool(annotations=_ADDS)
@@ -353,7 +395,8 @@ def create(app: FastAPI) -> TikoMCP:
         notes: Annotated[list[NoteIn], Field(min_length=1, max_length=200)],
         frame: Annotated[str | None, _FRAME] = None,
     ) -> dict[str, Any]:
-        """Puts sticky notes or plain text on a board, below what is there or in a frame."""
+        """Puts sticky notes or plain text on a board where given, else below what is there or
+        in a frame."""
         items = [
             NewElement(
                 kind=n.kind, frame=frame, **n.model_dump(exclude_unset=True, exclude={"kind"})
@@ -402,9 +445,19 @@ def create(app: FastAPI) -> TikoMCP:
         board: Annotated[str, _BOARD],
         title: Annotated[str, Field(max_length=200)],
         id: Annotated[str | None, _ID] = None,
+        x: Annotated[float | None, _X] = None,
+        y: Annotated[float | None, _Y] = None,
+        w: Annotated[float | None, Field(description="Width; 480 when left out.")] = None,
+        h: Annotated[float | None, Field(description="Height; 320 when left out.")] = None,
     ) -> dict[str, Any]:
-        """Adds an empty frame below what is on the board, to put cards and notes in."""
-        items = [NewElement(kind="frame", title=title, id=id)]
+        """Adds an empty frame where given, else below what is on the board, to put cards and
+        notes in."""
+        given = {"x": x, "y": y, "w": w, "h": h, "id": id}
+        items = [
+            NewElement(
+                kind="frame", title=title, **{k: v for k, v in given.items() if v is not None}
+            )
+        ]
         return write(ctx, board, lambda request: adds(board, items, request))
 
     @server.tool(annotations=_ADDS)
@@ -438,6 +491,11 @@ def create(app: FastAPI) -> TikoMCP:
                 "Gantt. For a status reminder, the card when the task has several."
             ),
         ] = None,
+        frame: Annotated[
+            str | None, Field(description="A frame to put a reminder in that sits on nothing.")
+        ] = None,
+        x: Annotated[float | None, _X] = None,
+        y: Annotated[float | None, _Y] = None,
         id: Annotated[str | None, _ID] = None,
     ) -> dict[str, Any]:
         """Sets a reminder on a board: at a moment, or when a task on the board changes status.
@@ -451,6 +509,9 @@ def create(app: FastAPI) -> TikoMCP:
             "ref": task,
             "status": status,
             "on": on,
+            "frame": frame,
+            "x": x,
+            "y": y,
             "id": id,
         }
         given = {name: value for name, value in fields.items() if value is not None}
@@ -463,10 +524,16 @@ def create(app: FastAPI) -> TikoMCP:
         board: Annotated[str, _BOARD],
         start: Annotated[str, Field(description="The element the arrow leaves.")],
         end: Annotated[str, Field(description="The element the arrow points at.")],
+        label: Annotated[
+            str | None,
+            Field(description="Words on the arrow, such as blocks or waits for.", max_length=500),
+        ] = None,
         id: Annotated[str | None, _ID] = None,
     ) -> dict[str, Any]:
-        """Draws an arrow from one element of the board to another."""
-        items = [NewElement.model_validate({"kind": "arrow", "from": start, "to": end, "id": id})]
+        """Draws an arrow from one element of the board to another, with words on it if
+        given."""
+        fields = {"kind": "arrow", "from": start, "to": end, "id": id, "label": label}
+        items = [NewElement.model_validate({k: v for k, v in fields.items() if v is not None})]
         return write(ctx, board, lambda request: adds(board, items, request))
 
     @server.tool(annotations=_ADDS)
@@ -475,10 +542,13 @@ def create(app: FastAPI) -> TikoMCP:
         board: Annotated[str, _BOARD],
         changes: Annotated[list[Change], Field(min_length=1, max_length=200)],
     ) -> dict[str, Any]:
-        """Moves, resizes or puts elements in and out of frames, and restyles any element:
-        colour, bold, text size, opacity, rotation, a shape's stroke and dash, a code block's
-        language, folding, line numbers and marked lines. Changes the text of what you added;
-        text people wrote is theirs and cannot be changed here."""
+        """Moves, resizes or puts elements in and out of frames. A reminder on an element
+        moves with it: `on` puts it on another element, `on: null` frees it, and a free one
+        takes a place and a frame. Restyles any element: colour, bold, text size, opacity,
+        rotation, a shape's stroke and dash, a code block's language, folding, line numbers
+        and marked lines. Changes the text of what you added, and the label of an arrow you
+        drew (empty removes it). Text people wrote changes only with a key that has full
+        access, after tiko saves a copy of the board (see list_copies)."""
         body = elements.ChangeIn(changes=changes)
         return write(
             ctx,
@@ -500,18 +570,61 @@ def create(app: FastAPI) -> TikoMCP:
         new_frame: Annotated[
             str | None, Field(description="A title for a new frame to hold them.")
         ] = None,
+        columns: Annotated[
+            int | None,
+            Field(
+                ge=1,
+                le=20,
+                description="Cards a row in the grid; left out, as many as fit the frame's "
+                "width, or 4.",
+            ),
+        ] = None,
+        order: Annotated[
+            Literal["given", "key", "status"],
+            Field(description="As given, by task key (DEMO-9 before DEMO-10), or by status."),
+        ] = "given",
+        fit: Annotated[
+            bool, Field(description="Size the frame to what it holds, smaller or larger.")
+        ] = False,
     ) -> dict[str, Any]:
         """Lays cards of a board out, below what is there or in a frame. Only these cards
         move."""
         target = None
         if frame or new_frame:
             target = elements.FrameRef(id=frame, title=None if frame else new_frame)
-        body = elements.ArrangeIn(cards=cards, layout=layout, frame=target)
+        body = elements.ArrangeIn(
+            cards=cards, layout=layout, frame=target, columns=columns, order=order, fit=fit
+        )
         return write(
             ctx,
             board,
             lambda request: elements.arrange(board, body, None, request).model_dump(by_alias=True),
         )
+
+    @server.tool(annotations=_READ_ONLY)
+    def list_copies(ctx: Context, board: Annotated[str, _BOARD]) -> dict[str, Any]:
+        """Copies of a board tiko saved before a key with full access changed or removed
+        people's work, and before each restore, newest first. Each can be restored."""
+        return write(
+            ctx, board, lambda request: elements.list_copies(board, None, request).model_dump()
+        )
+
+    @server.tool(annotations=_REMOVES)
+    def restore_copy(
+        ctx: Context,
+        board: Annotated[str, _BOARD],
+        copy: Annotated[str, Field(description="A copy's id from list_copies.")],
+    ) -> str:
+        """Puts the whole board back as the copy has it, for everyone at once, undoing every
+        change since, people's too. The board as it is now is saved first, so this can be
+        undone the same way. Ask the person before you do it."""
+
+        def work(request: Request) -> None:
+            deps.full_budget(request)
+            elements.restore_copy(board, copy, None, request)
+
+        write(ctx, board, work)
+        return "restored"
 
     @server.tool(annotations=_REMOVES)
     def remove_elements(
@@ -519,7 +632,8 @@ def create(app: FastAPI) -> TikoMCP:
         board: Annotated[str, _BOARD],
         ids: Annotated[list[str], Field(min_length=1, max_length=200)],
     ) -> str:
-        """Removes elements you added. What people made stays: ask them to remove it."""
+        """Removes elements you added; with a key that has full access, any element, arrow
+        or reminder, after tiko saves a copy of the board (see list_copies)."""
         body = elements.RemoveIn(ids=ids)
         write(ctx, board, lambda request: elements.remove_elements(board, body, None, request))
         return "removed"

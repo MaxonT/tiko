@@ -43,7 +43,15 @@ CACHE_S = 30.0
 # Ended and expired keys answer with their reason this long, then their rows go.
 KEPT_DAYS = 30
 
-Scope = Literal["read", "write"]
+Scope = Literal["read", "write", "full"]
+# Each scope does what the ones before it do.
+_RANK = {"read": 0, "write": 1, "full": 2}
+
+
+def allows(scope: Scope, needed: Scope) -> bool:
+    return _RANK[scope] >= _RANK[needed]
+
+
 EndReason = Literal["revoked", "signed_out", "removed"]
 # Named here: inside `ApiKeys` its own `list` method would shadow the type.
 ChosenBoards = list[str] | None
@@ -115,12 +123,15 @@ class ApiKeys:
         attempts: Attempts,
         enabled: Callable[[], bool],
         offered: bool = True,
+        full_allowed: Callable[[], bool] = lambda: False,
         clock: Callable[[], datetime] = lambda: datetime.now(UTC),
     ) -> None:
         self._repo = repo
         self._users = users
         # The workspace's switch, read in the request's workspace.
         self._enabled = enabled
+        # The workspace's switch for keys that change and remove everyone's work (spec 055).
+        self.full_allowed = full_allowed
         # False where anyone can sign up: a demo instance offers no keys.
         self._offered = offered
         self._clock = clock
@@ -141,6 +152,8 @@ class ApiKeys:
             raise Forbidden("API keys are switched off here.")
         if not self._enabled():
             raise ApiDisabled("Your admin has switched API keys off.")
+        if body.scope == "full" and not self.full_allowed():
+            raise Forbidden("Your admin does not let keys change and remove everyone's work.")
         now = self._clock()
         self._check_password(person, body.password, now.timestamp())
         if self._repo.count_live(person.id, workspace, _iso(now)) >= MAX_LIVE:

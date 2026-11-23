@@ -5,7 +5,7 @@ import random
 import ssl
 import time
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from functools import partial
 from pathlib import Path
 
@@ -33,6 +33,7 @@ from app.adapters.tasks.github import GitHubReaders
 from app.adapters.tasks.jira_cloud import JiraCloudProvider
 from app.adapters.tasks.jira_dc import JiraDateFields, JiraDcProvider
 from app.adapters.tasks.jira_kind import find_kind
+from app.adapters.tasks.linear import LinearReaders
 from app.adapters.updater.http import HttpUpdater, ensure_token
 from app.api import mcp, v1
 from app.api.errors import register_error_handlers
@@ -44,12 +45,14 @@ from app.domain import demo, usage
 from app.domain.accounts import Accounts
 from app.domain.api_keys import ApiKeys
 from app.domain.boards import purge_trash
+from app.domain.copies import KEEP_DAYS
 from app.domain.errors import NotFound
 from app.domain.files import DEMO_QUOTA_MB, Files, clean_files
 from app.domain.invites import Invites
 from app.domain.members import Members
 from app.domain.planning import Planning
 from app.domain.ports import (
+    BoardCopies,
     BoardRepo,
     FolderRepo,
     ReleaseFeed,
@@ -67,6 +70,7 @@ from app.domain.settings import (
     normalize_base_url,
 )
 from app.domain.stickers import Stickers
+from app.domain.tasks import GITHUB, LINEAR
 from app.domain.updates import OneClickUpdate, UpdateService
 from app.domain.upgrade import adopt_orphans, bootstrap_admin
 from app.domain.usage import Deploy, HostOs, Privacy
@@ -175,6 +179,7 @@ def create_app(
     jira_transport: httpx.BaseTransport | None = None,
     github_transport: httpx.BaseTransport | None = None,
     caldav_transport: httpx.BaseTransport | None = None,
+    linear_transport: httpx.BaseTransport | None = None,
     caldav_resolver: Resolver | None = None,
     release_feed: ReleaseFeed | None = None,
     updater: Updater | None = None,
@@ -199,7 +204,11 @@ def create_app(
             await asyncio.sleep(demo.CLEANUP_EVERY_S)
 
     async def housekeeping(
-        boards: BoardRepo, folders: FolderRepo, files: UnusedFiles, keys: ApiKeys
+        boards: BoardRepo,
+        folders: FolderRepo,
+        files: UnusedFiles,
+        keys: ApiKeys,
+        copies: BoardCopies,
     ) -> None:
         while True:
             try:
@@ -215,6 +224,10 @@ def create_app(
                 ended = await anyio.to_thread.run_sync(keys.purge)
                 if ended:
                     log.info("housekeeping: %d ended API keys deleted", ended)
+                old = (datetime.now(UTC) - timedelta(days=KEEP_DAYS)).isoformat()
+                expired = await anyio.to_thread.run_sync(copies.purge, old)
+                if expired:
+                    log.info("housekeeping: %d saved board copies deleted", expired)
             except Exception:
                 log.exception("housekeeping failed")
             await asyncio.sleep(HOUSEKEEPING_EVERY_S)
@@ -239,7 +252,11 @@ def create_app(
         keeper = (
             asyncio.create_task(
                 housekeeping(
-                    app.state.boards, app.state.folders, app.state.unused_files, app.state.api_keys
+                    app.state.boards,
+                    app.state.folders,
+                    app.state.unused_files,
+                    app.state.api_keys,
+                    app.state.copies,
                 )
             )
             if settings.tiko_worker == 0
@@ -301,6 +318,7 @@ def create_app(
     app.state.api_elements = storage.ApiElementRepo(db)
     app.state.unused_files = storage.UnusedFiles(db)
     rooms = LiveRooms(app.state.boards, member_repo, storage.Workspaces(db))
+    rooms.copies = app.state.copies = storage.BoardCopies(db)
     workers = (
         Workers(rooms, settings.tiko_worker, settings.tiko_workers, settings.tiko_workers_dir)
         if settings.tiko_workers > 1 and settings.tiko_workers_dir
@@ -314,6 +332,7 @@ def create_app(
         attempts,
         enabled=lambda: app.state.settings.api_keys(),
         offered=not settings.tiko_demo,
+        full_allowed=lambda: app.state.settings.full_keys(),
     )
     app.state.sessions = Sessions(
         storage.SessionRepo(db),
@@ -458,6 +477,16 @@ def create_app(
         timeout=httpx.Timeout(15.0, connect=5.0), transport=github_transport, follow_redirects=True
     )
     app.state.github_readers = GitHubReaders(github_client, github_token or None)
+    # Linear sends no redirects; a key must never follow one to another host.
+    linear_client = httpx.Client(
+        timeout=httpx.Timeout(15.0, connect=5.0), transport=linear_transport
+    )
+    app.state.linear_readers = LinearReaders(linear_client)
+    # Who a token signs in as, asked before it is stored; by tracker.
+    app.state.token_checks = {
+        GITHUB: app.state.github_readers.login,
+        LINEAR: app.state.linear_readers.login,
+    }
     # The reader of public repositories: guests and people without a token of their own.
     app.state.github = app.state.github_readers.shared
     caldav_private = settings.tiko_caldav_private_network or (

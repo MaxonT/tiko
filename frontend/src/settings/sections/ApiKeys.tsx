@@ -28,20 +28,18 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { copyLink } from '@/lib/copy'
+import { shortDate } from '@/lib/time'
 import { toastError } from '@/lib/toast'
 import { SectionHeader } from '@/settings/sections/Section'
-import { formatDate } from '@/timers/time'
 
 const API_KEYS = ['api-keys']
 
-const SCOPE_NAMES: Record<ApiKeyScope, string> = { read: 'Read', write: 'Read and write' }
-const SCOPES: ApiKeyScope[] = ['read', 'write']
-const EXPIRY_DAYS = [7, 30, 90, 365]
-
-/** "Nov 8" ("Nov 8, 2025" in another year) in the person's time zone. */
-function day(iso: string) {
-  return formatDate(Date.parse(iso))
+const SCOPE_NAMES: Record<ApiKeyScope, string> = {
+  read: 'Read',
+  write: 'Read and write',
+  full: 'Full access',
 }
+const EXPIRY_DAYS = [7, 30, 90, 365]
 
 function expiry(key: ApiKey) {
   const days = daysLeft(key)
@@ -53,7 +51,7 @@ function lastUsed(key: ApiKey) {
   if (!key.last_used_on) return 'Never used'
   // A plain day from the server, so it is not shifted by the time zone.
   const [year, month, date] = key.last_used_on.split('-').map(Number)
-  return `Last used ${formatDate(new Date(year, month - 1, date).getTime())}`
+  return `Last used ${shortDate(new Date(year, month - 1, date).getTime())}`
 }
 
 function TokenBox({ token, onDone }: { token: string; onDone: () => void }) {
@@ -103,11 +101,14 @@ function CreateDialog({
   open,
   onOpenChange,
   onCreated,
+  full,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   onCreated: (token: string) => void
+  full: boolean
 }) {
+  const scopes: ApiKeyScope[] = full ? ['read', 'write', 'full'] : ['read', 'write']
   const queryClient = useQueryClient()
   const boards = useQuery({ queryKey: ['boards'], queryFn: listBoards, enabled: open })
   const [name, setName] = useState('')
@@ -178,7 +179,7 @@ function CreateDialog({
               value={scope}
               onValueChange={(value) => setScope(value as ApiKeyScope)}
             >
-              {SCOPES.map((item) => (
+              {scopes.map((item) => (
                 <Choice
                   key={item}
                   value={item}
@@ -187,6 +188,12 @@ function CreateDialog({
                 />
               ))}
             </RadioGroup>
+            {scope === 'full' && (
+              <p className="text-muted-foreground text-[13px]">
+                Rewrites and removes anything on boards you can edit, as you could. tiko saves a
+                copy of a board before the key changes people's work.
+              </p>
+            )}
           </div>
           <div className="flex flex-col gap-2">
             <span className="text-sm font-medium">Boards</span>
@@ -323,7 +330,7 @@ function KeyRow({ apiKey, onRevoke }: { apiKey: ApiKey; onRevoke: (key: ApiKey) 
         <span className="truncate font-medium">{apiKey.name}</span>
         <span className="text-muted-foreground truncate text-[12px]">
           <span className="font-mono">tiko_{apiKey.prefix}…</span> · {boards} · Created{' '}
-          {day(apiKey.created_at)} · {expiry(apiKey)} · {lastUsed(apiKey)}
+          {shortDate(Date.parse(apiKey.created_at))} · {expiry(apiKey)} · {lastUsed(apiKey)}
         </span>
       </div>
       <Badge variant="secondary">{SCOPE_NAMES[apiKey.scope]}</Badge>
@@ -379,7 +386,14 @@ export function ApiKeys() {
           )}
         </>
       )}
-      {creating && <CreateDialog open onOpenChange={setCreating} onCreated={setToken} />}
+      {creating && (
+        <CreateDialog
+          open
+          onOpenChange={setCreating}
+          onCreated={setToken}
+          full={keys.data?.full ?? false}
+        />
+      )}
       <RevokeDialog apiKey={revoking} onOpenChange={(open) => !open && setRevoking(null)} />
     </div>
   )

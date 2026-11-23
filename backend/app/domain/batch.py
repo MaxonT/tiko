@@ -5,13 +5,14 @@ writes the result only when the board's own repair would change nothing in it, s
 applied whole or not at all.
 """
 
+import re
 from datetime import UTC, datetime
 from typing import Annotated, Any, Literal
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.domain import layout
-from app.domain.boards import CodeLanguage, Opacity, ShapeKind, TextSize
+from app.domain.boards import LABEL_MAX, CodeLanguage, Opacity, ShapeKind, TextSize
 from app.domain.errors import (
     Conflict,
     KeepsPeopleWork,
@@ -129,6 +130,8 @@ class NewElement(_Styled):
     ref: str | None = Field(default=None, max_length=500)
     from_: str | None = Field(default=None, alias="from", max_length=100)
     to: str | None = Field(default=None, max_length=100)
+    # An arrow's words; empty or left out for none.
+    label: str | None = Field(default=None, max_length=LABEL_MAX)
     # A reminder: at a moment, or when the task of the card it sits on leaves `status`.
     note: str | None = Field(default=None, max_length=500)
     at: AwareDatetime | None = None
@@ -144,8 +147,11 @@ class NewElement(_Styled):
         if self.kind != "timer" and timed:
             raise ValueError(f"only a reminder takes {sorted(timed)[0]}")
         if self.kind == "timer":
-            if self.x is not None or self.frame is not None or self.w or self.h:
-                raise ValueError("a reminder takes no place, size or frame: give on")
+            if self.w or self.h:
+                raise ValueError("a reminder takes no size")
+            placed = self.x is not None or self.frame is not None
+            if placed and (self.on or self.ref or self.status):
+                raise ValueError("a reminder on an element sits beside it: leave out x and frame")
             if self.at is not None and (self.ref or self.status):
                 raise ValueError("a reminder goes off at a moment or on a status change, not both")
             if self.at is None and self.repeat:
@@ -154,6 +160,8 @@ class NewElement(_Styled):
                 raise ValueError("give at, or a task or card whose status to watch")
         if (self.x is None) != (self.y is None):
             raise ValueError("give x and y together, or neither")
+        if self.kind != "arrow" and self.label is not None:
+            raise ValueError("only an arrow takes label")
         if self.kind == "arrow":
             if not (self.from_ and self.to):
                 raise ValueError("an arrow joins two elements: give from and to")
@@ -183,6 +191,8 @@ class Change(_Styled):
     note: str | None = Field(default=None, max_length=500)
     at: AwareDatetime | None = None
     repeat: Repeat | None = None
+    # A reminder: the element it moves to sit on; null frees it where it stands.
+    on: str | None = Field(default=None, max_length=100)
 
     id: str = Field(max_length=100)
     x: float | None = _PLACE
@@ -195,12 +205,14 @@ class Change(_Styled):
     title: str | None = Field(default=None, max_length=200)
     color: str | None = Field(default=None, max_length=20)
     shape: ShapeKind | None = None
+    # An arrow's words; empty takes the label away.
+    label: str | None = Field(default=None, max_length=LABEL_MAX)
 
     @model_validator(mode="after")
     def _together(self) -> "Change":
         if (self.x is None) != (self.y is None):
             raise ValueError("give x and y together, or neither")
-        for name in ("x", "y", "w", "h", "note", "at", *_STYLE_FIELDS, *_CODE):
+        for name in ("x", "y", "w", "h", "note", "at", "label", *_STYLE_FIELDS, *_CODE):
             if name in self.model_fields_set and getattr(self, name) is None:
                 raise ValueError(f"{name} cannot be null; leave it out to keep it")
         return self
@@ -214,6 +226,11 @@ class CardRef(BaseModel):
 class Arrange(BaseModel):
     cards: list[str] = Field(min_length=1, max_length=MAX_ELEMENTS)
     layout: Literal["grid", "status"] = "grid"
+    # Cards a row; left out, as many as fit an existing frame's width, or `layout.PER_ROW`.
+    columns: int | None = Field(default=None, ge=1, le=20)
+    order: Literal["given", "key", "status"] = "given"
+    # The frame takes the size of what it holds, smaller or larger.
+    fit: bool = False
     frame_id: str | None = None
     # A new frame below the board, made with this id and title.
     new_frame: tuple[str, str] | None = None
@@ -242,17 +259,31 @@ class Batch(BaseModel):
     watches: dict[str, Watch] = {}
     # Elements the caller's person added through the API: theirs to change and remove.
     mine: list[str] = []
+    # A key with full access (spec 055): changes and removes everyone's work, as its person may.
+    full: bool = False
+    # Who the call is for, named in a copy saved before it.
+    by: str | None = None
+    # A saved copy of the board to put back instead of any change.
+    restore: str | None = None
 
 
 class Applied(BaseModel):
     ids: list[str] = []
     created: list[str] = []
     removed: list[str] = []
+    # People's elements and arrows the call changes the words of or removes; a copy comes first.
+    overwrote: list[str] = []
 
 
 def iso(moment: datetime) -> str:
     """A moment as the web app writes one: UTC with milliseconds and Z."""
     return moment.astimezone(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+
+def _natural(key: str) -> tuple[tuple[int, int | str], ...]:
+    """A task key in reading order: DEMO-9 before DEMO-10."""
+    parts = re.split(r"(\d+)", key.lower())
+    return tuple((0, int(part)) if part.isdigit() else (1, part) for part in parts if part)
 
 
 def _absolute(nodes: Stored, node_id: str | None) -> tuple[float, float]:
@@ -289,10 +320,14 @@ class _Plan:
         return frame
 
     def _own(self, element_id: str, what: str) -> None:
-        if element_id not in self.mine:
-            raise NotApiElement(f"{element_id} was not added through the API; {what} it by hand.")
         if element_id in self.locked:
             raise VoteRunning(f"{element_id} is in a running vote.")
+        if element_id in self.mine:
+            return
+        if not self.batch.full:
+            raise NotApiElement(f"{element_id} was not added through the API; {what} it by hand.")
+        if element_id not in self.applied.overwrote:
+            self.applied.overwrote.append(element_id)
 
     # Removal first: a batch may take an element out and put another in its place.
     def remove(self) -> None:
@@ -319,17 +354,20 @@ class _Plan:
         self._own(node_id, "remove")
         for edge_id, edge in list(self.edges.items()):
             if node_id in (edge["source"], edge["target"]):
-                if edge_id not in self.mine:
+                if edge_id not in self.mine and not self.batch.full:
                     raise KeepsPeopleWork(
                         f"{node_id} has an arrow someone drew; remove that first."
                     )
+                self._own(edge_id, "remove")
                 self._drop_edge(edge_id)
+        node = self.nodes[node_id]
         for child_id, child in list(self.nodes.items()):
             if child["place"].get("parentId") != node_id:
                 continue
-            if child["type"] == "timer":
-                if child_id not in self.mine:
+            if child["type"] == "timer" and node["type"] in _HOLDERS:
+                if child_id not in self.mine and not self.batch.full:
                     raise KeepsPeopleWork(f"{node_id} has a reminder on it; remove that first.")
+                self._own(child_id, "remove")
                 # The API's own reminder goes with its element, as its own arrow does.
                 del self.nodes[child_id]
                 self.applied.removed.append(child_id)
@@ -370,7 +408,10 @@ class _Plan:
             node = self.nodes.get(end or "")
             if node is None or node["type"] == "anchor":
                 raise NotFound(f"element {end} not found")
-        self.edges[element.id] = {"source": element.from_, "target": element.to}
+        edge: dict[str, Any] = {"source": element.from_, "target": element.to}
+        if element.label and element.label.strip():
+            edge["data"] = {"label": {"text": element.label}}
+        self.edges[element.id] = edge
         self.changed[1].add(element.id)
 
     def _data(self, element: NewElement) -> dict[str, Any]:
@@ -459,15 +500,38 @@ class _Plan:
         for change in self.batch.changes:
             given = change.model_fields_set
             if change.id in self.edges:
-                raise ValidationFailed(f"{change.id} is an arrow: remove it and draw another.")
+                self._relabel(change, given)
+                continue
             node = self.nodes.get(change.id)
             if node is None or node["type"] == "anchor":
                 raise NotFound(f"element {change.id} not found")
+            if "label" in given:
+                raise ValidationFailed(f"{change.id}: only an arrow takes label")
             node = self._restyle(change, node, given)
             node = self._retime(change, node, given)
             node = self._resize(change, node, given)
+            node = self._reattach(change, node, given)
             self._put(change.id, self._move(change, node, given))
             self.applied.ids.append(change.id)
+
+    def _relabel(self, change: Change, given: set[str]) -> None:
+        if given != {"id", "label"}:
+            raise ValidationFailed(
+                f"{change.id} is an arrow: only its label changes; remove it and draw another."
+            )
+        # The words are the person's, as a note's text is.
+        self._own(change.id, "change")
+        edge = dict(self.edges[change.id])
+        data = dict(edge.pop("data", None) or {})
+        text = change.label or ""
+        if text.strip():
+            # A new text keeps where the label sits and how it looks.
+            data["label"] = {**data.get("label", {}), "text": text}
+        else:
+            data.pop("label", None)
+        self.edges[change.id] = edge | ({"data": data} if data else {})
+        self.changed[1].add(change.id)
+        self.applied.ids.append(change.id)
 
     def _restyle(self, change: Change, node: dict[str, Any], given: set[str]) -> dict[str, Any]:
         words = given & {"text", "title", "shape"}
@@ -538,16 +602,52 @@ class _Plan:
             size["height"] = change.h
         return {**node, "size": size}
 
+    def _holder(self, node: dict[str, Any]) -> str | None:
+        """The element a reminder sits on; a frame only contains it."""
+        parent = node["place"].get("parentId")
+        held = parent is not None and self.nodes.get(parent, {}).get("type") in _HOLDERS
+        return parent if node["type"] == "timer" and held else None
+
+    def _reattach(self, change: Change, node: dict[str, Any], given: set[str]) -> dict[str, Any]:
+        if "on" not in given:
+            return node
+        if node["type"] != "timer":
+            raise ValidationFailed(f"{change.id}: only a reminder takes on")
+        if change.x is not None or "frame" in given:
+            raise ValidationFailed(f"{change.id}: give on, or a place, not both")
+        watch = node["data"].get("watch")
+        if change.on is None:
+            if self._holder(node) is None:
+                return node
+            if watch:
+                raise ValidationFailed(f"{change.id}: a status reminder stays on its task's card")
+            x, y = _absolute(self.nodes, change.id)
+            return {**node, "place": {"x": x, "y": y}}
+        holder = self.nodes.get(change.on)
+        if holder is None or holder["type"] not in _HOLDERS:
+            raise NotFound(f"no element {change.on} a reminder can sit on")
+        if watch:
+            data = holder["data"] if holder["type"] == "task_card" else {}
+            if data.get("key") != watch.get("key") or data.get("source") != watch.get("source"):
+                raise ValidationFailed(f"{change.id}: a status reminder sits on its task's card")
+        return {**node, "place": {**_BESIDE, "parentId": change.on}}
+
     def _move(self, change: Change, node: dict[str, Any], given: set[str]) -> dict[str, Any]:
         if change.x is None and "frame" not in given:
             return node
+        if self._holder(node) is not None:
+            # Placed against where its element was before this call moved it, it would land off.
+            raise ValidationFailed(
+                f"{change.id}: a reminder on an element moves with it; give on to put it on "
+                "another one, or on null to free it"
+            )
         x, y = (change.x, change.y) if change.x is not None else _absolute(self.nodes, change.id)
         parent = node["place"].get("parentId")
         if "frame" in given:
             parent = change.frame
             if parent is not None:
                 self._frame(parent)
-                if node["type"] in ("frame", "module", "timer"):
+                if node["type"] in ("frame", "module"):
                     raise ValidationFailed(f"{change.id}: a {node['type']} cannot go in a frame")
         px, py = _absolute(self.nodes, parent)
         place: dict[str, Any] = {"x": x - px, "y": y - py}
@@ -582,9 +682,14 @@ class _Plan:
             self.mine.add(frame_id)
         elif frame_id is not None:
             self._frame(frame_id)
+        if request.fit and frame_id is None:
+            raise ValidationFailed("fit needs a frame: give one or a title for a new one")
         groups = self._groups(cards, request)
         flat = [card for group in groups for card in group]
         sizes = [layout.SIZES["task_card"] for _ in flat]
+        per_row = request.columns or layout.PER_ROW
+        if request.columns is None and frame_id is not None and request.new_frame is None:
+            per_row = layout.fitting(self.nodes[frame_id], sizes[0][0])
         if frame_id is None:
             others = {k: v for k, v in self.nodes.items() if k not in flat}
             x, y = 0.0, layout.bottom(others) + layout.GAP
@@ -595,7 +700,7 @@ class _Plan:
         if request.layout == "status":
             places = layout.columns([[sizes[0]] * len(group) for group in groups], x, y)
         else:
-            places = layout.grid(sizes, x, y)
+            places = layout.grid(sizes, x, y, per_row)
         for card_id, (cx, cy) in zip(flat, places, strict=True):
             node = self.nodes[card_id]
             place: dict[str, Any] = {"x": cx, "y": cy}
@@ -603,17 +708,32 @@ class _Plan:
                 place["parentId"] = frame_id
             self._put(card_id, {**node, "place": place})
             self.applied.ids.append(card_id)
-        if frame_id is not None:
+        if frame_id is not None and request.fit:
+            self._put(frame_id, layout.fit(self.nodes, frame_id))
+        elif frame_id is not None:
             self._put(frame_id, layout.grow(self.nodes[frame_id], places, sizes))
+        if frame_id is not None and frame_id not in self.applied.ids:
+            # Its size changes with what it holds, and a layout needs to know it.
+            self.applied.ids.append(frame_id)
 
     def _groups(self, cards: list[str], request: Arrange) -> list[list[str]]:
+        def status(card_id: str) -> tuple[int, str]:
+            rank, name = request.statuses.get(card_id, (9, ""))
+            return rank, name.lower()
+
+        def key(card_id: str) -> tuple[tuple[int, int | str], ...]:
+            return _natural(self.nodes[card_id]["data"].get("key", ""))
+
+        if request.order == "key":
+            cards = sorted(cards, key=key)
+        elif request.order == "status":
+            cards = sorted(cards, key=lambda card_id: (status(card_id), key(card_id)))
         if request.layout == "grid":
             return [cards]
         groups: dict[tuple[int, str], list[str]] = {}
         for card_id in cards:
-            rank, name = request.statuses.get(card_id, (9, ""))
-            groups.setdefault((rank, name.lower()), []).append(card_id)
-        return [groups[status] for status in sorted(groups)]
+            groups.setdefault(status(card_id), []).append(card_id)
+        return [groups[name] for name in sorted(groups)]
 
     def check(self) -> None:
         """Refuses a board the repair would still change: the batch must stand as planned."""

@@ -1,4 +1,5 @@
 import re
+from collections.abc import Callable
 from datetime import UTC, date, datetime
 from typing import Literal, NamedTuple, NoReturn
 from urllib.parse import parse_qs, urlparse
@@ -18,6 +19,15 @@ GITHUB_KEY_RE = re.compile(rf"^{_REPO}#[1-9]\d*$")
 # A link to an issue or a pull request, with whatever follows: a tab, a comment anchor.
 _GITHUB_LINK_RE = re.compile(
     rf"^https?://(?:www\.)?github\.com/({_REPO})/(?:issues|pull)/([1-9]\d*)(?:[/?#].*)?$"
+)
+
+LINEAR = "linear"
+_WORKSPACE = r"[a-z0-9][a-z0-9-]*"
+_IDENTIFIER = r"[A-Z][A-Z0-9_]*-[1-9]\d*"
+# The workspace keeps a key apart from the same identifier in another workspace.
+LINEAR_KEY_RE = re.compile(rf"^{_WORKSPACE}/{_IDENTIFIER}$")
+_LINEAR_LINK_RE = re.compile(
+    rf"^https?://linear\.app/({_WORKSPACE})/issue/({_IDENTIFIER})(?:[/?#].*)?$", re.IGNORECASE
 )
 
 SOURCE_PATTERN = r"^[a-z][a-z0-9_]{0,39}$"
@@ -105,13 +115,6 @@ def valid_uid(uid: str) -> bool:
     return 0 < len(uid) <= 255 and uid.isprintable() and not any(c.isspace() for c in uid)
 
 
-def valid_key(source: str | None, key: str) -> bool:
-    """Whether the key has the shape its tracker uses; a missing source is the instance's."""
-    if source == CALDAV:
-        return valid_uid(key)
-    return bool((GITHUB_KEY_RE if source == GITHUB else KEY_RE).match(key))
-
-
 def github_key(ref: str) -> str | None:
     """The key in a GitHub link or a typed `owner/repo#number`; None for anything else."""
     text = ref.strip()
@@ -124,6 +127,19 @@ def github_url(key: str) -> str:
     """The issue page of a key; GitHub sends a pull request's number on to the pull request."""
     repo, _, number = key.rpartition("#")
     return f"https://github.com/{repo}/issues/{number}"
+
+
+def linear_key(ref: str) -> str | None:
+    """The key in a Linear issue link or a typed `workspace/ENG-12`; None for anything else."""
+    text = ref.strip()
+    if match := _LINEAR_LINK_RE.match(text):
+        return f"{match.group(1).lower()}/{match.group(2).upper()}"
+    return text if LINEAR_KEY_RE.match(text) else None
+
+
+def linear_url(key: str) -> str:
+    workspace, _, identifier = key.partition("/")
+    return f"https://linear.app/{workspace}/issue/{identifier}"
 
 
 def now_iso() -> str:
@@ -149,20 +165,6 @@ def parse_ref(ref: str, base_host: str) -> str:
     return key
 
 
-def resolve_task(
-    ref: str, providers: dict[str, TaskProvider], default_source: str, snapshots: SnapshotRepo
-) -> Task:
-    """A GitHub link or key goes to GitHub on any instance, the rest to the instance's tracker."""
-    key = github_key(ref)
-    if key and GITHUB in providers:
-        task = providers[GITHUB].resolve(key)
-    else:
-        provider = providers[default_source]
-        task = provider.resolve(parse_ref(ref, provider.base_host))
-    snapshots.put_many([task])
-    return task
-
-
 MAX_SEARCH = 100
 
 
@@ -181,32 +183,36 @@ def search_tasks(
     return found
 
 
-class NoTokenProvider:
-    """Stands in for Jira while the person has no usable token of their own.
+class NotConnected:
+    """Stands in for a tracker the person has not connected, or cannot read with what they
+    stored.
 
     Cards keep their key and say how to connect; nothing is fetched with anyone else's token.
     """
 
-    source_id = "jira"
-    source_name = "Jira Data Center"
     source_note = None
 
-    def __init__(self, base_url: str | None, reason: DomainError) -> None:
-        self._base_url = base_url or ""
+    def __init__(
+        self,
+        source_id: str,
+        source_name: str,
+        reason: DomainError,
+        link: Callable[[str], str] = lambda key: "",
+        base_host: str = "",
+    ) -> None:
+        self.source_id = source_id
+        self.source_name = source_name
+        self.base_host = base_host
         self._reason = reason
-
-    @property
-    def base_host(self) -> str:
-        return urlparse(self._base_url).hostname or ""
+        self._link = link
 
     def poll(self, keys: list[str]) -> list[Task]:
-        url = f"{self._base_url}/browse/" if self._base_url else ""
         return [
             Task(
                 source=self.source_id,
                 key=key,
                 state="no_token",
-                url=f"{url}{key}" if url else "",
+                url=self._link(key),
                 fetched_at=now_iso(),
             )
             for key in keys

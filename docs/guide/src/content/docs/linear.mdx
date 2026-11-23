@@ -1,0 +1,53 @@
+---
+title: Linear
+description: Put Linear issues on a board as live cards, read with your own Linear API key.
+---
+
+import { Steps } from '@astrojs/starlight/components'
+
+Linear issues become live cards on any tiko. Each person connects their own Linear API key, so a card shows only what that person can see in Linear. Nothing is set up in tiko. In Linear, members can create API keys unless a workspace admin has turned that off; then ask the admin to allow it.
+
+## Your API key
+
+<Steps>
+
+1. In Linear, open **Settings → Security & access** and create a personal API key. Read access is enough: tiko never changes anything in Linear.
+2. In tiko, open **Settings → My tracker**, paste the key into **Linear API key** and save. tiko checks it with Linear first and answers with your name and workspace.
+
+</Steps>
+
+The key stays on the server, encrypted, and is only ever sent to `api.linear.app`. Remove it in the same place.
+
+A Linear key reads one workspace. Linear counts 2,500 requests and 3,000,000 complexity points an hour for each person, shared by all their keys and tools; tiko keeps a tenth of each free and waits until the reset Linear reports rather than use them up.
+
+## Add a card
+
+Copy the link of an issue in Linear and paste it on the board with `⌘V` (`Ctrl+V`), or pick the card tool (`C`) and paste the link there, or type it as `your-workspace/ENG-12`. Several at once work too. All the forms are in [What you can add](../what-you-can-add/#linear).
+
+## Read a card
+
+- **On the board:** the identifier like `ENG-12`, the title and the status, in the color of its kind: not started, in progress or done.
+- **The mini-card**, on click: the assignee, the priority, the labels as chips in their Linear colors, the project, the cycle, the estimate, the parent issue of a sub-issue, and a link to Linear.
+- **On a Gantt:** an issue's due date is where its bar ends.
+
+## Statuses
+
+The card shows your workflow state by its own name. Its color comes from the kind of state:
+
+| Kind of state in Linear | On the card |
+|---|---|
+| Triage, Backlog, Unstarted | Not started |
+| Started | In progress |
+| Completed, Canceled, Duplicate | Done |
+
+## Who sees what
+
+- **You** see your Linear cards in full.
+- **A teammate** on the same board sees them only with a key of their own; without one a card shows its identifier and asks them to connect Linear.
+- **A guest** of a public link sees the identifier and a link to Linear, never the title.
+
+## Not yet
+
+- Bare identifiers like `ENG-12` typed without a link, and adding many issues by a query.
+- Several Linear workspaces for one person.
+- Changing an issue from the board.

@@ -16,12 +16,13 @@ import { toastError } from '@/lib/toast'
 import { CalDavForm } from '@/settings/sections/CalDavForm'
 import { SectionHeader } from '@/settings/sections/Section'
 import { didOnboarding } from '@/onboarding/done'
+import { TOKEN_SOURCES } from '@/sources/registry'
 
-const GITHUB_GUIDE = 'https://docs.tiko.run/github-issues/#your-own-token'
 const ATLASSIAN_TOKENS = 'https://id.atlassian.com/manage-profile/security/api-tokens'
 
-const GITHUB_HINT = {
-  none: 'No token yet. Public issues and pull requests work without one.',
+type TokenSourceForm = (typeof TOKEN_SOURCES)[number]
+
+const SOURCE_HINT = {
   set: 'Your token is stored. Enter a new one to replace it.',
   unreadable: 'Your stored token no longer works here: the secret key changed. Enter it again.',
 }
@@ -47,11 +48,12 @@ function useTokenChanged() {
   }
 }
 
-function GitHubTokenForm({ tracker }: { tracker: Tracker }) {
+function SourceTokenForm({ tracker, source }: { tracker: Tracker; source: TokenSourceForm }) {
   const [token, setToken] = useState('')
   const changed = useTokenChanged()
+  const state = tracker.tokens[source.id] ?? 'none'
   const save = useMutation({
-    mutationFn: () => saveTrackerToken(token.trim(), 'github'),
+    mutationFn: () => saveTrackerToken(token.trim(), source.id),
     onSuccess: (next) => {
       setToken('')
       changed(next)
@@ -59,7 +61,7 @@ function GitHubTokenForm({ tracker }: { tracker: Tracker }) {
     },
   })
   const remove = useMutation({
-    mutationFn: () => removeTrackerToken('github'),
+    mutationFn: () => removeTrackerToken(source.id),
     onSuccess: () => {
       changed()
       toast.success('Token removed')
@@ -70,41 +72,40 @@ function GitHubTokenForm({ tracker }: { tracker: Tracker }) {
     event.preventDefault()
     save.mutate()
   }
+  const field = `${source.id}-token`
   return (
     <form onSubmit={submit} className="flex flex-col gap-3">
       <p className="text-muted-foreground text-[13px]">
-        With your own token you see issues and pull requests of private repositories it can read,
-        and your GitHub cards refresh on your own request limit. Other people on a board see a
-        private task only with a token of their own. A fine-grained token needs the repositories
-        picked and read-only access to Issues and Pull requests.{' '}
+        {source.intro}{' '}
         <a
-          href={GITHUB_GUIDE}
+          href={source.guide}
           target="_blank"
           rel="noreferrer"
           className="text-primary underline-offset-2 hover:underline"
         >
-          Which token to create
+          {source.guideLabel}
         </a>
       </p>
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="github-token">GitHub token</Label>
+        <Label htmlFor={field}>{source.label}</Label>
         <Input
-          id="github-token"
+          id={field}
           type="password"
           value={token}
           onChange={(event) => setToken(event.target.value)}
           autoComplete="off"
         />
         <p className="text-muted-foreground text-[13px]">
-          {GITHUB_HINT[tracker.github_token_state]} It stays on the server and is never shown again.
+          {state === 'none' ? source.none : SOURCE_HINT[state]} It stays on the server and is never
+          shown again.
         </p>
       </div>
       {save.isError && <p className="text-destructive text-[13px]">{save.error.message}</p>}
       <div className="flex flex-wrap items-center gap-2">
         <Button type="submit" size="sm" disabled={save.isPending || !token.trim()}>
-          Save GitHub token
+          Save {source.label}
         </Button>
-        {tracker.github_token_state !== 'none' && (
+        {state !== 'none' && (
           <Button
             type="button"
             variant="ghost"
@@ -112,7 +113,7 @@ function GitHubTokenForm({ tracker }: { tracker: Tracker }) {
             disabled={remove.isPending}
             onClick={() => remove.mutate()}
           >
-            Remove GitHub token
+            Remove {source.label}
           </Button>
         )}
       </div>
@@ -122,6 +123,7 @@ function GitHubTokenForm({ tracker }: { tracker: Tracker }) {
 
 function TokenForm({ tracker }: { tracker: Tracker }) {
   const cloud = tracker.kind === 'cloud'
+  const jiraState = tracker.tokens.jira ?? 'none'
   const [token, setToken] = useState('')
   const [email, setEmail] = useState(tracker.email ?? '')
   const changed = useTokenChanged()
@@ -182,7 +184,7 @@ function TokenForm({ tracker }: { tracker: Tracker }) {
           autoComplete="off"
         />
         <p className="text-muted-foreground text-[13px]">
-          {HINT[tracker.token_state]} It stays on the server and is never shown again.
+          {HINT[jiraState]} It stays on the server and is never shown again.
           {cloud && (
             <>
               {' '}
@@ -213,12 +215,12 @@ function TokenForm({ tracker }: { tracker: Tracker }) {
           type="button"
           variant="outline"
           size="sm"
-          disabled={test.isPending || (!token.trim() && tracker.token_state !== 'set')}
+          disabled={test.isPending || (!token.trim() && jiraState !== 'set')}
           onClick={() => test.mutate()}
         >
           Test connection
         </Button>
-        {tracker.token_state !== 'none' && (
+        {jiraState !== 'none' && (
           <Button
             type="button"
             variant="ghost"
@@ -270,12 +272,13 @@ export function MyTracker() {
           )}
         </fieldset>
       )}
-      {tracker.data && (
-        <fieldset>
-          <legend className="mb-2 font-medium">GitHub</legend>
-          <GitHubTokenForm tracker={tracker.data} />
-        </fieldset>
-      )}
+      {tracker.data &&
+        TOKEN_SOURCES.map((source) => (
+          <fieldset key={source.id}>
+            <legend className="mb-2 font-medium">{source.name}</legend>
+            <SourceTokenForm tracker={tracker.data} source={source} />
+          </fieldset>
+        ))}
       {tracker.data && (
         <fieldset>
           <legend className="mb-2 font-medium">CalDAV</legend>

@@ -4,13 +4,26 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- Let your AI agent keep the whole board, not just what it added: a key with full access renames your frames, fixes the words of notes and clears old elements on boards you can edit. tiko saves a copy of the board before the key changes people's work, and the board goes back to it in one call. An admin turns it on in Settings → Sharing. See [API keys](https://docs.tiko.run/api-keys/).
+- Put your Linear issues on a board: paste an issue's link and it becomes a live card with its status, priority, labels, project and cycle, read with your own Linear API key. Teammates see a card only with a key of their own, and guests of a public link see just its identifier. See [Linear](https://docs.tiko.run/linear/).
+- Say what an arrow means, "blocks" or "waits for API", right on the arrow: double-click it and type. The label rides along when things move, slides along the arrow when two of them crowd one spot, stays level on any bend, and takes a fill and a size from the bar above it. Search finds labels, and your scripts and AI agent can read and write them on the arrows they draw. See [Arrow labels](https://docs.tiko.run/on-the-board/#arrow-labels).
+
 ### Changed
 
-- API keys and reminders write dates in words (`Nov 16`, or `Nov 16, 2026` outside the current year) like the rest of the app, instead of `16.11.2026` and `16.11`. The reminder field still reads `25.10 15:00` as typed input.
+- Your AI agent lays a board out right the first time: it puts cards, notes and frames exactly where it means to, fits a grid of cards to its frame, sorts them by key or status, and sizes the frame to what it holds. On a large board it reads only what it needs, such as the done cards outside frames. See [AI agents](https://docs.tiko.run/ai-agents/).
+- Rearranging a Gantt plan is no longer guesswork: while you drag a row, the other rows move aside and a gap shows where and at which level it will land. Near an edge the expanded view scrolls and the board pans, and Esc puts the row back. A row dropped into a collapsed row now opens it instead of vanishing from view. See [Arrange rows](https://docs.tiko.run/gantt/#arrange-rows).
+- Rearrange a Gantt plan in batches: select rows with Shift and Cmd-click or by dragging a box, then move them together in one drag, drop them on the board as cards and notes, or remove them with Delete. Backspace with rows selected no longer deletes the whole Gantt. See [Arrange rows](https://docs.tiko.run/gantt/#arrange-rows).
+- API keys, reminders and the Settings People page write dates in words (`Nov 16`, or `Nov 16, 2026` outside the current year) like the rest of the app, instead of `16.11.2026` and `16.11`. The reminder field still reads `25.10 15:00` as typed input.
 
 ### Fixed
 
+- A reminder no longer flies off its note when your AI agent moves both at once: a reminder now goes wherever its element goes, and the agent can hang it on another element, free it, or put a free one in a frame.
+- With `DATABASE_URL` pointing at a Postgres server of your own, Update now in About no longer runs with a backup of the unused local database and a rollback that would restore it instead of yours. It stops before it touches anything, and About says to back up your server and update with the installer.
 - Importing a board whose Gantt has stages with no type no longer warns that stages arrived without their types, and the import report shows one Planning button instead of one per note.
+- Gantt stages work from the keyboard: Tab reaches each stage, and Enter or Space opens its type, people and Done settings.
+- A CalDAV card on a public link no longer offers guests a broken Jira link.
 
 ## [2026.11.2] - 2026-11-16
 

@@ -19,7 +19,7 @@ from collections.abc import Callable, Iterator
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import BinaryIO
-from urllib.parse import quote, urlencode
+from urllib.parse import quote, urlencode, urlsplit
 
 log = logging.getLogger("updater")
 
@@ -412,6 +412,25 @@ def restore_database(docker: Docker, db: str, backup: str | None, install: Path)
             log.warning("the dump stays in the db container at %s: %s", inside, errors.strip())
 
 
+def uses_db_service(api: dict, db: dict) -> bool:
+    """Whether the api's DATABASE_URL points at the db container, the one the update can dump."""
+    env = dict(e.partition("=")[::2] for e in api["Config"].get("Env") or [])
+    try:
+        url = urlsplit(env.get("DATABASE_URL", ""))
+        host = url.hostname
+    except ValueError:
+        return False
+    # The dump always takes DB_NAME, so another database on the same server is not covered.
+    if url.path.lstrip("/") != DB_NAME:
+        return False
+    names = {db.get("Name", "").lstrip("/")}
+    for endpoint in (db.get("NetworkSettings") or {}).get("Networks", {}).values():
+        names.update(endpoint.get("Aliases") or [])
+        names.update(endpoint.get("DNSNames") or [])
+    # urlsplit lowercases the host; Docker keeps names as written.
+    return bool(host) and host in {n.lower() for n in names}
+
+
 def remove_old_images(docker: Docker, job: Job, repos: list[str], keep: set[str]) -> None:
     for repo in repos:
         for image in docker.images(repo):
@@ -443,12 +462,18 @@ def run_update(
     try:
         old = {s: service_container(docker, project, s) for s in SERVICES}
         try:
-            db = service_container(docker, project, "db")["Id"]
+            db_container = service_container(docker, project, "db")
         except DockerError as exc:
             # Migrations only go forward: no update without a dump to go back to.
             raise DockerError(
                 "no db service to back up; back up your database and update by hand"
             ) from exc
+        if not uses_db_service(old["api"], db_container):
+            raise DockerError(
+                "DATABASE_URL points at a Postgres server of your own, which the update cannot "
+                "back up; back up your database and update with the installer"
+            )
+        db = db_container["Id"]
         refs = {s: f"{split_ref(c['Config']['Image'])[0]}:{target}" for s, c in old.items()}
         pull(docker, job, list(refs.values()))
 

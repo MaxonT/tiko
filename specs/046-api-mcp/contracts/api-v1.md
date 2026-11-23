@@ -21,7 +21,7 @@ Each slice fixes its part before its code. Names here are final for v1: a later 
 | 401 | `token_expired` | The key's expiry passed |
 | 401 | `token_revoked` | The key was revoked, or ended by an account event |
 | 403 | `api_disabled` | The workspace admin switched API keys off |
-| 403 | `scope_required` | A `read` key on a write call |
+| 403 | `scope_required` | A `read` key on a write call; a key without full access on a restore (spec 055) |
 | 403 | `password_change_required` | The person must set a new password in the web app first |
 | 403 | `forbidden` | The person's role on the board does not allow the call |
 | 403 | `public_board` | A key for all boards writing to a board with a public link that was not chosen for it |
@@ -108,6 +108,8 @@ Without parameters, an outline:
 
 - `?frame=f1`: the frame's elements, and arrows with at least one end among them.
 - `?elements=all`: every element.
+- Filters (spec 054), combined with AND, on either: `?kind=` (repeated) element kinds; `?status=` (repeated) cards whose task is in one of these statuses, case ignored; `?done=true|false` cards whose task is or is not done; `?outside_frames=true` elements not in a frame. A filter on tasks keeps cards only. A filter without `frame` or `elements` reads all elements.
+- `?compact=true`: each card carries `title` and `status` next to its `key` instead of `task`, and null fields are left out.
 - Both come in pages of at most 500, ordered by id; `?after=<last id of the previous page>` asks for the next one. `{"elements": [...], "more": true}`; `more` is false on the last page. A page boundary stays valid while people edit.
 
 ### Element
@@ -125,13 +127,13 @@ Without parameters, an outline:
 | `code` | `title` (empty for none), `text`, `language` (one of the 28 ids of spec 049, `plain` for none), `collapsed`, `numbered`, `marked` (line numbers from 1) |
 | `shape` | `shape` (`rectangle`, `rounded`, `ellipse`, `rhombus`, `triangle`, `parallelogram`, `hexagon`, `cylinder`), `text`, `color` |
 | `frame` | `title`, `color` |
-| `arrow` | `from`, `to`: element ids, or `null` for an end that points at no element; no `x`, `y`, `w`, `h`, `frame` |
-| `timer` | `note`, `due_at`, `attached_to` (an element id or `null`); read-only |
+| `arrow` | `from`, `to`: element ids, or `null` for an end that points at no element; `label`: the words on the arrow, empty for none (spec 051); no `x`, `y`, `w`, `h`, `frame` |
+| `timer` | `note`, `due_at`, `attached_to` (an element id or `null`), `frame` for a free timer in a frame (spec 054) |
 | `image`, `module` | `title` where there is one; read-only |
 
-`editable` is true for an element the key's person added through the API, with any of their keys: only those take changes of text and colour, and removal. Elements other people added through the API are false.
+`editable` is true for an element the key's person added through the API, with any of their keys: only those take changes of text and removal. Elements other people added through the API are false. For a key with full access (spec 055) every element is true.
 
-`w` and `h` are present when the board stores a size; a card's height is measured by the browser and may be absent.
+`w` and `h` are present when the board stores a size. A card answers 320 and 50: the room a layout keeps for one; the browser measures it, and an opened card is taller (spec 054).
 
 ## Writing (write scope)
 
@@ -151,7 +153,7 @@ Without parameters, an outline:
 - A card takes `ref`: a key or a link, resolved the way the card tool resolves it. At most 50 cards per call.
 - A code block (spec 049) takes `text` up to 10 000 characters, `language` (default `plain`), `title`, `collapsed`, `numbered` and `marked`; those fields on any other kind, or `text` over 5000 characters on one, answer `422`.
 - Sizes: `w` and `h` within 1 – 20 000 for notes, shapes and frames, `w` only for text and code; cards take none. Coordinates within ±1 000 000.
-- An arrow joins two elements of the board or of the same call, never an element to itself. v1 makes no arrow with a free end.
+- An arrow joins two elements of the board or of the same call, never an element to itself. v1 makes no arrow with a free end. It takes an optional `label` up to 500 characters (spec 051); empty or only spaces is none; `label` on any other kind answers `422`.
 - Answers `200` with `{"elements": [...], "created": [ids]}`: the elements as they now stand, and which of them this call made. A re-add of an id the person already added through the API answers with the element as it is and leaves it out of `created`.
 
 ### `PATCH /api/v1/boards/{id}/elements`
@@ -163,9 +165,11 @@ Without parameters, an outline:
 ]}
 ```
 
-- On any element: `x`, `y` (together), `w`, `h` (as for adding), `frame`.
+- On any element: `x`, `y` (together), `w`, `h` (as for adding), `frame`. A timer on an element takes none of them: it moves with its element (spec 054).
+- On a timer: `on`, an element id it moves to sit on, beside its top-left corner; `null` frees it where it stands. A status timer stays on a card of its task. `on` with `x`, `y` or `frame` answers `422`.
 - On any code block: `language`, `collapsed`, `numbered`, `marked`.
 - Only on elements added through the API: `text`, `title`, `color`, `shape`.
+- On an arrow added through the API: `label` only (spec 051); an empty one removes the label, a new one keeps the label's place and look. Any other field on an arrow answers `422`; `label` on a person's arrow answers `409 not_api_element`, on any other kind `422`.
 - `frame: null` takes the element out of its frame and keeps it where it is on the board. Leaving `frame` out never changes it, even when `x` and `y` move the element outside the frame. Moving a frame moves its content.
 - Answers with the changed elements.
 
@@ -173,13 +177,25 @@ Without parameters, an outline:
 
 `{"ids": ["agent-n1"]}` → `204`. Only elements added through the API. An id that is already gone counts as removed, so a retry succeeds. Arrows added through the API that touch a removed element go with it; a person's arrow or timer on it refuses the call (`keeps_people_work`). Removing a frame keeps its content in place.
 
+### Full access (spec 055)
+
+A key is `read`, `write` or `full`; each does what the one before does. A `full` key, while the workspace setting `full_keys` is on, changes the text and title of any element and removes any element, arrow and reminder on a board its person may edit. With the setting off it acts as a `write` key, and a refusal (`409 not_api_element`) says the admin does not allow it. A running vote still locks its elements (`409 vote_running`).
+
+Before a call by a `full` key changes the words of, or removes, people's work, tiko saves a copy of the board in the same step: no copy, no change. No copy is saved when the newest one already has every element the call overwrites as it stands now, or as a key wrote it since. A board keeps its newest 20 copies, none older than 14 days.
+
+- `GET /api/v1/boards/{id}/copies` (write) → `{"copies": [{"id", "saved_at", "by", "reason", "elements"}]}`, newest first. `by` is the person's name, `reason` `key` or `restore`.
+- `POST /api/v1/boards/{id}/copies/{copy}/restore` (full) → `204`. Puts the board back as the copy has it, for everyone at once; the board as it is now is saved first unless it equals the newest copy. Refused while a vote runs (`409 vote_running`). Elements the API added come back as people's.
+
 ### `POST /api/v1/boards/{id}/arrange`
 
 ```json
 {"cards": ["c1", "c2", "c9"], "layout": "status", "frame": {"title": "Sprint 12"}}
 ```
 
-- `layout`: `grid` (4 per row) or `status` (a column per status: to do, then in progress, then done, by the tracker's status category, and by name within each).
+- `layout`: `grid` or `status` (a column per status: to do, then in progress, then done, by the tracker's status category, and by name within each).
+- `columns` (1–20, spec 054): cards a row in the grid. Absent: as many 320 px columns as fit an existing frame's width, at least one; otherwise 4.
+- `order`: `given` (default), `key` (numbers compared as numbers), `status` (category, name, then key). In the status layout it sorts each column.
+- `fit`: `true` sizes the frame to what it holds plus its margins, smaller or larger; without a frame it answers `422`.
 - `frame`: `{"id": "f1"}` for an existing frame, which grows to hold the cards; `{"title": "..."}` to make one below what is on the board; absent to lay the cards out below what is on the board.
 - Only the named cards move. Answers like adding elements: the moved cards and the frame, with a new frame in `created`.
 
@@ -207,24 +223,26 @@ Streamable HTTP, JSON answers, the same key as `Authorization: Bearer`. `/api/mc
 | Tool | Scope | Hints | Maps to |
 |---|---|---|---|
 | `list_boards` | read | read-only | `GET /boards` |
-| `read_board(board, frame?, all?, after?, coordinates?)` | read | read-only | `GET /boards/{id}`; coordinates only when `coordinates` is true |
+| `read_board(board, frame?, all?, after?, coordinates?, kinds?, status?, done?, outside_frames?, compact?)` | read | read-only | `GET /boards/{id}`; coordinates only when `coordinates` is true |
 | `search_tasks(source, query, done?, limit?)` | read | read-only | `POST /tasks/search` |
 | `create_board(name)` | write | — | `POST /boards` |
-| `add_cards(board, cards: [{ref, id?}], frame?)` | write | idempotent where ids are given | `POST /elements`, kind `card` |
-| `add_notes(board, notes: [{text, color?, kind?, id?}], frame?)` | write | idempotent where ids are given | `POST /elements`, kind `note` or `text` |
+| `add_cards(board, cards: [{ref, id?, x?, y?}], frame?)` | write | idempotent where ids are given | `POST /elements`, kind `card` |
+| `add_notes(board, notes: [{text, color?, kind?, id?, x?, y?, w?, h?}], frame?)` | write | idempotent where ids are given | `POST /elements`, kind `note` or `text` |
 | `add_frame(board, title, id?, x?, y?, w?, h?)` | write | idempotent with an id | `POST /elements`, kind `frame` |
-| `connect(board, start, end, id?)` | write | idempotent with an id | `POST /elements`, kind `arrow` |
+| `connect(board, start, end, label?, id?)` | write | idempotent with an id | `POST /elements`, kind `arrow` |
 | `update_elements(board, changes)` | write | idempotent | `PATCH /elements` |
-| `arrange(board, cards, layout, frame?, new_frame?)` | write | — (a frame by title is made anew on a retry) | `POST /arrange` |
+| `arrange(board, cards, layout, frame?, new_frame?, columns?, order?, fit?)` | write | — (a frame by title is made anew on a retry) | `POST /arrange` |
 | `remove_elements(board, ids)` | write | destructive, idempotent | `POST /elements/remove` |
+| `list_copies(board)` | write | read-only | `GET /copies` |
+| `restore_copy(board, copy)` | full | destructive, idempotent | `POST /copies/{copy}/restore` |
 
-A `read` key lists only the first three; a write tool called with one answers `scope_required`. Every answer that names a board carries its `url`.
+A `read` key lists only the read tools, a `write` key all but `restore_copy`; a tool beyond the key's scope answers `scope_required`. Every answer that names a board carries its `url`.
 
 ## Internal routes for the web app (not v1)
 
 Signed in with the session cookie; not part of the public contract.
 
-- `GET /api/me/api-keys` → `{"keys": [{"id", "name", "scope", "boards", "prefix", "created_at", "expires_at", "last_used_on"}], "enabled": true}`
+- `GET /api/me/api-keys` → `{"keys": [{"id", "name", "scope", "boards", "prefix", "created_at", "expires_at", "last_used_on"}], "enabled": true, "full": false}`; `full` says whether the admin allows keys with full access.
 - `POST /api/me/api-keys` `{"name", "scope", "boards", "days", "password"}` → `201 {"key": {...}, "token": "tiko_..."}`; a wrong password `401 invalid_credentials`, counted like sign-in.
 - `DELETE /api/me/api-keys/{id}` → `204`.
 - `GET /api/settings` gains `api_keys` and, for an admin, `api_keys_live`; `PUT /api/settings {"api_keys": true|false}` by an admin.

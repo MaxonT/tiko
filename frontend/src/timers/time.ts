@@ -1,3 +1,5 @@
+import { shortDate } from '@/lib/time'
+
 const MINUTE = 60_000
 const HOUR = 60 * MINUTE
 const DAY = 24 * HOUR
@@ -227,33 +229,12 @@ export function formatLeftLong(ms: number) {
 }
 
 const WEEKDAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-const MONTH_NAMES = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-]
 const pad = (n: number) => String(n).padStart(2, '0')
-
-/** The day in words, like the rest of the app: "Nov 16", with the year ("Nov 16, 2026") outside the current one. */
-export function formatDate(at: number, now = Date.now()) {
-  const d = new Date(at)
-  const date = `${MONTH_NAMES[d.getMonth()]} ${d.getDate()}`
-  return d.getFullYear() === new Date(now).getFullYear() ? date : `${date}, ${d.getFullYear()}`
-}
 
 // The UI is English whatever the browser locale; the time zone is the user's.
 /** The moment as "Sun, Oct 25, 15:30", with the year outside the current one: "Sun, Oct 25, 2027, 15:30". */
 export function formatDue(at: number, now = Date.now()) {
-  return `${WEEKDAY_NAMES[new Date(at).getDay()]}, ${formatDate(at, now)}, ${formatClock(at)}`
+  return `${WEEKDAY_NAMES[new Date(at).getDay()]}, ${shortDate(at, now)}, ${formatClock(at)}`
 }
 
 /**
@@ -263,7 +244,7 @@ export function formatDue(at: number, now = Date.now()) {
 export function suggestionNote({ input, at }: Suggestion, now: number) {
   const d = new Date(at)
   const today = d.toDateString() === new Date(now).toDateString()
-  const date = formatDate(at, now)
+  const date = shortDate(at, now)
   if (input.includes(':')) return today ? '' : date
   return today ? formatClock(at) : `${WEEKDAY_NAMES[d.getDay()]} ${date}, ${formatClock(at)}`
 }

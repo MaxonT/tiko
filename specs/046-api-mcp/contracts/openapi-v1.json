@@ -30,6 +30,24 @@
             "title": "Cards",
             "type": "array"
           },
+          "columns": {
+            "anyOf": [
+              {
+                "maximum": 20.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Columns"
+          },
+          "fit": {
+            "default": false,
+            "title": "Fit",
+            "type": "boolean"
+          },
           "frame": {
             "anyOf": [
               {
@@ -47,6 +65,16 @@
               "status"
             ],
             "title": "Layout",
+            "type": "string"
+          },
+          "order": {
+            "default": "given",
+            "enum": [
+              "given",
+              "key",
+              "status"
+            ],
+            "title": "Order",
             "type": "string"
           }
         },
@@ -287,6 +315,18 @@
             "title": "Id",
             "type": "string"
           },
+          "label": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
           "language": {
             "anyOf": [
               {
@@ -367,6 +407,18 @@
               }
             ],
             "title": "Numbered"
+          },
+          "on": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "On"
           },
           "opacity": {
             "anyOf": [
@@ -551,6 +603,66 @@
         "title": "ChangeIn",
         "type": "object"
       },
+      "CopyList": {
+        "properties": {
+          "copies": {
+            "items": {
+              "$ref": "#/components/schemas/CopyOut"
+            },
+            "title": "Copies",
+            "type": "array"
+          }
+        },
+        "required": [
+          "copies"
+        ],
+        "title": "CopyList",
+        "type": "object"
+      },
+      "CopyOut": {
+        "properties": {
+          "by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "By"
+          },
+          "elements": {
+            "title": "Elements",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "reason": {
+            "enum": [
+              "key",
+              "restore"
+            ],
+            "title": "Reason",
+            "type": "string"
+          },
+          "saved_at": {
+            "title": "Saved At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "saved_at",
+          "by",
+          "reason",
+          "elements"
+        ],
+        "title": "CopyOut",
+        "type": "object"
+      },
       "Counts": {
         "properties": {
           "counts": {
@@ -716,6 +828,17 @@
             "title": "Kind",
             "type": "string"
           },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
           "language": {
             "anyOf": [
               {
@@ -839,6 +962,17 @@
               }
             ],
             "title": "Source"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
           },
           "stroke": {
             "anyOf": [
@@ -1577,6 +1711,18 @@
             "title": "Kind",
             "type": "string"
           },
+          "label": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
           "language": {
             "anyOf": [
               {
@@ -2212,7 +2358,8 @@
               "jira",
               "demo",
               "caldav",
-              "github"
+              "github",
+              "linear"
             ],
             "title": "Source",
             "type": "string"
@@ -2786,7 +2933,7 @@
     },
     "/boards/{board_id}": {
       "get": {
-        "description": "An outline of the board, or its elements a page at a time: all of them, or one frame's.",
+        "description": "An outline of the board, or its elements a page at a time: all of them, or one frame's.\nA filter or `compact` reads elements without `elements=all`.",
         "operationId": "read_board_boards__board_id__get",
         "parameters": [
           {
@@ -2847,6 +2994,95 @@
                 }
               ],
               "title": "After"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "enum": [
+                      "card",
+                      "note",
+                      "text",
+                      "code",
+                      "shape",
+                      "frame",
+                      "arrow",
+                      "image",
+                      "module",
+                      "timer"
+                    ],
+                    "type": "string"
+                  },
+                  "maxItems": 10,
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "maxLength": 200,
+                    "type": "string"
+                  },
+                  "maxItems": 50,
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "done",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Done"
+            }
+          },
+          {
+            "in": "query",
+            "name": "outside_frames",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Outside Frames",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "compact",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Compact",
+              "type": "boolean"
             }
           }
         ],
@@ -3029,7 +3265,7 @@
     },
     "/boards/{board_id}/arrange": {
       "post": {
-        "description": "Lays the named cards out as a grid or in columns by status, below what is on the board\nor in a frame that grows to hold them. Nothing else moves.",
+        "description": "Lays the named cards out as a grid or in columns by status, below what is on the board\nor in a frame that grows to hold them, or takes their size with `fit`. Nothing else\nmoves.",
         "operationId": "arrange_boards__board_id__arrange_post",
         "parameters": [
           {
@@ -3120,6 +3356,184 @@
           }
         ],
         "summary": "Arrange",
+        "tags": [
+          "writing"
+        ]
+      }
+    },
+    "/boards/{board_id}/copies": {
+      "get": {
+        "description": "Copies of the board tiko saved before a key with full access changed people's work, and\nbefore each restore, newest first.",
+        "operationId": "list_copies_boards__board_id__copies_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "board_id",
+            "required": true,
+            "schema": {
+              "title": "Board Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CopyList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "No key, or a key that stopped working"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The key may not do this, or keys are switched off"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not found, or not among what the key reaches"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The request does not match the schema"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Over a budget; see Retry-After"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "List Copies",
+        "tags": [
+          "writing"
+        ]
+      }
+    },
+    "/boards/{board_id}/copies/{copy_id}/restore": {
+      "post": {
+        "description": "Puts the board back as the copy has it, for everyone at once. The board as it is now is\nsaved first, so a restore can be undone the same way. Needs a key with full access.",
+        "operationId": "restore_copy_boards__board_id__copies__copy_id__restore_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "board_id",
+            "required": true,
+            "schema": {
+              "title": "Board Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "copy_id",
+            "required": true,
+            "schema": {
+              "title": "Copy Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "No key, or a key that stopped working"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The key may not do this, or keys are switched off"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Not found, or not among what the key reaches"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "The request does not match the schema"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Over a budget; see Retry-After"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Restore Copy",
         "tags": [
           "writing"
         ]

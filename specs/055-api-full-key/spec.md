@@ -45,7 +45,7 @@ Principles check:
 ## Requirements
 
 - **FR-001**: Keys MUST take scope `full`; a `full` key MUST change text and remove any element on a board its person may edit, and only while the workspace allows it.
-- **FR-002**: A call by a `full` key that changes or removes people's work MUST save the board first, at most once per 10 minutes per board.
+- **FR-002**: A call by a `full` key that changes or removes people's work MUST save the board first, unless the newest copy already holds that work as Decision 5 says.
 - **FR-003**: Copies MUST be listed and restored through REST, MCP and the web app; restoring MUST save the current board first.
 - **FR-004**: With the workspace setting off, a `full` key MUST act as a `write` key.
 

@@ -547,7 +547,8 @@ def create(app: FastAPI) -> TikoMCP:
         takes a place and a frame. Restyles any element: colour, bold, text size, opacity,
         rotation, a shape's stroke and dash, a code block's language, folding, line numbers
         and marked lines. Changes the text of what you added, and the label of an arrow you
-        drew (empty removes it); text people wrote is theirs and cannot be changed here."""
+        drew (empty removes it). Text people wrote changes only with a key that has full
+        access, after tiko saves a copy of the board (see list_copies)."""
         body = elements.ChangeIn(changes=changes)
         return write(
             ctx,

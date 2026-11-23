@@ -36,6 +36,7 @@ class Written(BaseModel):
 
 
 class Latest(BaseModel):
+    id: str
     doc: BoardDoc
     written: Written = Written()
 

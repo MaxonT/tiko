@@ -6,7 +6,7 @@ import time
 import uuid
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from functools import cache
 from pathlib import Path
 from typing import Literal
@@ -1879,26 +1879,26 @@ class PgBoardCopies(_Repo):
     def latest(self, board_id: str) -> Latest | None:
         with self._tx() as conn:
             row = conn.execute(
-                "SELECT doc, written FROM board_copies WHERE board_id = %s"
-                " ORDER BY saved_at DESC, id DESC LIMIT 1",
-                (board_id,),
+                "SELECT id, doc, written FROM board_copies WHERE board_id = %s"
+                " AND saved_at > %s ORDER BY saved_at DESC, id DESC LIMIT 1",
+                (board_id, datetime.now(UTC) - timedelta(days=copies.KEEP_DAYS)),
             ).fetchone()
         if row is None:
             return None
         return Latest(
+            id=row["id"],
             doc=BoardDoc.model_validate_json(row["doc"]),
             written=Written.model_validate_json(row["written"]),
         )
 
-    def note_written(self, board_id: str, written: Written) -> None:
+    def note_written(self, board_id: str, copy_id: str, written: Written) -> None:
         with self._tx() as conn:
             conn.execute(
                 "UPDATE board_copies SET written = jsonb_build_object("
                 "'nodes', (written -> 'nodes') || (%s::jsonb -> 'nodes'),"
                 "'edges', (written -> 'edges') || (%s::jsonb -> 'edges'))"
-                " WHERE board_id = %s AND id = (SELECT id FROM board_copies WHERE board_id = %s"
-                " ORDER BY saved_at DESC, id DESC LIMIT 1)",
-                (written.model_dump_json(), written.model_dump_json(), board_id, board_id),
+                " WHERE board_id = %s AND id = %s",
+                (written.model_dump_json(), written.model_dump_json(), board_id, copy_id),
             )
 
     def add(self, board_id: str, doc: BoardDoc, by_user_id: str | None, reason: str) -> str:

@@ -633,10 +633,13 @@ class ApiElementRepo(Protocol):
 class BoardCopies(Protocol):
     """Copies of boards saved before a key with full access changed people's work (spec 055)."""
 
-    def latest(self, board_id: str) -> Latest | None: ...
+    def latest(self, board_id: str) -> Latest | None:
+        """The newest copy still within `copies.KEEP_DAYS`: an older one is about to go."""
+        ...
 
-    def note_written(self, board_id: str, written: Written) -> None:
-        """Adds what a key just wrote over people's work to the newest copy's record."""
+    def note_written(self, board_id: str, copy_id: str, written: Written) -> None:
+        """Adds what a key just wrote over people's work to the record of the copy it was
+        checked against."""
         ...
 
     def add(self, board_id: str, doc: BoardDoc, by_user_id: str | None, reason: str) -> str:

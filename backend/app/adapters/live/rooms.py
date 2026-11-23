@@ -400,20 +400,24 @@ class Room:
             for _ in range(_COPY_TRIES):
                 # A check first, so the document and the copy its repair keeps agree.
                 self.check()
-                # From the read to the write nothing awaits, so no update from a tab lands between.
                 nodes, edges = self.live.checked() or self.live.read()
                 planned, kept, applied = plan(nodes, edges, batch, locked)
-                if applied.overwrote and not await self._copied(nodes, edges, applied, batch):
-                    continue
+                copy_id = None
+                if applied.overwrote:
+                    copy_id = await self._copied(nodes, edges, applied, batch)
+                    if copy_id is None or self._moved(nodes, edges):
+                        continue
+                # From here to the write nothing awaits, so no update from a tab lands between.
                 self.live.write(planned, kept, current=(nodes, edges))
                 self.check()
                 # Saved before the answer, so a read right after it sees the change.
                 await self.save()
-                if applied.overwrote and self._rooms.copies is not None:
+                if copy_id is not None and self._rooms.copies is not None:
+                    # On the copy it was checked against, never a newer one saved meanwhile.
                     left = written(planned, kept, applied.overwrote)
                     with in_workspace(self.workspace):
                         await anyio.to_thread.run_sync(
-                            self._rooms.copies.note_written, self.board_id, left
+                            self._rooms.copies.note_written, self.board_id, copy_id, left
                         )
                 return applied
             raise Conflict("The board kept changing while tiko saved a copy of it; try again.")
@@ -421,18 +425,26 @@ class Room:
             self.busy -= 1
             self._left()
 
-    async def _copied(self, nodes: Stored, edges: Stored, applied: Applied, batch: Batch) -> bool:
-        """Whether the newest copy holds what the batch overwrites; saves one when it does not."""
+    async def _copied(
+        self, nodes: Stored, edges: Stored, applied: Applied, batch: Batch
+    ) -> str | None:
+        """The newest copy when it holds what the batch overwrites; else saves one and gives
+        None, so the batch is planned again."""
         copies = self._rooms.copies
         if copies is None:
             raise RuntimeError("people's work cannot change without a place for copies")
         with in_workspace(self.workspace):
             latest = await anyio.to_thread.run_sync(copies.latest, self.board_id)
-            if holds(latest, nodes, edges, applied.overwrote):
-                return True
+            if latest is not None and holds(latest, nodes, edges, applied.overwrote):
+                return latest.id
             # The board as the check left it, which is what was just read.
             await anyio.to_thread.run_sync(copies.add, self.board_id, self.last, batch.by, "key")
-        return False
+        return None
+
+    def _moved(self, nodes: Stored, edges: Stored) -> bool:
+        """Whether a tab changed the board while something awaited after it was read."""
+        self.check()
+        return (self.live.checked() or self.live.read()) != (nodes, edges)
 
     async def _restore(self, batch: Batch, locked: frozenset[str]) -> Applied:
         if locked:
@@ -455,6 +467,8 @@ class Room:
                     await anyio.to_thread.run_sync(
                         copies.add, self.board_id, self.last, batch.by, "restore"
                     )
+                continue
+            if self._moved(nodes, edges):
                 continue
             self.live.write(*from_board(found.doc), current=(nodes, edges))
             self.check()
@@ -650,14 +664,18 @@ class LiveRooms:
             if applied.overwrote:
                 if self.copies is None:
                     raise RuntimeError("people's work cannot change without a place for copies")
-                if not holds(self.copies.latest(board_id), nodes, edges, applied.overwrote):
+                latest = self.copies.latest(board_id)
+                if latest is not None and holds(latest, nodes, edges, applied.overwrote):
+                    copy_id = latest.id
+                else:
                     now, _ = live.repair(record.doc, locked)
-                    self.copies.add(board_id, now, batch.by, "key")
+                    copy_id = self.copies.add(board_id, now, batch.by, "key")
             live.write(planned, kept, current=(nodes, edges))
             doc, _ = live.repair(record.doc, locked)
             self.boards.save(board_id, record.version, doc, live.state())
             if applied.overwrote and self.copies is not None:
-                self.copies.note_written(board_id, written(planned, kept, applied.overwrote))
+                left = written(planned, kept, applied.overwrote)
+                self.copies.note_written(board_id, copy_id, left)
             return applied
 
     def _restore_stored(

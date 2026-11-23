@@ -213,3 +213,15 @@ def test_with_the_board_open_a_copy_comes_first_and_a_restore_reaches_the_tab(ap
             assert [c["reason"] for c in copies(key, board_id)] == ["restore", "key"]
     finally:
         sockets.__exit__(None, None, None)
+
+
+def test_a_copy_past_its_days_does_not_spare_a_new_one(app, full):
+    board_id, key = full
+    change(key, board_id, {"id": "n1", "text": "Fixed"})
+    with app.state.copies._db.jobs() as conn:
+        conn.execute(
+            "UPDATE board_copies SET saved_at = now() - interval '15 days' WHERE board_id = %s",
+            (board_id,),
+        )
+    remove(key, board_id, "n2")
+    assert len(copies(key, board_id)) == 2

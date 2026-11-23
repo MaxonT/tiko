@@ -300,7 +300,7 @@ class BoardShape:
             return Element(**base, kind="image", frame=frame)
         if isinstance(node, TimerNode):
             due = node.data.dueAt.isoformat() if node.data.dueAt else None
-            attached = node.parentId if parent is not None else None
+            attached = None if parent is None or isinstance(parent, FrameNode) else node.parentId
             watch = node.data.watch
             watched = None
             if watch is not None:

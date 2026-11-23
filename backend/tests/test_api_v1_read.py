@@ -332,6 +332,8 @@ def test_filters_choose_the_elements(app, admin):
     assert ids(key, board_id, "status=in%20review") == ["c6"]
     assert ids(key, board_id, "outside_frames=true") == ["c1", "c3", "f1"]
     assert ids(key, board_id, "frame=f1&kind=timer") == ["r1"]
+    (timer,) = key.get(f"/api/v1/boards/{board_id}?kind=timer").json()["elements"]
+    assert (timer["frame"], timer["attached_to"]) == ("f1", None)
     assert ids(key, board_id, "outside_frames=true&done=false") == ["c1"]
     assert ids(key, board_id, "frame=f1&kind=card") == ["c6"]
 

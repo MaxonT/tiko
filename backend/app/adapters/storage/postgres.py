@@ -6,7 +6,7 @@ import time
 import uuid
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
-from datetime import UTC
+from datetime import UTC, datetime, timedelta
 from functools import cache
 from pathlib import Path
 from typing import Literal
@@ -19,6 +19,7 @@ from psycopg.types.datetime import TimestamptzBinaryLoader, TimestamptzLoader
 from psycopg.types.string import TextBinaryLoader, TextLoader
 from psycopg_pool import ConnectionPool
 
+from app.domain import copies
 from app.domain.accounts import Account, Person, PersonRecord, Role
 from app.domain.api_keys import ApiKey, EndReason, StoredKey
 from app.domain.attempts import BROWSERS_PER_PERSON
@@ -30,6 +31,7 @@ from app.domain.boards import (
     image_files,
     planned_stages,
 )
+from app.domain.copies import Copy, CopyInfo, Latest, Written
 from app.domain.errors import NotFound, UsernameTaken, VersionConflict, VoteClosed
 from app.domain.files import Picture, Served, StoredFile
 from app.domain.folders import Folder
@@ -1856,6 +1858,97 @@ class PgApiElementRepo(_Repo):
             )
 
 
+_COPY = (
+    "SELECT c.id, c.saved_at, c.by_user_id, u.name AS by_name, c.reason, c.elements"
+    " FROM board_copies c LEFT JOIN users u ON u.id = c.by_user_id"
+)
+
+
+def _copy_info(row) -> CopyInfo:
+    return CopyInfo(
+        id=row["id"],
+        saved_at=row["saved_at"],
+        by_user_id=row["by_user_id"],
+        by_name=row["by_name"],
+        reason=row["reason"],
+        elements=row["elements"],
+    )
+
+
+class PgBoardCopies(_Repo):
+    def latest(self, board_id: str) -> Latest | None:
+        with self._tx() as conn:
+            row = conn.execute(
+                "SELECT id, doc, written FROM board_copies WHERE board_id = %s"
+                " AND saved_at > %s ORDER BY saved_at DESC, id DESC LIMIT 1",
+                (board_id, datetime.now(UTC) - timedelta(days=copies.KEEP_DAYS)),
+            ).fetchone()
+        if row is None:
+            return None
+        return Latest(
+            id=row["id"],
+            doc=BoardDoc.model_validate_json(row["doc"]),
+            written=Written.model_validate_json(row["written"]),
+        )
+
+    def note_written(self, board_id: str, copy_id: str, written: Written) -> None:
+        with self._tx() as conn:
+            conn.execute(
+                "UPDATE board_copies SET written = jsonb_build_object("
+                "'nodes', (written -> 'nodes') || (%s::jsonb -> 'nodes'),"
+                "'edges', (written -> 'edges') || (%s::jsonb -> 'edges'))"
+                " WHERE board_id = %s AND id = %s",
+                (written.model_dump_json(), written.model_dump_json(), board_id, copy_id),
+            )
+
+    def add(self, board_id: str, doc: BoardDoc, by_user_id: str | None, reason: str) -> str:
+        copy_id = uuid.uuid4().hex
+        with self._tx() as conn:
+            conn.execute(
+                "INSERT INTO board_copies (workspace_id, board_id, id, saved_at, by_user_id,"
+                " reason, elements, doc) VALUES (%s, %s, %s, %s, %s, %s, %s, %s::jsonb)",
+                (
+                    self._ws,
+                    board_id,
+                    copy_id,
+                    # To the microsecond: the newest copy decides whether another is needed.
+                    datetime.now(UTC).isoformat(),
+                    by_user_id,
+                    reason,
+                    len(doc.nodes),
+                    _doc(doc),
+                ),
+            )
+            conn.execute(
+                "DELETE FROM board_copies WHERE board_id = %s AND id NOT IN (SELECT id FROM"
+                " board_copies WHERE board_id = %s ORDER BY saved_at DESC, id DESC LIMIT %s)",
+                (board_id, board_id, copies.KEEP),
+            )
+        return copy_id
+
+    def list(self, board_id: str) -> list[CopyInfo]:
+        with self._tx() as conn:
+            rows = conn.execute(
+                f"{_COPY} WHERE c.board_id = %s ORDER BY c.saved_at DESC, c.id DESC",
+                (board_id,),
+            ).fetchall()
+        return [_copy_info(row) for row in rows]
+
+    def get(self, board_id: str, copy_id: str) -> Copy | None:
+        with self._tx() as conn:
+            row = conn.execute(
+                f"{_COPY.replace(' FROM', ', c.doc FROM', 1)} WHERE c.board_id = %s AND c.id = %s",
+                (board_id, copy_id),
+            ).fetchone()
+        if row is None:
+            return None
+        return Copy(info=_copy_info(row), doc=BoardDoc.model_validate_json(row["doc"]))
+
+    def purge(self, before: str) -> int:
+        with self._db.jobs() as conn:
+            return conn.execute("DELETE FROM board_copies WHERE saved_at < %s", (before,)).rowcount
+
+
 # Invites join a workspace, password resets belong to the server; the domain sees one list.
 _LINKS = (
     "(SELECT id, 'invite' AS kind, role, NULL::text AS user_id, workspace_id, token_hash,"
@@ -2248,8 +2341,10 @@ def _index_files(conn: psycopg.Connection, ws: str, board_id: str, doc: BoardDoc
 
 # Files a saved board shows, in the trash too, and files a sticker pack holds. A document
 # without a list of nodes, copied in from an old file, shows nothing and must not stop the job.
+# Pictures in saved copies stay as long as the copies (spec 055).
 _USED_FILES = (
-    "SELECT n -> 'data' ->> 'file' AS id FROM boards b, jsonb_array_elements(CASE"
+    "SELECT n -> 'data' ->> 'file' AS id FROM (SELECT doc FROM boards"
+    " UNION ALL SELECT doc FROM board_copies) b, jsonb_array_elements(CASE"
     " WHEN jsonb_typeof(b.doc -> 'nodes') = 'array' THEN b.doc -> 'nodes' ELSE '[]' END) n"
     " WHERE n -> 'data' ->> 'file' IS NOT NULL UNION SELECT file_id FROM stickers"
 )
@@ -2294,6 +2389,7 @@ KnownBrowsers = PgKnownBrowsers
 SessionRepo = PgSessionRepo
 ApiKeyRepo = PgApiKeyRepo
 ApiElementRepo = PgApiElementRepo
+BoardCopies = PgBoardCopies
 InviteRepo = PgInviteRepo
 MemberRepo = PgMemberRepo
 Workspaces = PgWorkspaces

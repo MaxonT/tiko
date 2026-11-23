@@ -187,6 +187,7 @@ WRITE_TOOLS = [
     "arrange",
     "connect",
     "create_board",
+    "list_copies",
     "remove_elements",
     "rename_board",
     "update_elements",
@@ -448,3 +449,29 @@ def test_planning_tools_read_the_keys_own_workspace(served):
 
     people = [p["name"] for p in call(url, token, steps).structured_content["people"]]
     assert people == ["Other Olga"]
+
+
+def test_a_full_key_tidies_people_work_and_restores_the_board(served):
+    app, url, admin = served
+    assert admin.put("/api/settings", json={"full_keys": True}).status_code == 200
+    board_id = board(admin)
+    token = make_key(admin, scope="full")["token"]
+    writer = make_key(admin, scope="write")["token"]
+
+    async def steps(client):
+        names = await tool_names(client)
+        renamed = await client.call_tool(
+            "update_elements", {"board": board_id, "changes": [{"id": "n1", "text": "Asked"}]}
+        )
+        listed = await client.call_tool("list_copies", {"board": board_id})
+        (saved,) = listed.structured_content["copies"]
+        back = await client.call_tool("restore_copy", {"board": board_id, "copy": saved["id"]})
+        return names, renamed, back
+
+    names, renamed, back = call(url, token, steps)
+    assert names == sorted([*READ_TOOLS, *WRITE_TOOLS, "restore_copy"])
+    assert renamed.structured_content["elements"][0]["text"] == "Asked"
+    assert not back.is_error
+    assert "restore_copy" not in call(url, writer, tool_names)
+    nodes = {n["id"]: n for n in admin.get(f"/api/boards/{board_id}").json()["doc"]["nodes"]}
+    assert nodes["n1"]["data"]["text"] == "Ask legal"

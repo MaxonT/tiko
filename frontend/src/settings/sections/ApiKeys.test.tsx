@@ -40,11 +40,13 @@ afterEach(() => vi.unstubAllGlobals())
 
 function mockApi({
   enabled = true,
+  full = false,
   create = () => Response.json({ key: { ...agentKey, id: 'k3' }, token: 'tiko_secret' }),
-}: { enabled?: boolean; create?: () => Response } = {}) {
+}: { enabled?: boolean; full?: boolean; create?: () => Response } = {}) {
   const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
     if (url === '/api/me/api-keys' && init?.method === 'POST') return create()
-    if (url === '/api/me/api-keys') return Response.json({ keys: [agentKey, oldKey], enabled })
+    if (url === '/api/me/api-keys')
+      return Response.json({ keys: [agentKey, oldKey], enabled, full })
     if (url === '/api/me/api-keys/k1' && init?.method === 'DELETE')
       return new Response(null, { status: 204 })
     if (url === '/api/boards')
@@ -184,4 +186,22 @@ test('says the key reads Planning too', async () => {
   mockApi()
   await fillDialog()
   expect(screen.getByText(/the Planning they use: people, teams and days away/)).toBeInTheDocument()
+})
+
+test('offers full access only when the admin allows it', async () => {
+  mockApi()
+  fireEvent.click(await screen.findByRole('button', { name: 'New key' }))
+  await screen.findByLabelText('Read and write')
+  expect(screen.queryByLabelText('Full access')).toBeNull()
+})
+
+test('makes a key with full access and says a copy comes first', async () => {
+  const fetchMock = mockApi({ full: true })
+  await fillDialog()
+  fireEvent.click(screen.getByLabelText('Full access'))
+  expect(screen.getByText(/saves a copy of a board/)).toBeTruthy()
+  fireEvent.click(screen.getByRole('button', { name: 'Create key' }))
+  await waitFor(() => expect(methods(fetchMock)).toContain('POST /api/me/api-keys'))
+  const sent = fetchMock.mock.calls.find(([, init]) => init?.method === 'POST')?.[1]?.body
+  expect(JSON.parse(String(sent)).scope).toBe('full')
 })

@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, Field, model_serializer
 
 from app.api import deps
-from app.api.v1.deps import Key, KeyPerson, Viewable, board_url, read_budget
+from app.api.v1.deps import Key, KeyPerson, Viewable, board_url, full, read_budget
 from app.domain.api_gantt import GanttOut, Names, gantt_view
 from app.domain.api_view import BoardShape, Kind, Outline, Page, page
 from app.domain.boards import ModuleNode, task_refs
@@ -145,8 +145,11 @@ def read_module(board_id: str, module_id: str, _: Viewable, request: Request) ->
     return found
 
 
-def editable(board_id: str, request: Request) -> set[str]:
-    """Elements the caller's person added through the API."""
+def editable(board_id: str, request: Request, doc=None) -> set[str]:
+    """Elements the caller's key may change the words of and remove: what its person added
+    through the API, or, with full access, all of them."""
+    if doc is not None and full(request):
+        return {node.id for node in doc.nodes} | {edge.id for edge in doc.edges}
     me = deps.current_person(request).id
     made = request.app.state.api_elements.of_board(board_id)
     return {element_id for element_id, person_id in made.items() if person_id == me}
@@ -162,7 +165,7 @@ def shape(board_id: str, request: Request, refresh: bool = True) -> BoardShape:
     if refresh:
         _refresh(board_id, request)
     tasks = snapshots.get_many(task_refs(record.doc, tracker))
-    return BoardShape(record.doc, tasks, tracker, editable(board_id, request))
+    return BoardShape(record.doc, tasks, tracker, editable(board_id, request, record.doc))
 
 
 def _refresh(board_id: str, request: Request) -> None:

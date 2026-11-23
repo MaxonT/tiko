@@ -29,7 +29,8 @@ from pycrdt import (
 from app.domain.accounts import Person
 from app.domain.batch import Applied, Batch, plan
 from app.domain.boards import BoardDoc
-from app.domain.errors import NotFound, VersionConflict
+from app.domain.copies import holds, same, written
+from app.domain.errors import Conflict, NotFound, VersionConflict, VoteRunning
 from app.domain.live import (
     ACCESS_CHANGED,
     GOING_AWAY,
@@ -41,9 +42,11 @@ from app.domain.live import (
     TOO_SLOW,
     VOTES_CHANGED,
     LiveDoc,
+    Stored,
+    from_board,
 )
 from app.domain.members import role_on
-from app.domain.ports import BoardRepo, MemberRepo
+from app.domain.ports import BoardCopies, BoardRepo, MemberRepo
 from app.domain.workspaces import NoWorkspaces, WorkspaceLookup, in_workspace
 from app.observability import LIVE_CHECK, LIVE_NODES, LIVE_SAVE
 
@@ -390,19 +393,88 @@ class Room:
         self._stay()
         self.busy += 1
         try:
-            # A check first, so the document and the copy its repair keeps agree.
-            self.check()
-            # From the read to the write nothing awaits, so no update from a tab lands between.
-            nodes, edges = self.live.checked() or self.live.read()
-            planned, kept, applied = plan(nodes, edges, batch, locked)
-            self.live.write(planned, kept, current=(nodes, edges))
-            self.check()
-            # Saved before the answer, so a read right after it sees the change.
-            await self.save()
-            return applied
+            if batch.restore is not None:
+                return await self._restore(batch, locked)
+            # A copy awaits the database, and a tab may change the board meanwhile: the batch is
+            # planned again on what the board then holds, until the newest copy has it all.
+            for _ in range(_COPY_TRIES):
+                # A check first, so the document and the copy its repair keeps agree.
+                self.check()
+                nodes, edges = self.live.checked() or self.live.read()
+                planned, kept, applied = plan(nodes, edges, batch, locked)
+                copy_id = None
+                if applied.overwrote:
+                    copy_id = await self._copied(nodes, edges, applied, batch)
+                    if copy_id is None or self._moved(nodes, edges):
+                        continue
+                # From here to the write nothing awaits, so no update from a tab lands between.
+                self.live.write(planned, kept, current=(nodes, edges))
+                self.check()
+                # Saved before the answer, so a read right after it sees the change.
+                await self.save()
+                if copy_id is not None and self._rooms.copies is not None:
+                    # On the copy it was checked against, never a newer one saved meanwhile.
+                    left = written(planned, kept, applied.overwrote)
+                    with in_workspace(self.workspace):
+                        await anyio.to_thread.run_sync(
+                            self._rooms.copies.note_written, self.board_id, copy_id, left
+                        )
+                return applied
+            raise Conflict("The board kept changing while tiko saved a copy of it; try again.")
         finally:
             self.busy -= 1
             self._left()
+
+    async def _copied(
+        self, nodes: Stored, edges: Stored, applied: Applied, batch: Batch
+    ) -> str | None:
+        """The newest copy when it holds what the batch overwrites; else saves one and gives
+        None, so the batch is planned again."""
+        copies = self._rooms.copies
+        if copies is None:
+            raise RuntimeError("people's work cannot change without a place for copies")
+        with in_workspace(self.workspace):
+            latest = await anyio.to_thread.run_sync(copies.latest, self.board_id)
+            if latest is not None and holds(latest, nodes, edges, applied.overwrote):
+                return latest.id
+            # The board as the check left it, which is what was just read.
+            await anyio.to_thread.run_sync(copies.add, self.board_id, self.last, batch.by, "key")
+        return None
+
+    def _moved(self, nodes: Stored, edges: Stored) -> bool:
+        """Whether a tab changed the board while something awaited after it was read."""
+        self.check()
+        return (self.live.checked() or self.live.read()) != (nodes, edges)
+
+    async def _restore(self, batch: Batch, locked: frozenset[str]) -> Applied:
+        if locked:
+            raise VoteRunning("A vote is running on this board; restore it after the vote ends.")
+        copies = self._rooms.copies
+        if copies is None:
+            raise NotFound("copy not found")
+        with in_workspace(self.workspace):
+            found = await anyio.to_thread.run_sync(copies.get, self.board_id, batch.restore)
+        if found is None:
+            raise NotFound("copy not found")
+        for _ in range(_COPY_TRIES):
+            self.check()
+            nodes, edges = self.live.checked() or self.live.read()
+            with in_workspace(self.workspace):
+                latest = await anyio.to_thread.run_sync(copies.latest, self.board_id)
+            if not same(latest, nodes, edges):
+                # So the restore itself can be undone the same way.
+                with in_workspace(self.workspace):
+                    await anyio.to_thread.run_sync(
+                        copies.add, self.board_id, self.last, batch.by, "restore"
+                    )
+                continue
+            if self._moved(nodes, edges):
+                continue
+            self.live.write(*from_board(found.doc), current=(nodes, edges))
+            self.check()
+            await self.save()
+            return Applied()
+        raise Conflict("The board kept changing while tiko saved a copy of it; try again.")
 
     def close(self, code: int) -> None:
         for connection in (*self.connections, *self.guests):
@@ -437,6 +509,8 @@ def _presence_message(states: dict[int, tuple[int, str]]) -> bytes:
 _KEEPALIVE = _presence_message({})
 # Under the 30 s after which a browser's provider gives up on a silent socket.
 KEEPALIVE_S = 15.0
+# Copies saved for one call before the board holds still long enough to change it.
+_COPY_TRIES = 3
 
 
 class LiveRooms:
@@ -461,6 +535,8 @@ class LiveRooms:
         self.save_max_s = 10.0
         self.idle_s = 30.0
         self.keepalive_s = KEEPALIVE_S
+        # Where copies go before a key with full access changes people's work; set by the app.
+        self.copies: BoardCopies | None = None
         # What a running vote locks on a board: its elements and when it ends; set by the app.
         self.locks: Callable[[str], tuple[frozenset[str], float | None] | None] | None = None
 
@@ -582,11 +658,42 @@ class LiveRooms:
                 live.apply_json(record.doc)
             locked = self._locked_now(board_id)
             nodes, edges = live.read()
+            if batch.restore is not None:
+                return self._restore_stored(board_id, record, live, batch, locked)
             planned, kept, applied = plan(nodes, edges, batch, locked)
+            if applied.overwrote:
+                if self.copies is None:
+                    raise RuntimeError("people's work cannot change without a place for copies")
+                latest = self.copies.latest(board_id)
+                if latest is not None and holds(latest, nodes, edges, applied.overwrote):
+                    copy_id = latest.id
+                else:
+                    now, _ = live.repair(record.doc, locked)
+                    copy_id = self.copies.add(board_id, now, batch.by, "key")
             live.write(planned, kept, current=(nodes, edges))
             doc, _ = live.repair(record.doc, locked)
             self.boards.save(board_id, record.version, doc, live.state())
+            if applied.overwrote and self.copies is not None:
+                left = written(planned, kept, applied.overwrote)
+                self.copies.note_written(board_id, copy_id, left)
             return applied
+
+    def _restore_stored(
+        self, board_id: str, record: Any, live: LiveDoc, batch: Batch, locked: frozenset[str]
+    ) -> Applied:
+        if locked:
+            raise VoteRunning("A vote is running on this board; restore it after the vote ends.")
+        found = self.copies.get(board_id, batch.restore) if self.copies else None
+        if found is None:
+            raise NotFound("copy not found")
+        nodes, edges = live.read()
+        now, _ = live.repair(record.doc, locked)
+        if not same(self.copies.latest(board_id), nodes, edges):
+            self.copies.add(board_id, now, batch.by, "restore")
+        live.write(*from_board(found.doc), current=live.read())
+        doc, _ = live.repair(now, locked)
+        self.boards.save(board_id, record.version, doc, live.state())
+        return Applied()
 
     async def _apply(self, board_id: str, batch: Batch) -> Applied:
         room = await self._room(board_id)

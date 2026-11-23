@@ -463,3 +463,15 @@ def test_a_board_without_a_list_of_nodes_does_not_stop_the_cleanup(client):
         )
     assert clean(client, NOW) == 0
     assert clean(client, LATER) == 1
+
+
+def test_a_saved_board_copy_holds_its_pictures(client):
+    board_id = board(client)
+    kept = upload(client, board_id, picture()).json()["id"]
+    show(client, board_id, kept)
+    doc = client.app.state.boards.get(board_id).doc
+    client.app.state.copies.add(board_id, doc, None, "key")
+    show(client, board_id)
+    assert clean(client, NOW) == 0
+    assert clean(client, LATER) == 0
+    assert client.get(f"/api/boards/{board_id}/files/{kept}").status_code == 200

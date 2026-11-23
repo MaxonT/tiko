@@ -21,7 +21,7 @@ Each slice fixes its part before its code. Names here are final for v1: a later 
 | 401 | `token_expired` | The key's expiry passed |
 | 401 | `token_revoked` | The key was revoked, or ended by an account event |
 | 403 | `api_disabled` | The workspace admin switched API keys off |
-| 403 | `scope_required` | A `read` key on a write call |
+| 403 | `scope_required` | A `read` key on a write call; a key without full access on a restore (spec 055) |
 | 403 | `password_change_required` | The person must set a new password in the web app first |
 | 403 | `forbidden` | The person's role on the board does not allow the call |
 | 403 | `public_board` | A key for all boards writing to a board with a public link that was not chosen for it |
@@ -131,7 +131,7 @@ Without parameters, an outline:
 | `timer` | `note`, `due_at`, `attached_to` (an element id or `null`), `frame` for a free timer in a frame (spec 054) |
 | `image`, `module` | `title` where there is one; read-only |
 
-`editable` is true for an element the key's person added through the API, with any of their keys: only those take changes of text and colour, and removal. Elements other people added through the API are false.
+`editable` is true for an element the key's person added through the API, with any of their keys: only those take changes of text and removal. Elements other people added through the API are false. For a key with full access (spec 055) every element is true.
 
 `w` and `h` are present when the board stores a size. A card answers 320 and 50: the room a layout keeps for one; the browser measures it, and an opened card is taller (spec 054).
 
@@ -176,6 +176,15 @@ Without parameters, an outline:
 ### `POST /api/v1/boards/{id}/elements/remove`
 
 `{"ids": ["agent-n1"]}` → `204`. Only elements added through the API. An id that is already gone counts as removed, so a retry succeeds. Arrows added through the API that touch a removed element go with it; a person's arrow or timer on it refuses the call (`keeps_people_work`). Removing a frame keeps its content in place.
+
+### Full access (spec 055)
+
+A key is `read`, `write` or `full`; each does what the one before does. A `full` key, while the workspace setting `full_keys` is on, changes the text and title of any element and removes any element, arrow and reminder on a board its person may edit. With the setting off it acts as a `write` key, and a refusal (`409 not_api_element`) says the admin does not allow it. A running vote still locks its elements (`409 vote_running`).
+
+Before a call by a `full` key changes the words of, or removes, people's work, tiko saves a copy of the board in the same step: no copy, no change. No copy is saved when the newest one already has every element the call overwrites as it stands now, or as a key wrote it since. A board keeps its newest 20 copies, none older than 14 days.
+
+- `GET /api/v1/boards/{id}/copies` (write) → `{"copies": [{"id", "saved_at", "by", "reason", "elements"}]}`, newest first. `by` is the person's name, `reason` `key` or `restore`.
+- `POST /api/v1/boards/{id}/copies/{copy}/restore` (full) → `204`. Puts the board back as the copy has it, for everyone at once; the board as it is now is saved first unless it equals the newest copy. Refused while a vote runs (`409 vote_running`). Elements the API added come back as people's.
 
 ### `POST /api/v1/boards/{id}/arrange`
 
@@ -224,14 +233,16 @@ Streamable HTTP, JSON answers, the same key as `Authorization: Bearer`. `/api/mc
 | `update_elements(board, changes)` | write | idempotent | `PATCH /elements` |
 | `arrange(board, cards, layout, frame?, new_frame?, columns?, order?, fit?)` | write | — (a frame by title is made anew on a retry) | `POST /arrange` |
 | `remove_elements(board, ids)` | write | destructive, idempotent | `POST /elements/remove` |
+| `list_copies(board)` | write | read-only | `GET /copies` |
+| `restore_copy(board, copy)` | full | destructive, idempotent | `POST /copies/{copy}/restore` |
 
-A `read` key lists only the first three; a write tool called with one answers `scope_required`. Every answer that names a board carries its `url`.
+A `read` key lists only the read tools, a `write` key all but `restore_copy`; a tool beyond the key's scope answers `scope_required`. Every answer that names a board carries its `url`.
 
 ## Internal routes for the web app (not v1)
 
 Signed in with the session cookie; not part of the public contract.
 
-- `GET /api/me/api-keys` → `{"keys": [{"id", "name", "scope", "boards", "prefix", "created_at", "expires_at", "last_used_on"}], "enabled": true}`
+- `GET /api/me/api-keys` → `{"keys": [{"id", "name", "scope", "boards", "prefix", "created_at", "expires_at", "last_used_on"}], "enabled": true, "full": false}`; `full` says whether the admin allows keys with full access.
 - `POST /api/me/api-keys` `{"name", "scope", "boards", "days", "password"}` → `201 {"key": {...}, "token": "tiko_..."}`; a wrong password `401 invalid_credentials`, counted like sign-in.
 - `DELETE /api/me/api-keys/{id}` → `204`.
 - `GET /api/settings` gains `api_keys` and, for an admin, `api_keys_live`; `PUT /api/settings {"api_keys": true|false}` by an admin.

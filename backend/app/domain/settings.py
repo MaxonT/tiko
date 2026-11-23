@@ -75,6 +75,7 @@ class SettingsIn(BaseModel):
     jira_start_field: str | None = Field(default=None, max_length=100, pattern=r"^[\w.]*$")
     public_links: bool | None = None
     api_keys: bool | None = None
+    full_keys: bool | None = None
 
 
 class JiraView(BaseModel):
@@ -96,6 +97,8 @@ class SettingsView(BaseModel):
     public_links: bool
     # Whether people may make API keys (spec 046); absent means off.
     api_keys: bool = False
+    # Whether a key may change and remove everyone's work (spec 055); absent means off.
+    full_keys: bool = False
     # Live keys in the workspace, for an admin only.
     api_keys_live: int | None = None
     # Fields set in the environment, which the API does not change.
@@ -214,6 +217,9 @@ class SettingsService:
     def api_keys(self) -> bool:
         return self._values().get("api_keys") == "1"
 
+    def full_keys(self) -> bool:
+        return self._values().get("full_keys") == "1"
+
     def set_api_keys(self, on: bool) -> None:
         self._repo.set_many({"api_keys": "1" if on else None})
 
@@ -234,6 +240,7 @@ class SettingsService:
             ),
             public_links=values.get("public_links") != "0",
             api_keys=values.get("api_keys") == "1",
+            full_keys=values.get("full_keys") == "1",
             locked=sorted(self._env),
         )
 
@@ -269,6 +276,8 @@ class SettingsService:
             values["public_links"] = "1" if change.public_links else "0"
         if change.api_keys is not None:
             values["api_keys"] = "1" if change.api_keys else None
+        if change.full_keys is not None:
+            values["full_keys"] = "1" if change.full_keys else None
         self._repo.set_many(values)
         if change.jira is not None and (plain := _clean(change.jira.token)) is not None:
             self.set_token(user_id, SecretStr(plain), change.jira.email)

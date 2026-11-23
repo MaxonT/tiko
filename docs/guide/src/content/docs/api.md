@@ -90,7 +90,7 @@ curl -H "Authorization: Bearer tiko_…" -H "Content-Type: application/json" \
   https://tiko.example.com/api/v1/boards/<id>/elements
 ```
 
-What people made stays theirs: a key moves and restyles any element, but changes the text of, and removes, only what was added through the API by you. Text people wrote never changes behind their back, and nothing they made disappears. During a vote, the elements in it keep their words and look.
+What people made stays theirs: a key moves and restyles any element, but changes the text of, and removes, only what was added through the API by you, unless it has full access (below). Text people wrote never changes behind their back, and nothing they made disappears. During a vote, the elements in it keep their words and look.
 
 ### Reminders
 
@@ -103,6 +103,14 @@ A reminder is an element of kind `timer`. It rings in tiko for whoever has the b
 - **Past moments** are refused.
 - **Changes:** `PATCH …/elements` changes the `note`, `at` and `repeat` of reminders you added; removing an element you added takes your reminders on it along.
 - **Moving:** a reminder on an element goes wherever the element goes and takes no place of its own. `{"id": "<reminder>", "on": "<element>"}` hangs it on another element, `"on": null` sets it free where it is. A free reminder takes `x`, `y` and a `frame`, as when you add it.
+
+### Full access and saved copies
+
+A key with full access changes the text of, and removes, anything on boards you can edit, once an admin allows it in **Settings → Sharing**. Before a call changes people's work, tiko saves a copy of the board; one tidying session makes one copy, and work someone does in between gets a copy of its own.
+
+- `GET /api/v1/boards/<id>/copies` lists the copies, newest first: when, by whom, and whether it came before a key's change or a restore.
+- `POST /api/v1/boards/<id>/copies/<copy>/restore` puts the board back as that copy has it, for everyone at once. It needs a key with full access. The board as it is now is saved first, so a restore can be undone the same way. During a vote it is refused.
+- A board keeps its newest 20 copies, for up to 14 days.
 
 ### How writes behave
 

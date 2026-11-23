@@ -5,7 +5,7 @@ import random
 import ssl
 import time
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from functools import partial
 from pathlib import Path
 
@@ -45,12 +45,14 @@ from app.domain import demo, usage
 from app.domain.accounts import Accounts
 from app.domain.api_keys import ApiKeys
 from app.domain.boards import purge_trash
+from app.domain.copies import KEEP_DAYS
 from app.domain.errors import NotFound
 from app.domain.files import DEMO_QUOTA_MB, Files, clean_files
 from app.domain.invites import Invites
 from app.domain.members import Members
 from app.domain.planning import Planning
 from app.domain.ports import (
+    BoardCopies,
     BoardRepo,
     FolderRepo,
     ReleaseFeed,
@@ -202,7 +204,11 @@ def create_app(
             await asyncio.sleep(demo.CLEANUP_EVERY_S)
 
     async def housekeeping(
-        boards: BoardRepo, folders: FolderRepo, files: UnusedFiles, keys: ApiKeys
+        boards: BoardRepo,
+        folders: FolderRepo,
+        files: UnusedFiles,
+        keys: ApiKeys,
+        copies: BoardCopies,
     ) -> None:
         while True:
             try:
@@ -218,6 +224,10 @@ def create_app(
                 ended = await anyio.to_thread.run_sync(keys.purge)
                 if ended:
                     log.info("housekeeping: %d ended API keys deleted", ended)
+                old = (datetime.now(UTC) - timedelta(days=KEEP_DAYS)).isoformat()
+                expired = await anyio.to_thread.run_sync(copies.purge, old)
+                if expired:
+                    log.info("housekeeping: %d saved board copies deleted", expired)
             except Exception:
                 log.exception("housekeeping failed")
             await asyncio.sleep(HOUSEKEEPING_EVERY_S)
@@ -242,7 +252,11 @@ def create_app(
         keeper = (
             asyncio.create_task(
                 housekeeping(
-                    app.state.boards, app.state.folders, app.state.unused_files, app.state.api_keys
+                    app.state.boards,
+                    app.state.folders,
+                    app.state.unused_files,
+                    app.state.api_keys,
+                    app.state.copies,
                 )
             )
             if settings.tiko_worker == 0
@@ -304,6 +318,7 @@ def create_app(
     app.state.api_elements = storage.ApiElementRepo(db)
     app.state.unused_files = storage.UnusedFiles(db)
     rooms = LiveRooms(app.state.boards, member_repo, storage.Workspaces(db))
+    rooms.copies = app.state.copies = storage.BoardCopies(db)
     workers = (
         Workers(rooms, settings.tiko_worker, settings.tiko_workers, settings.tiko_workers_dir)
         if settings.tiko_workers > 1 and settings.tiko_workers_dir
@@ -317,6 +332,7 @@ def create_app(
         attempts,
         enabled=lambda: app.state.settings.api_keys(),
         offered=not settings.tiko_demo,
+        full_allowed=lambda: app.state.settings.full_keys(),
     )
     app.state.sessions = Sessions(
         storage.SessionRepo(db),

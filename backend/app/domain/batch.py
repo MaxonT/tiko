@@ -259,12 +259,20 @@ class Batch(BaseModel):
     watches: dict[str, Watch] = {}
     # Elements the caller's person added through the API: theirs to change and remove.
     mine: list[str] = []
+    # A key with full access (spec 055): changes and removes everyone's work, as its person may.
+    full: bool = False
+    # Who the call is for, named in a copy saved before it.
+    by: str | None = None
+    # A saved copy of the board to put back instead of any change.
+    restore: str | None = None
 
 
 class Applied(BaseModel):
     ids: list[str] = []
     created: list[str] = []
     removed: list[str] = []
+    # People's elements and arrows the call changes the words of or removes; a copy comes first.
+    overwrote: list[str] = []
 
 
 def iso(moment: datetime) -> str:
@@ -312,10 +320,14 @@ class _Plan:
         return frame
 
     def _own(self, element_id: str, what: str) -> None:
-        if element_id not in self.mine:
-            raise NotApiElement(f"{element_id} was not added through the API; {what} it by hand.")
         if element_id in self.locked:
             raise VoteRunning(f"{element_id} is in a running vote.")
+        if element_id in self.mine:
+            return
+        if not self.batch.full:
+            raise NotApiElement(f"{element_id} was not added through the API; {what} it by hand.")
+        if element_id not in self.applied.overwrote:
+            self.applied.overwrote.append(element_id)
 
     # Removal first: a batch may take an element out and put another in its place.
     def remove(self) -> None:
@@ -342,18 +354,20 @@ class _Plan:
         self._own(node_id, "remove")
         for edge_id, edge in list(self.edges.items()):
             if node_id in (edge["source"], edge["target"]):
-                if edge_id not in self.mine:
+                if edge_id not in self.mine and not self.batch.full:
                     raise KeepsPeopleWork(
                         f"{node_id} has an arrow someone drew; remove that first."
                     )
+                self._own(edge_id, "remove")
                 self._drop_edge(edge_id)
         node = self.nodes[node_id]
         for child_id, child in list(self.nodes.items()):
             if child["place"].get("parentId") != node_id:
                 continue
             if child["type"] == "timer" and node["type"] in _HOLDERS:
-                if child_id not in self.mine:
+                if child_id not in self.mine and not self.batch.full:
                     raise KeepsPeopleWork(f"{node_id} has a reminder on it; remove that first.")
+                self._own(child_id, "remove")
                 # The API's own reminder goes with its element, as its own arrow does.
                 del self.nodes[child_id]
                 self.applied.removed.append(child_id)
